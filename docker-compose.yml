@@ -1,0 +1,97 @@
+version: "3.9"
+services:
+  axum:
+    build: .
+    environment:
+      RUST_LOG: info,debug
+      MONGODB_URI: "mongodb://mongo:27017"
+    ports:
+      - "8080:8080"
+    depends_on:
+      - prometheus
+      - tempo
+      - loki
+      - grafana
+      - mongo
+
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+
+  tempo:
+    image: grafana/tempo:latest
+    command: [ "-config.file=/etc/tempo/tempo.yaml" ]
+    volumes:
+      - ./config/tempo.yaml:/etc/tempo/tempo.yaml
+    ports:
+      - "14268:14268"  # jaeger ingest
+      - "3200:3200"   # tempo
+      - "4317:4317"   # otlp grpc
+      - "4318:4318"   # otlp http
+
+  loki:
+    image: grafana/loki:2.8.2
+    command: "-config.file=/etc/loki/local-config.yaml"
+    volumes:
+      - ./config/loki.yaml:/etc/loki/local-config.yaml
+      - loki-data:/loki
+    ports:
+      - "3100:3100"
+    user: "root"  # Temporarily use root to ensure permissions
+    environment:
+      - PUID=1000
+      - PGID=1000
+    entrypoint:
+      - sh
+      - -c
+      - |
+        mkdir -p /loki/chunks /loki/index /loki/boltdb-cache /loki/compactor /loki/rules
+        chown -R loki:loki /loki
+        exec /usr/bin/loki -config.file=/etc/loki/local-config.yaml
+
+  mongo:
+    image: mongo:6.0
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+#    environment:
+      # If you want authentication, set these and update MONGODB_URI accordingly
+      # - MONGO_INITDB_ROOT_USERNAME: root
+      # - MONGO_INITDB_ROOT_PASSWORD: example
+
+  grafana:
+    image: grafana/grafana:latest
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+    volumes:
+      - ./config/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+      - tempo
+      - loki
+
+  promtail:
+    image: grafana/promtail:2.8.2
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/log:/var/log:ro
+      - ./config/promtail.yaml:/etc/promtail/promtail.yaml
+    command: -config.file=/etc/promtail/promtail.yaml
+    depends_on:
+      - loki
+
+volumes:
+  loki-data:
+    driver: local
+  mongo-data:
+    driver: local
