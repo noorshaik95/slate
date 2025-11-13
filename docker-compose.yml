@@ -1,18 +1,23 @@
-version: "3.9"
 services:
-  axum:
+  gateway:
     build: .
     environment:
       RUST_LOG: info,debug
-      MONGODB_URI: "mongodb://mongo:27017"
+      GATEWAY_SERVER_HOST: "0.0.0.0"
+      GATEWAY_SERVER_PORT: "8080"
+      GATEWAY_AUTH_SERVICE_ENDPOINT: "http://mock-auth-service:50051"
+      GATEWAY_OBSERVABILITY_TEMPO_ENDPOINT: "http://tempo:4317"
     ports:
       - "8080:8080"
+    volumes:
+      - ./config/gateway-config.docker.yaml:/app/config/gateway-config.yaml
     depends_on:
       - prometheus
       - tempo
       - loki
       - grafana
-      - mongo
+      - mock-auth-service
+      - mock-backend-service
 
   prometheus:
     image: prom/prometheus
@@ -52,17 +57,21 @@ services:
         chown -R loki:loki /loki
         exec /usr/bin/loki -config.file=/etc/loki/local-config.yaml
 
-  mongo:
-    image: mongo:6.0
-    restart: unless-stopped
+  mock-auth-service:
+    image: namely/grpc-mock:latest
     ports:
-      - "27017:27017"
+      - "50051:50051"
     volumes:
-      - mongo-data:/data/db
-#    environment:
-      # If you want authentication, set these and update MONGODB_URI accordingly
-      # - MONGO_INITDB_ROOT_USERNAME: root
-      # - MONGO_INITDB_ROOT_PASSWORD: example
+      - ./mock-services/auth-service.yaml:/app/mock-services/auth-service.yaml
+    command: ["-port", "50051", "-config", "/app/mock-services/auth-service.yaml"]
+
+  mock-backend-service:
+    image: namely/grpc-mock:latest
+    ports:
+      - "50052:50052"
+    volumes:
+      - ./mock-services/backend-service.yaml:/app/mock-services/backend-service.yaml
+    command: ["-port", "50052", "-config", "/app/mock-services/backend-service.yaml"]
 
   grafana:
     image: grafana/grafana:latest
@@ -92,6 +101,4 @@ services:
 
 volumes:
   loki-data:
-    driver: local
-  mongo-data:
     driver: local

@@ -1,0 +1,60 @@
+server:
+  host: "0.0.0.0"
+  port: 8080
+
+services:
+  auth:
+    name: "auth"
+    endpoint: "http://mock-auth-service:50051"
+    timeout_ms: 3000
+    connection_pool_size: 10
+  
+  user-service:
+    name: "user-service"
+    endpoint: "http://mock-backend-service:50052"
+    timeout_ms: 5000
+    connection_pool_size: 5
+
+routes:
+  - path: "/api/users"
+    method: "GET"
+    service: "user-service"
+    grpc_method: "user.UserService/ListUsers"
+  
+  - path: "/api/users/:id"
+    method: "GET"
+    service: "user-service"
+    grpc_method: "user.UserService/GetUser"
+  
+  - path: "/api/users"
+    method: "POST"
+    service: "user-service"
+    grpc_method: "user.UserService/CreateUser"
+  
+  - path: "/api/users/:id"
+    method: "PUT"
+    service: "user-service"
+    grpc_method: "user.UserService/UpdateUser"
+  
+  - path: "/api/users/:id"
+    method: "DELETE"
+    service: "user-service"
+    grpc_method: "user.UserService/DeleteUser"
+  
+  - path: "/api/public/status"
+    method: "GET"
+    service: "user-service"
+    grpc_method: "user.UserService/GetPublicStatus"
+
+auth:
+  service_endpoint: "http://mock-auth-service:50051"
+  timeout_ms: 2000
+
+rate_limit:
+  enabled: true
+  requests_per_minute: 100
+  window_seconds: 60
+
+observability:
+  tempo_endpoint: "http://tempo:4317"
+  service_name: "api-gateway"

@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package gateway;
+
+// Every backend service must implement this service
+service ServiceAuthPolicy {
+  rpc GetAuthPolicy(AuthPolicyRequest) returns (AuthPolicyResponse);
+}
+
+message AuthPolicyRequest {
+  string grpc_method = 1;  // e.g., "user.UserService/GetUser"
+}
+
+message AuthPolicyResponse {
+  bool require_auth = 1;
+  repeated string required_roles = 2;  // Empty means any authenticated user
+  int32 cache_ttl_seconds = 3;  // How long gateway can cache this policy
+}

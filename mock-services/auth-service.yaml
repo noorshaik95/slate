@@ -1,0 +1,51 @@
+# Mock Auth Service Configuration
+# This provides mock responses for the AuthService gRPC interface
+
+service: auth.AuthService
+
+methods:
+  # Mock ValidateToken method
+  - method: ValidateToken
+    input:
+      equals:
+        token: "valid-token-123"
+    output:
+      data:
+        valid: true
+        user_id: "user-123"
+        roles:
+          - "user"
+          - "admin"
+        error: ""
+  
+  - method: ValidateToken
+    input:
+      equals:
+        token: "valid-user-token"
+    output:
+      data:
+        valid: true
+        user_id: "user-456"
+        roles:
+          - "user"
+        error: ""
+  
+  - method: ValidateToken
+    input:
+      equals:
+        token: "expired-token"
+    output:
+      data:
+        valid: false
+        user_id: ""
+        roles: []
+        error: "Token expired"
+  
+  # Default response for any other token
+  - method: ValidateToken
+    output:
+      data:
+        valid: false
+        user_id: ""
+        roles: []
+        error: "Invalid token"

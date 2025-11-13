@@ -1,0 +1,41 @@
+server:
+  host: "0.0.0.0"
+  port: 8080
+
+services:
+  auth:
+    name: "auth"
+    endpoint: "http://auth-service:50051"
+    timeout_ms: 3000
+    connection_pool_size: 10
+    auto_discover: false
+  
+  user-service:
+    name: "user-service"
+    endpoint: "http://user-service:50051"
+    timeout_ms: 5000
+    connection_pool_size: 5
+    auto_discover: true
+
+discovery:
+  enabled: true
+  refresh_interval_seconds: 300
+
+# Optional: Override specific routes when convention doesn't fit
+route_overrides:
+  - grpc_method: "user.UserService/GetPublicStatus"
+    http_path: "/api/public/status"
+    http_method: "GET"
+
+auth:
+  service_endpoint: "http://auth-service:50051"
+  timeout_ms: 2000
+
+rate_limit:
+  enabled: true
+  requests_per_minute: 100
+  window_seconds: 60
+
+observability:
+  tempo_endpoint: "http://tempo:4317"
+  service_name: "api-gateway"

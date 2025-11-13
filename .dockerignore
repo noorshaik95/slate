@@ -1,0 +1,32 @@
+# Ignore build artifacts
+target/
+*.log
+
+# Ignore git
+.git/
+.gitignore
+
+# Ignore IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Ignore data directories
+mongo-data/
+loki-data/
+
+# Ignore documentation (not needed in image)
+*.md
+!README.md
+
+# Ignore test files
+tests/
+
+# Ignore Docker files themselves
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Ignore mock services (mounted as volumes)
+mock-services/

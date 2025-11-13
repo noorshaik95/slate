@@ -1,0 +1,100 @@
+use axum::{
+    http::StatusCode,
+    response::{IntoResponse, Response},
+    Json,
+};
+use serde::Serialize;
+
+use crate::rate_limit::RateLimitError;
+use crate::router::RouterError;
+
+/// Gateway error types
+#[derive(Debug, thiserror::Error)]
+pub enum GatewayError {
+    #[error("Route not found: {0}")]
+    RouteNotFound(#[from] RouterError),
+    
+    #[error("Service unavailable: {0}")]
+    ServiceUnavailable(String),
+    
+    #[error("Rate limit exceeded")]
+    RateLimitExceeded,
+    
+    #[error("Conversion error: {0}")]
+    ConversionError(String),
+    
+    #[error("gRPC call failed: {0}")]
+    GrpcCallFailed(String),
+    
+    #[error("Request timeout")]
+    Timeout,
+    
+    #[error("Not found")]
+    NotFound,
+    
+    #[error("Internal error: {0}")]
+    InternalError(String),
+}
+
+impl From<RateLimitError> for GatewayError {
+    fn from(_: RateLimitError) -> Self {
+        GatewayError::RateLimitExceeded
+    }
+}
+
+/// Error response structure
+#[derive(Debug, Serialize)]
+pub struct ErrorResponse {
+    pub error: ErrorDetail,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ErrorDetail {
+    pub code: String,
+    pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub trace_id: Option<String>,
+}
+
+impl IntoResponse for GatewayError {
+    fn into_response(self) -> Response {
+        use super::constants::*;
+        
+        let status = map_grpc_error_to_status(&self);
+        
+        let error_code = match &self {
+            GatewayError::RouteNotFound(_) => ERR_CODE_ROUTE_NOT_FOUND,
+            GatewayError::ServiceUnavailable(_) => ERR_CODE_SERVICE_UNAVAILABLE,
+            GatewayError::RateLimitExceeded => ERR_CODE_RATE_LIMIT_EXCEEDED,
+            GatewayError::ConversionError(_) => ERR_CODE_CONVERSION_ERROR,
+            GatewayError::GrpcCallFailed(_) => ERR_CODE_BACKEND_ERROR,
+            GatewayError::Timeout => ERR_CODE_TIMEOUT,
+            GatewayError::NotFound => ERR_CODE_NOT_FOUND,
+            GatewayError::InternalError(_) => ERR_CODE_INTERNAL_ERROR,
+        };
+
+        let body = ErrorResponse {
+            error: ErrorDetail {
+                code: error_code.to_string(),
+                message: self.to_string(),
+                trace_id: None, // TODO: Extract from request context
+            },
+        };
+
+        (status, Json(body)).into_response()
+    }
+}
+
+/// Map gRPC errors to HTTP status codes
+pub fn map_grpc_error_to_status(error: &GatewayError) -> StatusCode {
+    match error {
+        GatewayError::RouteNotFound(_) => StatusCode::NOT_FOUND,
+        GatewayError::ServiceUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
+        GatewayError::RateLimitExceeded => StatusCode::TOO_MANY_REQUESTS,
+        GatewayError::ConversionError(_) => StatusCode::BAD_REQUEST,
+        GatewayError::GrpcCallFailed(_) => StatusCode::BAD_GATEWAY,
+        GatewayError::Timeout => StatusCode::GATEWAY_TIMEOUT,
+        GatewayError::NotFound => StatusCode::NOT_FOUND,
+        GatewayError::InternalError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+    }
+}

@@ -1,0 +1,83 @@
+# Mock Backend Service Configuration
+# This provides mock responses for backend services including ServiceAuthPolicy
+
+service: gateway.ServiceAuthPolicy
+
+methods:
+  # Mock GetAuthPolicy for public endpoints
+  - method: GetAuthPolicy
+    input:
+      equals:
+        grpc_method: "user.UserService/GetPublicStatus"
+    output:
+      data:
+        require_auth: false
+        required_roles: []
+        cache_ttl_seconds: 300
+  
+  # Mock GetAuthPolicy for user endpoints (auth required, no specific roles)
+  - method: GetAuthPolicy
+    input:
+      equals:
+        grpc_method: "user.UserService/ListUsers"
+    output:
+      data:
+        require_auth: true
+        required_roles: []
+        cache_ttl_seconds: 300
+  
+  # Mock GetAuthPolicy for protected endpoints (auth + admin role required)
+  - method: GetAuthPolicy
+    input:
+      equals:
+        grpc_method: "user.UserService/GetUser"
+    output:
+      data:
+        require_auth: true
+        required_roles:
+          - "admin"
+        cache_ttl_seconds: 300
+  
+  # Default response - require auth for unknown endpoints
+  - method: GetAuthPolicy
+    output:
+      data:
+        require_auth: true
+        required_roles: []
+        cache_ttl_seconds: 60
+
+# Mock user service methods
+---
+service: user.UserService
+
+methods:
+  - method: ListUsers
+    output:
+      data:
+        users:
+          - id: "user-123"
+            name: "John Doe"
+            email: "john@example.com"
+          - id: "user-456"
+            name: "Jane Smith"
+            email: "jane@example.com"
+  
+  - method: GetUser
+    input:
+      equals:
+        id: "user-123"
+    output:
+      data:
+        id: "user-123"
+        name: "John Doe"
+        email: "john@example.com"
+        roles:
+          - "user"
+          - "admin"
+  
+  - method: GetPublicStatus
+    output:
+      data:
+        status: "operational"
+        version: "1.0.0"
+        uptime_seconds: 3600

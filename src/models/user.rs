@@ -1,8 +1,10 @@
+use axum::response::IntoResponse;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct User {
     pub email: String,
+    #[serde(skip_serializing)]
     pub password: String,
     pub name: String,
     pub avatar_url: String,
