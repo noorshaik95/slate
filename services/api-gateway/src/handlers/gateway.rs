@@ -28,13 +28,20 @@ pub async fn gateway_handler(
 ) -> Result<Response, GatewayError> {
     let timeout_duration = Duration::from_millis(state.config.server.request_timeout_ms);
 
+    let start = Instant::now();
     match tokio::time::timeout(
         timeout_duration,
         gateway_handler_inner(State(state), ConnectInfo(addr), headers, request)
     ).await {
         Ok(result) => result,
         Err(_) => {
-            error!(timeout_ms = ?timeout_duration.as_millis(), "Request timeout exceeded");
+            let duration_ms = start.elapsed().as_millis();
+            error!(
+                timeout_ms = ?timeout_duration.as_millis(),
+                duration_ms = %duration_ms,
+                error_type = "timeout",
+                "Request timeout exceeded"
+            );
             Err(GatewayError::Timeout)
         }
     }
@@ -79,9 +86,13 @@ async fn gateway_handler_inner(
     if let Some(rate_limiter) = &state.rate_limiter {
         if !RateLimiter::should_exclude_path(&path) {
             if let Err(e) = rate_limiter.check_rate_limit(addr.ip()).await {
+                let duration_ms = start_time.elapsed().as_millis();
                 warn!(
                     client_ip = %addr.ip(),
                     path = %path,
+                    method = %method,
+                    duration_ms = %duration_ms,
+                    error_type = "rate_limit",
                     error = %e,
                     "Rate limit exceeded"
                 );
@@ -94,13 +105,17 @@ async fn gateway_handler_inner(
     }
 
     // Get routing decision from request extensions (set by auth middleware)
-    // This avoids duplicate route lookup and improves performance
-    let routing_decision = request.extensions().get::<crate::router::RoutingDecision>()
+    // Performance: Retrieve Arc<RoutingDecision> to avoid cloning the data.
+    // Cloning Arc is cheap (atomic reference count increment) vs cloning the entire struct.
+    let routing_decision = request.extensions().get::<Arc<crate::router::RoutingDecision>>()
         .cloned()
         .ok_or_else(|| {
+            let duration_ms = start_time.elapsed().as_millis();
             error!(
                 path = %path,
                 method = %method,
+                duration_ms = %duration_ms,
+                error_type = "internal",
                 "Routing decision not found in request extensions (auth middleware may have failed)"
             );
 
@@ -135,7 +150,7 @@ async fn gateway_handler_inner(
                 .with_label_values(&[path.as_str(), method.as_str(), "503"])
                 .inc();
             
-            return Err(GatewayError::ServiceUnavailable(routing_decision.service.clone()));
+            return Err(GatewayError::ServiceUnavailable(routing_decision.service.to_string()));
         }
     };
 
@@ -192,23 +207,28 @@ async fn gateway_handler_inner(
                     .inc();
 
                 state.metrics.grpc_call_counter
-                    .with_label_values(&[routing_decision.service.as_str(), routing_decision.grpc_method.as_str(), "circuit_open"])
+                    .with_label_values(&[routing_decision.service.as_ref(), routing_decision.grpc_method.as_ref(), "circuit_open"])
                     .inc();
 
                 return Err(GatewayError::ServiceUnavailable(
-                    format!("Service {} is currently unavailable (circuit breaker open)", routing_decision.service)
+                    format!("Service {} is currently unavailable (circuit breaker open)", &*routing_decision.service)
                 ));
             }
             Err(crate::circuit_breaker::CircuitBreakerError::OperationFailed(e)) => {
+                let duration_ms = start_time.elapsed().as_millis();
                 error!(
                     service = %routing_decision.service,
                     grpc_method = %routing_decision.grpc_method,
+                    path = %path,
+                    method = %method,
+                    duration_ms = %duration_ms,
+                    error_type = "grpc_error",
                     error = %e,
                     "Backend service call failed"
                 );
 
                 state.metrics.grpc_call_counter
-                    .with_label_values(&[routing_decision.service.as_str(), routing_decision.grpc_method.as_str(), "error"])
+                    .with_label_values(&[routing_decision.service.as_ref(), routing_decision.grpc_method.as_ref(), "error"])
                     .inc();
 
                 return Err(GatewayError::GrpcCallFailed(e));
@@ -240,7 +260,7 @@ async fn gateway_handler_inner(
                     .inc();
 
                 state.metrics.grpc_call_counter
-                    .with_label_values(&[routing_decision.service.as_str(), routing_decision.grpc_method.as_str(), "error"])
+                    .with_label_values(&[routing_decision.service.as_ref(), routing_decision.grpc_method.as_ref(), "error"])
                     .inc();
 
                 return Err(e);
@@ -284,7 +304,7 @@ async fn gateway_handler_inner(
         .inc();
     
     state.metrics.grpc_call_counter
-        .with_label_values(&[routing_decision.service.as_str(), routing_decision.grpc_method.as_str(), "success"])
+        .with_label_values(&[routing_decision.service.as_ref(), routing_decision.grpc_method.as_ref(), "success"])
         .inc();
 
     info!(

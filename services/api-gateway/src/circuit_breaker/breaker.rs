@@ -81,7 +81,11 @@ impl CircuitBreaker {
 
                 if opened_at.elapsed() >= timeout {
                     // Transition to half-open state
-                    info!("Circuit breaker transitioning from OPEN to HALF_OPEN");
+                    info!(
+                        timeout_seconds = self.config.timeout_seconds,
+                        elapsed_seconds = opened_at.elapsed().as_secs(),
+                        "Circuit breaker transitioning from OPEN to HALF_OPEN"
+                    );
                     *state = CircuitState::HalfOpen;
 
                     // Reset consecutive counters for half-open testing
@@ -138,6 +142,7 @@ impl CircuitBreaker {
                     warn!(
                         consecutive_failures = stats.consecutive_failures,
                         threshold = self.config.failure_threshold,
+                        timeout_seconds = self.config.timeout_seconds,
                         "Circuit breaker transitioning from CLOSED to OPEN"
                     );
                     *state = CircuitState::Open {
@@ -146,7 +151,10 @@ impl CircuitBreaker {
                 }
             }
             CircuitState::HalfOpen => {
-                warn!("Circuit breaker transitioning from HALF_OPEN back to OPEN");
+                warn!(
+                    timeout_seconds = self.config.timeout_seconds,
+                    "Circuit breaker transitioning from HALF_OPEN back to OPEN"
+                );
                 *state = CircuitState::Open {
                     opened_at: Instant::now(),
                 };

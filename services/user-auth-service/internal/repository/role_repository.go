@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 
@@ -16,13 +17,13 @@ func NewRoleRepository(db *sql.DB) *RoleRepository {
 }
 
 // AssignRole assigns a role to a user
-func (r *RoleRepository) AssignRole(userID, roleID string) error {
+func (r *RoleRepository) AssignRole(ctx context.Context, userID, roleID string) error {
 	query := `
 		INSERT INTO user_roles (user_id, role_id, assigned_at)
 		VALUES ($1, $2, NOW())
 		ON CONFLICT (user_id, role_id) DO NOTHING
 	`
-	_, err := r.db.Exec(query, userID, roleID)
+	_, err := r.db.ExecContext(ctx, query, userID, roleID)
 	if err != nil {
 		return fmt.Errorf("failed to assign role: %w", err)
 	}
@@ -30,7 +31,7 @@ func (r *RoleRepository) AssignRole(userID, roleID string) error {
 }
 
 // AssignRoleByName assigns a role to a user by role name
-func (r *RoleRepository) AssignRoleByName(userID, roleName string) error {
+func (r *RoleRepository) AssignRoleByName(ctx context.Context, userID, roleName string) error {
 	query := `
 		INSERT INTO user_roles (user_id, role_id, assigned_at)
 		SELECT $1, id, NOW()
@@ -38,7 +39,7 @@ func (r *RoleRepository) AssignRoleByName(userID, roleName string) error {
 		WHERE name = $2
 		ON CONFLICT (user_id, role_id) DO NOTHING
 	`
-	result, err := r.db.Exec(query, userID, roleName)
+	result, err := r.db.ExecContext(ctx, query, userID, roleName)
 	if err != nil {
 		return fmt.Errorf("failed to assign role: %w", err)
 	}
@@ -52,9 +53,9 @@ func (r *RoleRepository) AssignRoleByName(userID, roleName string) error {
 }
 
 // RemoveRole removes a role from a user
-func (r *RoleRepository) RemoveRole(userID, roleID string) error {
+func (r *RoleRepository) RemoveRole(ctx context.Context, userID, roleID string) error {
 	query := `DELETE FROM user_roles WHERE user_id = $1 AND role_id = $2`
-	_, err := r.db.Exec(query, userID, roleID)
+	_, err := r.db.ExecContext(ctx, query, userID, roleID)
 	if err != nil {
 		return fmt.Errorf("failed to remove role: %w", err)
 	}
@@ -62,12 +63,12 @@ func (r *RoleRepository) RemoveRole(userID, roleID string) error {
 }
 
 // RemoveRoleByName removes a role from a user by role name
-func (r *RoleRepository) RemoveRoleByName(userID, roleName string) error {
+func (r *RoleRepository) RemoveRoleByName(ctx context.Context, userID, roleName string) error {
 	query := `
 		DELETE FROM user_roles
 		WHERE user_id = $1 AND role_id = (SELECT id FROM roles WHERE name = $2)
 	`
-	result, err := r.db.Exec(query, userID, roleName)
+	result, err := r.db.ExecContext(ctx, query, userID, roleName)
 	if err != nil {
 		return fmt.Errorf("failed to remove role: %w", err)
 	}
@@ -81,7 +82,7 @@ func (r *RoleRepository) RemoveRoleByName(userID, roleName string) error {
 }
 
 // GetUserRoles retrieves all roles for a user
-func (r *RoleRepository) GetUserRoles(userID string) ([]string, error) {
+func (r *RoleRepository) GetUserRoles(ctx context.Context, userID string) ([]string, error) {
 	query := `
 		SELECT ro.name
 		FROM user_roles ur
@@ -89,7 +90,7 @@ func (r *RoleRepository) GetUserRoles(userID string) ([]string, error) {
 		WHERE ur.user_id = $1
 		ORDER BY ro.name
 	`
-	rows, err := r.db.Query(query, userID)
+	rows, err := r.db.QueryContext(ctx, query, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user roles: %w", err)
 	}
@@ -108,7 +109,7 @@ func (r *RoleRepository) GetUserRoles(userID string) ([]string, error) {
 }
 
 // GetUserPermissions retrieves all permissions for a user based on their roles
-func (r *RoleRepository) GetUserPermissions(userID string) ([]string, error) {
+func (r *RoleRepository) GetUserPermissions(ctx context.Context, userID string) ([]string, error) {
 	query := `
 		SELECT DISTINCT unnest(ro.permissions) as permission
 		FROM user_roles ur
@@ -116,7 +117,7 @@ func (r *RoleRepository) GetUserPermissions(userID string) ([]string, error) {
 		WHERE ur.user_id = $1
 		ORDER BY permission
 	`
-	rows, err := r.db.Query(query, userID)
+	rows, err := r.db.QueryContext(ctx, query, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user permissions: %w", err)
 	}
@@ -135,7 +136,7 @@ func (r *RoleRepository) GetUserPermissions(userID string) ([]string, error) {
 }
 
 // CheckPermission checks if a user has a specific permission
-func (r *RoleRepository) CheckPermission(userID, permission string) (bool, error) {
+func (r *RoleRepository) CheckPermission(ctx context.Context, userID, permission string) (bool, error) {
 	query := `
 		SELECT EXISTS(
 			SELECT 1
@@ -145,7 +146,7 @@ func (r *RoleRepository) CheckPermission(userID, permission string) (bool, error
 		)
 	`
 	var hasPermission bool
-	err := r.db.QueryRow(query, userID, permission).Scan(&hasPermission)
+	err := r.db.QueryRowContext(ctx, query, userID, permission).Scan(&hasPermission)
 	if err != nil {
 		return false, fmt.Errorf("failed to check permission: %w", err)
 	}
@@ -154,12 +155,12 @@ func (r *RoleRepository) CheckPermission(userID, permission string) (bool, error
 }
 
 // GetRoleByName retrieves a role by name
-func (r *RoleRepository) GetRoleByName(name string) (string, []string, error) {
+func (r *RoleRepository) GetRoleByName(ctx context.Context, name string) (string, []string, error) {
 	query := `SELECT id, permissions FROM roles WHERE name = $1`
 	var roleID string
 	var permissions []string
 
-	err := r.db.QueryRow(query, name).Scan(&roleID, pq.Array(&permissions))
+	err := r.db.QueryRowContext(ctx, query, name).Scan(&roleID, pq.Array(&permissions))
 	if err == sql.ErrNoRows {
 		return "", nil, fmt.Errorf("role not found")
 	}
@@ -171,7 +172,7 @@ func (r *RoleRepository) GetRoleByName(name string) (string, []string, error) {
 }
 
 // EnsureDefaultRoles creates default roles if they don't exist
-func (r *RoleRepository) EnsureDefaultRoles() error {
+func (r *RoleRepository) EnsureDefaultRoles(ctx context.Context) error {
 	defaultRoles := map[string][]string{
 		"admin": {
 			"users.create", "users.read", "users.update", "users.delete",
@@ -193,7 +194,7 @@ func (r *RoleRepository) EnsureDefaultRoles() error {
 			SET permissions = EXCLUDED.permissions, updated_at = NOW()
 		`
 		description := fmt.Sprintf("Default %s role", roleName)
-		_, err := r.db.Exec(query, roleName, description, pq.Array(permissions))
+		_, err := r.db.ExecContext(ctx, query, roleName, description, pq.Array(permissions))
 		if err != nil {
 			return fmt.Errorf("failed to ensure role %s: %w", roleName, err)
 		}

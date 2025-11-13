@@ -113,20 +113,31 @@ async fn main() -> anyhow::Result<()> {
     // Create OpenTelemetry tracing layer
     let telemetry = tracing_opentelemetry::layer().with_tracer(tracer);
 
+    // Configure logging level from RUST_LOG environment variable
+    // Default to "info" for all modules (production-friendly)
+    // Supports per-module configuration: RUST_LOG="info,api_gateway=debug,tower_http=warn"
+    let log_level = std::env::var("RUST_LOG")
+        .unwrap_or_else(|_| "info".to_string());
+    
+    let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .or_else(|_| tracing_subscriber::EnvFilter::try_new(&log_level))
+        .unwrap_or_else(|e| {
+            eprintln!("Invalid RUST_LOG value '{}': {}. Using default 'info'", log_level, e);
+            tracing_subscriber::EnvFilter::new("info")
+        });
+
     // Initialize the tracing subscriber
     tracing_subscriber::registry()
         .with(fmt_layer)
         .with(telemetry)
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "info,api_gateway=debug".into()),
-        )
+        .with(env_filter)
         .init();
 
-    // Log startup message
+    // Log startup message with active log level
     info!(
         version = env!("CARGO_PKG_VERSION"),
         service = %service_name,
+        log_level = %log_level,
         "Starting API Gateway"
     );
 
@@ -224,22 +235,6 @@ async fn main() -> anyhow::Result<()> {
         None
     };
 
-    // Start rate limiter cleanup task to prevent memory leak
-    let cleanup_task_handle = if let Some(ref limiter) = rate_limiter {
-        info!("Starting rate limiter cleanup background task");
-        let limiter_clone = limiter.clone();
-        Some(tokio::spawn(async move {
-            let mut interval = tokio::time::interval(std::time::Duration::from_secs(300)); // 5 minutes
-            loop {
-                interval.tick().await;
-                limiter_clone.cleanup_expired().await;
-                debug!("Rate limiter cleanup completed");
-            }
-        }))
-    } else {
-        None
-    };
-
     // Create application state
     info!("Creating application state");
     let shared_state = Arc::new(AppState::new(
@@ -247,9 +242,51 @@ async fn main() -> anyhow::Result<()> {
         grpc_pool.clone(),
         auth_service,
         router_lock.clone(),
-        rate_limiter,
+        rate_limiter.clone(),
         discovery_service,
     ));
+
+    // Start rate limiter cleanup task to prevent memory leak
+    // Runs every 1 minute (optimized from 5 minutes) for better memory management
+    let cleanup_task_handle = if let Some(ref limiter) = rate_limiter {
+        info!("Starting rate limiter cleanup background task (interval: 1 minute)");
+        let limiter_clone = limiter.clone();
+        let metrics_clone = shared_state.metrics.clone();
+        Some(tokio::spawn(async move {
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(60)); // 1 minute
+            loop {
+                interval.tick().await;
+                
+                // Get tracked clients count before cleanup
+                let tracked_before = limiter_clone.tracked_clients_count().await;
+                
+                // Perform cleanup and get eviction count
+                let evicted_count = limiter_clone.cleanup_expired().await;
+                
+                // Get tracked clients count after cleanup
+                let tracked_after = limiter_clone.tracked_clients_count().await;
+                
+                // Update Prometheus metrics
+                metrics_clone.rate_limiter_tracked_clients.set(tracked_after as i64);
+                metrics_clone.rate_limiter_evictions_total.inc_by(evicted_count as u64);
+                
+                info!(
+                    tracked_clients = tracked_after,
+                    evicted_entries = evicted_count,
+                    "Rate limiter cleanup completed"
+                );
+                
+                debug!(
+                    tracked_before = tracked_before,
+                    tracked_after = tracked_after,
+                    evicted = evicted_count,
+                    "Rate limiter cleanup details"
+                );
+            }
+        }))
+    } else {
+        None
+    };
 
     // Initialize health checker
     info!("Initializing health checker");
@@ -412,6 +449,7 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
+    let shutdown_start = std::time::Instant::now();
     info!("Initiating graceful shutdown");
 
     // Send shutdown signal to server
@@ -432,7 +470,19 @@ async fn main() -> anyhow::Result<()> {
     // Wait for server to finish
     let _ = server_handle.await;
 
-    info!("API Gateway shutdown complete");
+    // Close all gRPC connections
+    info!("Closing gRPC connection pools");
+    let closed_count = grpc_pool.close().await;
+    info!(
+        closed_connections = closed_count,
+        "gRPC connections closed"
+    );
+
+    let total_shutdown_duration = shutdown_start.elapsed();
+    info!(
+        total_shutdown_duration_ms = total_shutdown_duration.as_millis(),
+        "API Gateway shutdown complete"
+    );
 
     Ok(())
 }

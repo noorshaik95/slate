@@ -10,6 +10,10 @@ services:
     connection_pool_size: 10
     auto_discover: true
     tls_enabled: false
+    circuit_breaker:
+      failure_threshold: 5
+      success_threshold: 2
+      timeout_seconds: 30  # Fast service - recover quickly
 
 discovery:
   enabled: true

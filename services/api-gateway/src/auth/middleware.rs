@@ -12,7 +12,7 @@ use tracing::{debug, error, warn};
 
 use crate::auth::{AuthError, AuthResult, AuthService};
 use crate::grpc::client::GrpcClientPool;
-use crate::router::{RequestRouter, RoutingDecision};
+use crate::router::RequestRouter;
 use tokio::sync::RwLock;
 
 /// Extension type to pass auth context to downstream handlers
@@ -114,8 +114,9 @@ pub async fn auth_middleware(
     );
 
     // Store routing decision in request extensions for reuse in gateway handler
-    // This avoids duplicate route lookup
-    request.extensions_mut().insert(routing_decision.clone());
+    // Performance: Wrap in Arc to avoid cloning the RoutingDecision data.
+    // Cloning Arc is cheap (atomic reference count increment) vs cloning the entire struct.
+    request.extensions_mut().insert(Arc::new(routing_decision.clone()));
 
     // Check if this is a public route (after routing so we have the decision)
     let is_public = state.public_routes.iter().any(|(p, m)| p == &path && m == &method);

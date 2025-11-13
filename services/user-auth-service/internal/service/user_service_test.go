@@ -1,11 +1,14 @@
 package service
 
 import (
+	"context"
+	"bytes"
 	"errors"
 	"testing"
 	"time"
 
 	"github.com/noorshaik95/axum-grafana-example/services/user-auth-service/internal/models"
+	"github.com/noorshaik95/axum-grafana-example/services/user-auth-service/pkg/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -17,12 +20,12 @@ type MockUserRepository struct {
 	mock.Mock
 }
 
-func (m *MockUserRepository) Create(user *models.User) error {
+func (m *MockUserRepository) Create(ctx context.Context, user *models.User) error {
 	args := m.Called(user)
 	return args.Error(0)
 }
 
-func (m *MockUserRepository) GetByID(id string) (*models.User, error) {
+func (m *MockUserRepository) GetByID(ctx context.Context, id string) (*models.User, error) {
 	args := m.Called(id)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -30,7 +33,7 @@ func (m *MockUserRepository) GetByID(id string) (*models.User, error) {
 	return args.Get(0).(*models.User), args.Error(1)
 }
 
-func (m *MockUserRepository) GetByEmail(email string) (*models.User, error) {
+func (m *MockUserRepository) GetByEmail(ctx context.Context, email string) (*models.User, error) {
 	args := m.Called(email)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -38,17 +41,17 @@ func (m *MockUserRepository) GetByEmail(email string) (*models.User, error) {
 	return args.Get(0).(*models.User), args.Error(1)
 }
 
-func (m *MockUserRepository) Update(user *models.User) error {
+func (m *MockUserRepository) Update(ctx context.Context, user *models.User) error {
 	args := m.Called(user)
 	return args.Error(0)
 }
 
-func (m *MockUserRepository) Delete(id string) error {
+func (m *MockUserRepository) Delete(ctx context.Context, id string) error {
 	args := m.Called(id)
 	return args.Error(0)
 }
 
-func (m *MockUserRepository) List(page, pageSize int, search, role string, isActive *bool) ([]*models.User, int, error) {
+func (m *MockUserRepository) List(ctx context.Context, page, pageSize int, search, role string, isActive *bool) ([]*models.User, int, error) {
 	args := m.Called(page, pageSize, search, role, isActive)
 	if args.Get(0) == nil {
 		return nil, args.Int(1), args.Error(2)
@@ -56,7 +59,7 @@ func (m *MockUserRepository) List(page, pageSize int, search, role string, isAct
 	return args.Get(0).([]*models.User), args.Int(1), args.Error(2)
 }
 
-func (m *MockUserRepository) UpdatePassword(userID, passwordHash string) error {
+func (m *MockUserRepository) UpdatePassword(ctx context.Context, userID, passwordHash string) error {
 	args := m.Called(userID, passwordHash)
 	return args.Error(0)
 }
@@ -65,17 +68,17 @@ type MockRoleRepository struct {
 	mock.Mock
 }
 
-func (m *MockRoleRepository) AssignRoleByName(userID, roleName string) error {
+func (m *MockRoleRepository) AssignRoleByName(ctx context.Context, userID, roleName string) error {
 	args := m.Called(userID, roleName)
 	return args.Error(0)
 }
 
-func (m *MockRoleRepository) RemoveRoleByName(userID, roleName string) error {
+func (m *MockRoleRepository) RemoveRoleByName(ctx context.Context, userID, roleName string) error {
 	args := m.Called(userID, roleName)
 	return args.Error(0)
 }
 
-func (m *MockRoleRepository) GetUserRoles(userID string) ([]string, error) {
+func (m *MockRoleRepository) GetUserRoles(ctx context.Context, userID string) ([]string, error) {
 	args := m.Called(userID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -83,7 +86,7 @@ func (m *MockRoleRepository) GetUserRoles(userID string) ([]string, error) {
 	return args.Get(0).([]string), args.Error(1)
 }
 
-func (m *MockRoleRepository) CheckPermission(userID, permission string) (bool, error) {
+func (m *MockRoleRepository) CheckPermission(ctx context.Context, userID, permission string) (bool, error) {
 	args := m.Called(userID, permission)
 	return args.Bool(0), args.Error(1)
 }
@@ -115,9 +118,29 @@ func (m *MockTokenService) RefreshAccessToken(refreshToken string) (string, stri
 	return args.String(0), args.String(1), args.Get(2).(int64), args.Error(3)
 }
 
+type MockMetrics struct {
+	mock.Mock
+}
+
+func (m *MockMetrics) IncrementRegistrations(success bool) {
+	m.Called(success)
+}
+
+func (m *MockMetrics) IncrementLogins(success bool) {
+	m.Called(success)
+}
+
+func (m *MockMetrics) ObserveRequestDuration(operation string, durationSeconds float64) {
+	m.Called(operation, durationSeconds)
+}
+
+func (m *MockMetrics) SetDBConnections(count int) {
+	m.Called(count)
+}
+
 // Helper function to create test user
 func createTestUser() *models.User {
-	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("Password123!"), bcrypt.DefaultCost)
 	return &models.User{
 		ID:           "user-123",
 		Email:        "test@example.com",
@@ -132,15 +155,32 @@ func createTestUser() *models.User {
 	}
 }
 
+// Helper function to create test logger
+func createTestLogger() *logger.Logger {
+	var buf bytes.Buffer
+	return logger.NewLoggerWithWriter("info", &buf)
+}
+
+// Helper function to create test metrics
+func createTestMetrics() *MockMetrics {
+	m := new(MockMetrics)
+	// Set up default expectations for metrics calls
+	m.On("IncrementRegistrations", mock.Anything).Return()
+	m.On("IncrementLogins", mock.Anything).Return()
+	m.On("ObserveRequestDuration", mock.Anything, mock.Anything).Return()
+	m.On("SetDBConnections", mock.Anything).Return()
+	return m
+}
+
 func TestRegister_Success(t *testing.T) {
 	mockUserRepo := new(MockUserRepository)
 	mockRoleRepo := new(MockRoleRepository)
 	mockTokenSvc := new(MockTokenService)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc)
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, createTestLogger(), createTestMetrics())
 
 	email := "newuser@example.com"
-	password := "password123"
+	password := "Password123!"
 	firstName := "Jane"
 	lastName := "Smith"
 	phone := "+1234567890"
@@ -161,7 +201,7 @@ func TestRegister_Success(t *testing.T) {
 	mockTokenSvc.On("GenerateRefreshToken", mock.Anything, email, []string{"user"}).
 		Return("refresh-token", nil)
 
-	user, tokens, err := svc.Register(email, password, firstName, lastName, phone)
+	user, tokens, err := svc.Register(context.Background(), email, password, firstName, lastName, phone)
 
 	require.NoError(t, err)
 	assert.NotNil(t, user)
@@ -182,7 +222,7 @@ func TestRegister_UserAlreadyExists(t *testing.T) {
 	mockRoleRepo := new(MockRoleRepository)
 	mockTokenSvc := new(MockTokenService)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc)
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, createTestLogger(), createTestMetrics())
 
 	email := "existing@example.com"
 	existingUser := createTestUser()
@@ -190,7 +230,7 @@ func TestRegister_UserAlreadyExists(t *testing.T) {
 
 	mockUserRepo.On("GetByEmail", email).Return(existingUser, nil)
 
-	user, tokens, err := svc.Register(email, "password", "John", "Doe", "+1234567890")
+	user, tokens, err := svc.Register(context.Background(), email, "Password123!", "John", "Doe", "+1234567890")
 
 	assert.Error(t, err)
 	assert.Nil(t, user)
@@ -205,11 +245,11 @@ func TestLogin_Success(t *testing.T) {
 	mockRoleRepo := new(MockRoleRepository)
 	mockTokenSvc := new(MockTokenService)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc)
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, createTestLogger(), createTestMetrics())
 
 	testUser := createTestUser()
 	email := testUser.Email
-	password := "password123"
+	password := "Password123!"
 
 	mockUserRepo.On("GetByEmail", email).Return(testUser, nil)
 	mockTokenSvc.On("GenerateAccessToken", testUser.ID, email, testUser.Roles).
@@ -217,7 +257,7 @@ func TestLogin_Success(t *testing.T) {
 	mockTokenSvc.On("GenerateRefreshToken", testUser.ID, email, testUser.Roles).
 		Return("refresh-token", nil)
 
-	user, tokens, err := svc.Login(email, password)
+	user, tokens, err := svc.Login(context.Background(), email, password)
 
 	require.NoError(t, err)
 	assert.NotNil(t, user)
@@ -235,11 +275,11 @@ func TestLogin_InvalidCredentials(t *testing.T) {
 	mockRoleRepo := new(MockRoleRepository)
 	mockTokenSvc := new(MockTokenService)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc)
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, createTestLogger(), createTestMetrics())
 
 	mockUserRepo.On("GetByEmail", "test@example.com").Return(nil, errors.New("not found"))
 
-	user, tokens, err := svc.Login("test@example.com", "wrongpassword")
+	user, tokens, err := svc.Login(context.Background(), "test@example.com", "wrongpassword")
 
 	assert.Error(t, err)
 	assert.Nil(t, user)
@@ -254,12 +294,12 @@ func TestLogin_WrongPassword(t *testing.T) {
 	mockRoleRepo := new(MockRoleRepository)
 	mockTokenSvc := new(MockTokenService)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc)
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, createTestLogger(), createTestMetrics())
 
 	testUser := createTestUser()
 	mockUserRepo.On("GetByEmail", testUser.Email).Return(testUser, nil)
 
-	user, tokens, err := svc.Login(testUser.Email, "wrongpassword")
+	user, tokens, err := svc.Login(context.Background(), testUser.Email, "wrongpassword")
 
 	assert.Error(t, err)
 	assert.Nil(t, user)
@@ -274,13 +314,13 @@ func TestLogin_InactiveUser(t *testing.T) {
 	mockRoleRepo := new(MockRoleRepository)
 	mockTokenSvc := new(MockTokenService)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc)
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, createTestLogger(), createTestMetrics())
 
 	testUser := createTestUser()
 	testUser.IsActive = false
 	mockUserRepo.On("GetByEmail", testUser.Email).Return(testUser, nil)
 
-	user, tokens, err := svc.Login(testUser.Email, "password123")
+	user, tokens, err := svc.Login(context.Background(), testUser.Email, "password123")
 
 	assert.Error(t, err)
 	assert.Nil(t, user)
@@ -295,7 +335,7 @@ func TestValidateToken_Success(t *testing.T) {
 	mockRoleRepo := new(MockRoleRepository)
 	mockTokenSvc := new(MockTokenService)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc)
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, createTestLogger(), createTestMetrics())
 
 	token := "valid-token"
 	claims := &TokenClaims{
@@ -305,7 +345,7 @@ func TestValidateToken_Success(t *testing.T) {
 
 	mockTokenSvc.On("ValidateAccessToken", token).Return(claims, nil)
 
-	userID, roles, err := svc.ValidateToken(token)
+	userID, roles, err := svc.ValidateToken(context.Background(), token)
 
 	require.NoError(t, err)
 	assert.Equal(t, claims.UserID, userID)
@@ -319,12 +359,12 @@ func TestValidateToken_InvalidToken(t *testing.T) {
 	mockRoleRepo := new(MockRoleRepository)
 	mockTokenSvc := new(MockTokenService)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc)
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, createTestLogger(), createTestMetrics())
 
 	token := "invalid-token"
 	mockTokenSvc.On("ValidateAccessToken", token).Return(nil, errors.New("invalid token"))
 
-	userID, roles, err := svc.ValidateToken(token)
+	userID, roles, err := svc.ValidateToken(context.Background(), token)
 
 	assert.Error(t, err)
 	assert.Empty(t, userID)
@@ -338,12 +378,12 @@ func TestGetUser_Success(t *testing.T) {
 	mockRoleRepo := new(MockRoleRepository)
 	mockTokenSvc := new(MockTokenService)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc)
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, createTestLogger(), createTestMetrics())
 
 	testUser := createTestUser()
 	mockUserRepo.On("GetByID", testUser.ID).Return(testUser, nil)
 
-	user, err := svc.GetUser(testUser.ID)
+	user, err := svc.GetUser(context.Background(), testUser.ID)
 
 	require.NoError(t, err)
 	assert.Equal(t, testUser.ID, user.ID)
@@ -357,11 +397,11 @@ func TestGetUser_NotFound(t *testing.T) {
 	mockRoleRepo := new(MockRoleRepository)
 	mockTokenSvc := new(MockTokenService)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc)
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, createTestLogger(), createTestMetrics())
 
 	mockUserRepo.On("GetByID", "nonexistent").Return(nil, errors.New("user not found"))
 
-	user, err := svc.GetUser("nonexistent")
+	user, err := svc.GetUser(context.Background(), "nonexistent")
 
 	assert.Error(t, err)
 	assert.Nil(t, user)
@@ -374,7 +414,7 @@ func TestUpdateUser_Success(t *testing.T) {
 	mockRoleRepo := new(MockRoleRepository)
 	mockTokenSvc := new(MockTokenService)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc)
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, createTestLogger(), createTestMetrics())
 
 	testUser := createTestUser()
 	newEmail := "newemail@example.com"
@@ -390,7 +430,7 @@ func TestUpdateUser_Success(t *testing.T) {
 	updatedUser.IsActive = isActive
 	mockUserRepo.On("GetByID", testUser.ID).Return(updatedUser, nil).Once()
 
-	user, err := svc.UpdateUser(testUser.ID, &newEmail, &newFirstName, nil, nil, &isActive)
+	user, err := svc.UpdateUser(context.Background(), testUser.ID, &newEmail, &newFirstName, nil, nil, &isActive)
 
 	require.NoError(t, err)
 	assert.Equal(t, newEmail, user.Email)
@@ -405,12 +445,12 @@ func TestDeleteUser_Success(t *testing.T) {
 	mockRoleRepo := new(MockRoleRepository)
 	mockTokenSvc := new(MockTokenService)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc)
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, createTestLogger(), createTestMetrics())
 
 	userID := "user-123"
 	mockUserRepo.On("Delete", userID).Return(nil)
 
-	err := svc.DeleteUser(userID)
+	err := svc.DeleteUser(context.Background(), userID)
 
 	require.NoError(t, err)
 	mockUserRepo.AssertExpectations(t)
@@ -421,16 +461,16 @@ func TestChangePassword_Success(t *testing.T) {
 	mockRoleRepo := new(MockRoleRepository)
 	mockTokenSvc := new(MockTokenService)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc)
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, createTestLogger(), createTestMetrics())
 
 	testUser := createTestUser()
-	oldPassword := "password123"
-	newPassword := "newpassword456"
+	oldPassword := "Password123!"
+	newPassword := "NewPassword456!"
 
 	mockUserRepo.On("GetByID", testUser.ID).Return(testUser, nil)
 	mockUserRepo.On("UpdatePassword", testUser.ID, mock.AnythingOfType("string")).Return(nil)
 
-	err := svc.ChangePassword(testUser.ID, oldPassword, newPassword)
+	err := svc.ChangePassword(context.Background(), testUser.ID, oldPassword, newPassword)
 
 	require.NoError(t, err)
 	mockUserRepo.AssertExpectations(t)
@@ -441,12 +481,12 @@ func TestChangePassword_WrongOldPassword(t *testing.T) {
 	mockRoleRepo := new(MockRoleRepository)
 	mockTokenSvc := new(MockTokenService)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc)
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, createTestLogger(), createTestMetrics())
 
 	testUser := createTestUser()
 	mockUserRepo.On("GetByID", testUser.ID).Return(testUser, nil)
 
-	err := svc.ChangePassword(testUser.ID, "wrongpassword", "newpassword")
+	err := svc.ChangePassword(context.Background(), testUser.ID, "wrongpassword", "newpassword")
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid old password")
@@ -458,7 +498,7 @@ func TestAssignRole_Success(t *testing.T) {
 	mockRoleRepo := new(MockRoleRepository)
 	mockTokenSvc := new(MockTokenService)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc)
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, createTestLogger(), createTestMetrics())
 
 	userID := "user-123"
 	role := "admin"
@@ -467,7 +507,7 @@ func TestAssignRole_Success(t *testing.T) {
 	mockUserRepo.On("GetByID", userID).Return(testUser, nil)
 	mockRoleRepo.On("AssignRoleByName", userID, role).Return(nil)
 
-	err := svc.AssignRole(userID, role)
+	err := svc.AssignRole(context.Background(), userID, role)
 
 	require.NoError(t, err)
 	mockUserRepo.AssertExpectations(t)
@@ -479,14 +519,14 @@ func TestRemoveRole_Success(t *testing.T) {
 	mockRoleRepo := new(MockRoleRepository)
 	mockTokenSvc := new(MockTokenService)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc)
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, createTestLogger(), createTestMetrics())
 
 	userID := "user-123"
 	role := "admin"
 
 	mockRoleRepo.On("RemoveRoleByName", userID, role).Return(nil)
 
-	err := svc.RemoveRole(userID, role)
+	err := svc.RemoveRole(context.Background(), userID, role)
 
 	require.NoError(t, err)
 	mockRoleRepo.AssertExpectations(t)
@@ -497,14 +537,14 @@ func TestGetUserRoles_Success(t *testing.T) {
 	mockRoleRepo := new(MockRoleRepository)
 	mockTokenSvc := new(MockTokenService)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc)
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, createTestLogger(), createTestMetrics())
 
 	userID := "user-123"
 	expectedRoles := []string{"user", "admin"}
 
 	mockRoleRepo.On("GetUserRoles", userID).Return(expectedRoles, nil)
 
-	roles, err := svc.GetUserRoles(userID)
+	roles, err := svc.GetUserRoles(context.Background(), userID)
 
 	require.NoError(t, err)
 	assert.Equal(t, expectedRoles, roles)
@@ -516,14 +556,14 @@ func TestCheckPermission_Success(t *testing.T) {
 	mockRoleRepo := new(MockRoleRepository)
 	mockTokenSvc := new(MockTokenService)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc)
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, createTestLogger(), createTestMetrics())
 
 	userID := "user-123"
 	permission := "users.read"
 
 	mockRoleRepo.On("CheckPermission", userID, permission).Return(true, nil)
 
-	hasPermission, err := svc.CheckPermission(userID, permission)
+	hasPermission, err := svc.CheckPermission(context.Background(), userID, permission)
 
 	require.NoError(t, err)
 	assert.True(t, hasPermission)

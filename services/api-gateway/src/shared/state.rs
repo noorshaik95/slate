@@ -1,4 +1,4 @@
-use prometheus::{HistogramOpts, HistogramVec, IntCounter, IntCounterVec, Opts, Registry};
+use prometheus::{HistogramOpts, HistogramVec, IntCounter, IntCounterVec, IntGauge, Opts, Registry};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -31,6 +31,9 @@ pub struct GatewayMetrics {
     pub rate_limit_counter: IntCounter,
     pub circuit_breaker_state: IntCounterVec,
     pub active_connections: IntCounterVec,
+    // Rate limiter metrics
+    pub rate_limiter_tracked_clients: IntGauge,
+    pub rate_limiter_evictions_total: IntCounter,
 }
 
 impl GatewayMetrics {
@@ -86,6 +89,19 @@ impl GatewayMetrics {
         )
         .expect("Failed to create active_connections metric");
 
+        // Rate limiter metrics
+        let rate_limiter_tracked_clients = IntGauge::new(
+            "gateway_rate_limiter_tracked_clients",
+            "Current number of clients being tracked by the rate limiter",
+        )
+        .expect("Failed to create rate_limiter_tracked_clients metric");
+
+        let rate_limiter_evictions_total = IntCounter::new(
+            "gateway_rate_limiter_evictions_total",
+            "Total number of client entries evicted from the rate limiter cache",
+        )
+        .expect("Failed to create rate_limiter_evictions_total metric");
+
         registry.register(Box::new(request_counter.clone()))
             .expect("Failed to register request_counter metric");
         registry.register(Box::new(request_duration.clone()))
@@ -100,6 +116,10 @@ impl GatewayMetrics {
             .expect("Failed to register circuit_breaker_state metric");
         registry.register(Box::new(active_connections.clone()))
             .expect("Failed to register active_connections metric");
+        registry.register(Box::new(rate_limiter_tracked_clients.clone()))
+            .expect("Failed to register rate_limiter_tracked_clients metric");
+        registry.register(Box::new(rate_limiter_evictions_total.clone()))
+            .expect("Failed to register rate_limiter_evictions_total metric");
 
         GatewayMetrics {
             request_counter,
@@ -109,6 +129,8 @@ impl GatewayMetrics {
             rate_limit_counter,
             circuit_breaker_state,
             active_connections,
+            rate_limiter_tracked_clients,
+            rate_limiter_evictions_total,
         }
     }
 }

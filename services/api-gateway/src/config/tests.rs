@@ -77,6 +77,7 @@ fn create_valid_config() -> GatewayConfig {
         auth: AuthConfig {
             service_endpoint: "http://localhost:50052".to_string(),
             timeout_ms: 2000,
+            public_routes: vec![],
         },
         rate_limit: Some(RateLimitConfig {
             enabled: true,

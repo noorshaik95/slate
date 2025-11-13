@@ -1,5 +1,6 @@
-use std::collections::HashMap;
+use lru::LruCache;
 use std::net::IpAddr;
+use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
@@ -8,24 +9,34 @@ use crate::config::RateLimitConfig;
 use super::types::{ClientRateState, RateLimitError};
 use super::constants::{EXCLUDED_PATHS, CLEANUP_THRESHOLD_MULTIPLIER};
 
+/// Maximum number of clients to track in the LRU cache
+const MAX_TRACKED_CLIENTS: usize = 10_000;
+
 /// Rate limiter that tracks requests per client IP using a sliding window algorithm
+/// with LRU cache for bounded memory usage
 #[derive(Clone)]
 pub struct RateLimiter {
-    store: Arc<RwLock<HashMap<IpAddr, ClientRateState>>>,
+    store: Arc<RwLock<LruCache<IpAddr, ClientRateState>>>,
     config: RateLimitConfig,
 }
 
 impl RateLimiter {
     /// Create a new rate limiter with the given configuration
+    /// Uses an LRU cache with a maximum of 10,000 entries to prevent unbounded memory growth
     pub fn new(config: RateLimitConfig) -> Self {
+        let capacity = NonZeroUsize::new(MAX_TRACKED_CLIENTS)
+            .expect("MAX_TRACKED_CLIENTS must be non-zero");
+        
         Self {
-            store: Arc::new(RwLock::new(HashMap::new())),
+            store: Arc::new(RwLock::new(LruCache::new(capacity))),
             config,
         }
     }
 
     /// Check if a request from the given client IP should be allowed
     /// Returns Ok(()) if allowed, Err(RateLimitError) if rate limit exceeded
+    /// 
+    /// Uses LRU cache: when the cache is full, the least recently used client is automatically evicted
     pub async fn check_rate_limit(&self, client_ip: IpAddr) -> Result<(), RateLimitError> {
         if !self.config.enabled {
             return Ok(());
@@ -38,10 +49,16 @@ impl RateLimiter {
         let mut store = self.store.write().await;
         
         // Get or create client state
-        let client_state = store.entry(client_ip).or_insert_with(|| ClientRateState {
-            requests: std::collections::VecDeque::new(),
-            last_cleanup: now,
-        });
+        // LRU cache automatically evicts least recently used entries when full
+        if !store.contains(&client_ip) {
+            store.put(client_ip, ClientRateState {
+                requests: std::collections::VecDeque::new(),
+                last_cleanup: now,
+            });
+        }
+        
+        let client_state = store.get_mut(&client_ip)
+            .expect("Client state should exist after put");
 
         // Remove requests outside the sliding window
         while let Some(&oldest) = client_state.requests.front() {
@@ -75,16 +92,42 @@ impl RateLimiter {
 
     /// Clean up expired entries from the store
     /// This should be called periodically as a background task
-    pub async fn cleanup_expired(&self) {
+    /// Returns the number of entries evicted
+    pub async fn cleanup_expired(&self) -> usize {
         let now = Instant::now();
         let window_duration = Duration::from_secs(self.config.window_seconds);
         let cleanup_threshold = window_duration * CLEANUP_THRESHOLD_MULTIPLIER;
 
         let mut store = self.store.write().await;
         
-        // Remove clients that haven't made requests recently
-        store.retain(|_, state| {
-            // First, clean up old requests from this client's queue
+        // Collect keys to remove (can't modify while iterating)
+        let keys_to_remove: Vec<IpAddr> = store
+            .iter()
+            .filter_map(|(ip, state)| {
+                // Check if this client should be removed
+                let has_recent_requests = state.requests.iter().any(|&req_time| {
+                    now.duration_since(req_time) <= window_duration
+                });
+                
+                let recently_active = now.duration_since(state.last_cleanup) < cleanup_threshold;
+                
+                if !has_recent_requests && !recently_active {
+                    Some(*ip)
+                } else {
+                    None
+                }
+            })
+            .collect();
+        
+        // Remove expired entries
+        for ip in &keys_to_remove {
+            store.pop(ip);
+        }
+        
+        let evicted_count = keys_to_remove.len();
+        
+        // Also clean up old requests from remaining clients
+        for (_, state) in store.iter_mut() {
             while let Some(&oldest) = state.requests.front() {
                 if now.duration_since(oldest) > window_duration {
                     state.requests.pop_front();
@@ -92,10 +135,9 @@ impl RateLimiter {
                     break;
                 }
             }
-
-            // Keep the client if they have recent requests or were recently active
-            !state.requests.is_empty() || now.duration_since(state.last_cleanup) < cleanup_threshold
-        });
+        }
+        
+        evicted_count
     }
 
     /// Get the current number of tracked clients (for monitoring/debugging)
@@ -105,7 +147,7 @@ impl RateLimiter {
 
     /// Get the current request count for a specific client (for monitoring/debugging)
     pub async fn get_client_request_count(&self, client_ip: IpAddr) -> Option<usize> {
-        let store = self.store.read().await;
+        let mut store = self.store.write().await;
         store.get(&client_ip).map(|state| state.requests.len())
     }
 }

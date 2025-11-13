@@ -2,11 +2,15 @@ package grpc
 
 import (
 	"context"
+	"fmt"
 
+	pb "github.com/noorshaik95/axum-grafana-example/services/user-auth-service/api/proto"
 	"github.com/noorshaik95/axum-grafana-example/services/user-auth-service/internal/models"
 	"github.com/noorshaik95/axum-grafana-example/services/user-auth-service/internal/service"
-	pb "github.com/noorshaik95/axum-grafana-example/services/user-auth-service/api/proto"
+	"github.com/noorshaik95/axum-grafana-example/services/user-auth-service/pkg/ratelimit"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -15,17 +19,60 @@ import (
 type UserServiceServer struct {
 	pb.UnimplementedUserServiceServer
 	userService *service.UserService
+	rateLimiter *ratelimit.RedisRateLimiter
 }
 
-func NewUserServiceServer(userService *service.UserService) *UserServiceServer {
+func NewUserServiceServer(userService *service.UserService, rateLimiter *ratelimit.RedisRateLimiter) *UserServiceServer {
 	return &UserServiceServer{
 		userService: userService,
+		rateLimiter: rateLimiter,
 	}
 }
 
+// getClientIP extracts the client IP from gRPC context
+func getClientIP(ctx context.Context) string {
+	// Try to get IP from metadata (set by gateway/proxy)
+	md, ok := metadata.FromIncomingContext(ctx)
+	if ok {
+		if xForwardedFor := md.Get("x-forwarded-for"); len(xForwardedFor) > 0 {
+			return xForwardedFor[0]
+		}
+		if xRealIP := md.Get("x-real-ip"); len(xRealIP) > 0 {
+			return xRealIP[0]
+		}
+	}
+
+	// Fallback to peer address
+	if p, ok := peer.FromContext(ctx); ok {
+		return p.Addr.String()
+	}
+
+	return "unknown"
+}
+
 // Login authenticates a user
+// Security: Rate limited to prevent brute-force attacks (5 attempts per 15 minutes per IP)
+// This prevents attackers from trying thousands of password combinations to guess credentials.
 func (s *UserServiceServer) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResponse, error) {
-	user, tokens, err := s.userService.Login(req.Email, req.Password)
+	// Security: Check rate limit before processing authentication to prevent brute-force attacks.
+	// Rate limiting is applied per client IP address to prevent distributed attacks.
+	// If Redis is unavailable, requests are allowed through (fail-open) to maintain availability.
+	if s.rateLimiter != nil {
+		clientIP := getClientIP(ctx)
+		allowed, retryAfter, err := s.rateLimiter.AllowLogin(clientIP)
+		if err != nil {
+			// Log error but don't fail the request (fail-open design for availability)
+			fmt.Printf("Rate limiter error: %v\n", err)
+		} else if !allowed {
+			// Security: Return RESOURCE_EXHAUSTED status to indicate rate limit exceeded.
+			// Retry-after duration is included in the error message to inform clients when they can retry.
+			// This helps legitimate users while still preventing brute-force attacks.
+			msg := fmt.Sprintf("too many login attempts, please try again in %d seconds", int(retryAfter.Seconds()))
+			return nil, status.Error(codes.ResourceExhausted, msg)
+		}
+	}
+
+	user, tokens, err := s.userService.Login(ctx, req.Email, req.Password)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "login failed: %v", err)
 	}
@@ -39,8 +86,27 @@ func (s *UserServiceServer) Login(ctx context.Context, req *pb.LoginRequest) (*p
 }
 
 // Register registers a new user
+// Security: Rate limited to prevent abuse (3 attempts per hour per IP)
+// This prevents attackers from creating large numbers of fake accounts or spamming the system.
 func (s *UserServiceServer) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
-	user, tokens, err := s.userService.Register(req.Email, req.Password, req.FirstName, req.LastName, req.Phone)
+	// Security: Check rate limit before processing registration to prevent account creation abuse.
+	// Stricter limit than login (3 per hour vs 5 per 15 min) since registration is less frequent.
+	// Rate limiting is applied per client IP address to prevent distributed attacks.
+	if s.rateLimiter != nil {
+		clientIP := getClientIP(ctx)
+		allowed, retryAfter, err := s.rateLimiter.AllowRegister(clientIP)
+		if err != nil {
+			// Log error but don't fail the request (fail-open design for availability)
+			fmt.Printf("Rate limiter error: %v\n", err)
+		} else if !allowed {
+			// Security: Return RESOURCE_EXHAUSTED status to indicate rate limit exceeded.
+			// Retry-after duration is included in the error message to inform clients when they can retry.
+			msg := fmt.Sprintf("too many registration attempts, please try again in %d seconds", int(retryAfter.Seconds()))
+			return nil, status.Error(codes.ResourceExhausted, msg)
+		}
+	}
+
+	user, tokens, err := s.userService.Register(ctx, req.Email, req.Password, req.FirstName, req.LastName, req.Phone)
 	if err != nil {
 		return nil, status.Errorf(codes.AlreadyExists, "registration failed: %v", err)
 	}
@@ -54,7 +120,7 @@ func (s *UserServiceServer) Register(ctx context.Context, req *pb.RegisterReques
 
 // RefreshToken refreshes an access token
 func (s *UserServiceServer) RefreshToken(ctx context.Context, req *pb.RefreshTokenRequest) (*pb.RefreshTokenResponse, error) {
-	tokens, err := s.userService.RefreshToken(req.RefreshToken)
+	tokens, err := s.userService.RefreshToken(ctx, req.RefreshToken)
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "token refresh failed: %v", err)
 	}
@@ -68,7 +134,7 @@ func (s *UserServiceServer) RefreshToken(ctx context.Context, req *pb.RefreshTok
 
 // ValidateToken validates a token
 func (s *UserServiceServer) ValidateToken(ctx context.Context, req *pb.ValidateTokenRequest) (*pb.ValidateTokenResponse, error) {
-	userID, roles, err := s.userService.ValidateToken(req.Token)
+	userID, roles, err := s.userService.ValidateToken(ctx, req.Token)
 	if err != nil {
 		return &pb.ValidateTokenResponse{
 			Valid: false,
@@ -91,7 +157,7 @@ func (s *UserServiceServer) Logout(ctx context.Context, req *pb.LogoutRequest) (
 
 // CreateUser creates a new user
 func (s *UserServiceServer) CreateUser(ctx context.Context, req *pb.CreateUserRequest) (*pb.UserResponse, error) {
-	user, err := s.userService.CreateUser(req.Email, req.Password, req.FirstName, req.LastName, req.Phone, req.Roles)
+	user, err := s.userService.CreateUser(ctx, req.Email, req.Password, req.FirstName, req.LastName, req.Phone, req.Roles)
 	if err != nil {
 		return nil, status.Errorf(codes.AlreadyExists, "failed to create user: %v", err)
 	}
@@ -103,7 +169,7 @@ func (s *UserServiceServer) CreateUser(ctx context.Context, req *pb.CreateUserRe
 
 // GetUser retrieves a user by ID
 func (s *UserServiceServer) GetUser(ctx context.Context, req *pb.GetUserRequest) (*pb.UserResponse, error) {
-	user, err := s.userService.GetUser(req.UserId)
+	user, err := s.userService.GetUser(ctx, req.UserId)
 	if err != nil {
 		return nil, status.Errorf(codes.NotFound, "user not found: %v", err)
 	}
@@ -134,7 +200,7 @@ func (s *UserServiceServer) UpdateUser(ctx context.Context, req *pb.UpdateUserRe
 		isActive = req.IsActive
 	}
 
-	user, err := s.userService.UpdateUser(req.UserId, email, firstName, lastName, phone, isActive)
+	user, err := s.userService.UpdateUser(ctx, req.UserId, email, firstName, lastName, phone, isActive)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to update user: %v", err)
 	}
@@ -146,7 +212,7 @@ func (s *UserServiceServer) UpdateUser(ctx context.Context, req *pb.UpdateUserRe
 
 // DeleteUser deletes a user
 func (s *UserServiceServer) DeleteUser(ctx context.Context, req *pb.DeleteUserRequest) (*emptypb.Empty, error) {
-	if err := s.userService.DeleteUser(req.UserId); err != nil {
+	if err := s.userService.DeleteUser(ctx, req.UserId); err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to delete user: %v", err)
 	}
 
@@ -165,7 +231,7 @@ func (s *UserServiceServer) ListUsers(ctx context.Context, req *pb.ListUsersRequ
 		role = *req.Role
 	}
 
-	users, total, err := s.userService.ListUsers(int(req.Page), int(req.PageSize), req.Search, role, isActive)
+	users, total, err := s.userService.ListUsers(ctx, int(req.Page), int(req.PageSize), req.Search, role, isActive)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to list users: %v", err)
 	}
@@ -185,7 +251,7 @@ func (s *UserServiceServer) ListUsers(ctx context.Context, req *pb.ListUsersRequ
 
 // GetProfile retrieves a user's profile
 func (s *UserServiceServer) GetProfile(ctx context.Context, req *pb.GetProfileRequest) (*pb.ProfileResponse, error) {
-	profile, err := s.userService.GetProfile(req.UserId)
+	profile, err := s.userService.GetProfile(ctx, req.UserId)
 	if err != nil {
 		return nil, status.Errorf(codes.NotFound, "profile not found: %v", err)
 	}
@@ -226,7 +292,7 @@ func (s *UserServiceServer) UpdateProfile(ctx context.Context, req *pb.UpdatePro
 		bio = req.Bio
 	}
 
-	profile, err := s.userService.UpdateProfile(req.UserId, firstName, lastName, phone, avatarURL, bio)
+	profile, err := s.userService.UpdateProfile(ctx, req.UserId, firstName, lastName, phone, avatarURL, bio)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to update profile: %v", err)
 	}
@@ -249,7 +315,7 @@ func (s *UserServiceServer) UpdateProfile(ctx context.Context, req *pb.UpdatePro
 
 // ChangePassword changes a user's password
 func (s *UserServiceServer) ChangePassword(ctx context.Context, req *pb.ChangePasswordRequest) (*emptypb.Empty, error) {
-	if err := s.userService.ChangePassword(req.UserId, req.OldPassword, req.NewPassword); err != nil {
+	if err := s.userService.ChangePassword(ctx, req.UserId, req.OldPassword, req.NewPassword); err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "failed to change password: %v", err)
 	}
 
@@ -258,7 +324,7 @@ func (s *UserServiceServer) ChangePassword(ctx context.Context, req *pb.ChangePa
 
 // AssignRole assigns a role to a user
 func (s *UserServiceServer) AssignRole(ctx context.Context, req *pb.AssignRoleRequest) (*emptypb.Empty, error) {
-	if err := s.userService.AssignRole(req.UserId, req.Role); err != nil {
+	if err := s.userService.AssignRole(ctx, req.UserId, req.Role); err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to assign role: %v", err)
 	}
 
@@ -267,7 +333,7 @@ func (s *UserServiceServer) AssignRole(ctx context.Context, req *pb.AssignRoleRe
 
 // RemoveRole removes a role from a user
 func (s *UserServiceServer) RemoveRole(ctx context.Context, req *pb.RemoveRoleRequest) (*emptypb.Empty, error) {
-	if err := s.userService.RemoveRole(req.UserId, req.Role); err != nil {
+	if err := s.userService.RemoveRole(ctx, req.UserId, req.Role); err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to remove role: %v", err)
 	}
 
@@ -276,7 +342,7 @@ func (s *UserServiceServer) RemoveRole(ctx context.Context, req *pb.RemoveRoleRe
 
 // GetUserRoles retrieves all roles for a user
 func (s *UserServiceServer) GetUserRoles(ctx context.Context, req *pb.GetUserRolesRequest) (*pb.GetUserRolesResponse, error) {
-	roles, err := s.userService.GetUserRoles(req.UserId)
+	roles, err := s.userService.GetUserRoles(ctx, req.UserId)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to get user roles: %v", err)
 	}
@@ -288,7 +354,7 @@ func (s *UserServiceServer) GetUserRoles(ctx context.Context, req *pb.GetUserRol
 
 // CheckPermission checks if a user has a specific permission
 func (s *UserServiceServer) CheckPermission(ctx context.Context, req *pb.CheckPermissionRequest) (*pb.CheckPermissionResponse, error) {
-	hasPermission, err := s.userService.CheckPermission(req.UserId, req.Permission)
+	hasPermission, err := s.userService.CheckPermission(ctx, req.UserId, req.Permission)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to check permission: %v", err)
 	}

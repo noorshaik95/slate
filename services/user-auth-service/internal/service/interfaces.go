@@ -1,24 +1,28 @@
 package service
 
-import "github.com/noorshaik95/axum-grafana-example/services/user-auth-service/internal/models"
+import (
+	"context"
+
+	"github.com/noorshaik95/axum-grafana-example/services/user-auth-service/internal/models"
+)
 
 // UserRepositoryInterface defines the interface for user repository operations
 type UserRepositoryInterface interface {
-	Create(user *models.User) error
-	GetByID(id string) (*models.User, error)
-	GetByEmail(email string) (*models.User, error)
-	Update(user *models.User) error
-	Delete(id string) error
-	List(page, pageSize int, search, role string, isActive *bool) ([]*models.User, int, error)
-	UpdatePassword(userID, passwordHash string) error
+	Create(ctx context.Context, user *models.User) error
+	GetByID(ctx context.Context, id string) (*models.User, error)
+	GetByEmail(ctx context.Context, email string) (*models.User, error)
+	Update(ctx context.Context, user *models.User) error
+	Delete(ctx context.Context, id string) error
+	List(ctx context.Context, page, pageSize int, search, role string, isActive *bool) ([]*models.User, int, error)
+	UpdatePassword(ctx context.Context, userID, passwordHash string) error
 }
 
 // RoleRepositoryInterface defines the interface for role repository operations
 type RoleRepositoryInterface interface {
-	AssignRoleByName(userID, roleName string) error
-	RemoveRoleByName(userID, roleName string) error
-	GetUserRoles(userID string) ([]string, error)
-	CheckPermission(userID, permission string) (bool, error)
+	AssignRoleByName(ctx context.Context, userID, roleName string) error
+	RemoveRoleByName(ctx context.Context, userID, roleName string) error
+	GetUserRoles(ctx context.Context, userID string) ([]string, error)
+	CheckPermission(ctx context.Context, userID, permission string) (bool, error)
 }
 
 // TokenServiceInterface defines the interface for token service operations
@@ -34,4 +38,12 @@ type TokenClaims struct {
 	UserID string
 	Email  string
 	Roles  []string
+}
+
+// MetricsInterface defines the interface for metrics operations
+type MetricsInterface interface {
+	IncrementRegistrations(success bool)
+	IncrementLogins(success bool)
+	ObserveRequestDuration(operation string, durationSeconds float64)
+	SetDBConnections(count int)
 }

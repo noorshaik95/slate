@@ -1,0 +1,75 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  # Scrape logs from user-auth-service container
+  - job_name: user-auth-service
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+    relabel_configs:
+      # Only scrape containers with name containing 'user-auth-service'
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/(.*)-user-auth-service-(.*)'
+        action: keep
+      # Set service_name label
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/(.*)-user-auth-service-(.*)'
+        target_label: 'service_name'
+        replacement: 'user-auth-service'
+      # Set container_name label
+      - source_labels: ['__meta_docker_container_name']
+        target_label: 'container_name'
+      # Set environment label
+      - target_label: 'environment'
+        replacement: 'dev'
+    pipeline_stages:
+      # Parse JSON logs
+      - json:
+          expressions:
+            level: level
+            trace_id: trace_id
+            message: message
+            user_id: user_id
+            operation: operation
+            error_type: error_type
+            email: email
+      # Extract labels from JSON fields
+      - labels:
+          level:
+          trace_id:
+          operation:
+          error_type:
+      # Add timestamp from log entry
+      - timestamp:
+          source: time
+          format: RFC3339Nano
+
+  # Scrape logs from api-gateway container
+  - job_name: api-gateway
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+    relabel_configs:
+      # Only scrape containers with name containing 'api-gateway'
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/(.*)-api-gateway-(.*)'
+        action: keep
+      # Set service_name label
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/(.*)-api-gateway-(.*)'
+        target_label: 'service_name'
+        replacement: 'api-gateway'
+      # Set container_name label
+      - source_labels: ['__meta_docker_container_name']
+        target_label: 'container_name'
+      # Set environment label
+      - target_label: 'environment'
+        replacement: 'dev'

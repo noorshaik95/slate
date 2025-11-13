@@ -43,5 +43,15 @@ uuid = { version = "1.0", features = ["v4"] }
 # Metrics
 lazy_static = "1.4"
 
+# LRU cache for rate limiter
+lru = "0.12"
+
 [build-dependencies]
 tonic-build = "0.12"
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "routing_bench"
+harness = false

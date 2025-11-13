@@ -17,6 +17,37 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # Redis for Rate Limiting
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    restart: unless-stopped
 
   # User Auth Service (Go)
   user-auth-service:
@@ -38,14 +69,39 @@ services:
       GRPC_HOST: "0.0.0.0"
       GRPC_PORT: "50051"
       OTEL_EXPORTER_OTLP_ENDPOINT: "tempo:4317"
+      REDIS_HOST: "redis"
+      REDIS_PORT: "6379"
+      RATE_LIMIT_ENABLED: "true"
+      RATE_LIMIT_LOGIN_MAX: "5"
+      RATE_LIMIT_LOGIN_WINDOW: "900"
+      RATE_LIMIT_REGISTER_MAX: "3"
+      RATE_LIMIT_REGISTER_WINDOW: "3600"
+      # Database Connection Pool Configuration
+      DB_MAX_OPEN_CONNS: "25"           # Maximum number of open connections
+      DB_MAX_IDLE_CONNS: "5"            # Maximum number of idle connections
+      DB_CONN_MAX_LIFETIME: "5m"        # Maximum lifetime of a connection
+      DB_CONN_MAX_IDLE_TIME: "1m"       # Maximum idle time before closing
+      # Logging Configuration
+      LOG_LEVEL: "info"                 # Log level: debug, info, warn, error
     ports:
       - "50051:50051"
       - "8081:8081"
+      - "9090:9090"  # Prometheus metrics endpoint
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
       tempo:
         condition: service_started
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
     restart: unless-stopped
 
   # API Gateway (Rust/Axum)
@@ -54,7 +110,9 @@ services:
       context: .
       dockerfile: services/api-gateway/Dockerfile
     environment:
-      RUST_LOG: info,debug
+      # Logging configuration - supports per-module levels
+      # Examples: "info", "debug", "info,api_gateway=debug,tower_http=warn"
+      RUST_LOG: "info"
       GATEWAY_SERVER_HOST: "0.0.0.0"
       GATEWAY_SERVER_PORT: "8080"
       GATEWAY_AUTH_SERVICE_ENDPOINT: "http://user-auth-service:50051"
@@ -69,6 +127,14 @@ services:
       - loki
       - grafana
       - user-auth-service
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
     restart: unless-stopped
 
   # Observability Stack
@@ -78,6 +144,14 @@ services:
       - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
     ports:
       - "9090:9090"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
     restart: unless-stopped
 
   tempo:
@@ -90,6 +164,14 @@ services:
       - "3200:3200"   # tempo
       - "4317:4317"   # otlp grpc
       - "4318:4318"   # otlp http
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
     restart: unless-stopped
 
   loki:
@@ -111,6 +193,14 @@ services:
         mkdir -p /loki/chunks /loki/index /loki/boltdb-cache /loki/compactor /loki/rules
         chown -R loki:loki /loki
         exec /usr/bin/loki -config.file=/etc/loki/local-config.yaml
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
     restart: unless-stopped
 
   grafana:
@@ -128,21 +218,40 @@ services:
       - prometheus
       - tempo
       - loki
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
     restart: unless-stopped
 
   promtail:
     image: grafana/promtail:2.8.2
     volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/log:/var/log:ro
-      - ./config/promtail.yaml:/etc/promtail/promtail.yaml
-    command: -config.file=/etc/promtail/promtail.yaml
+      - ./config/promtail-config.yaml:/etc/promtail/promtail-config.yaml
+    command: -config.file=/etc/promtail/promtail-config.yaml
     depends_on:
       - loki
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
     restart: unless-stopped
 
 volumes:
   postgres-data:
+    driver: local
+  redis-data:
     driver: local
   loki-data:
     driver: local

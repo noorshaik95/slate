@@ -3,6 +3,7 @@ use axum::body::Body;
 use axum::http::Request;
 use serde_json::json;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use crate::grpc::{GrpcResponse};
 use crate::router::RoutingDecision;
@@ -16,8 +17,8 @@ async fn test_convert_empty_body() {
         .unwrap();
 
     let routing = RoutingDecision {
-        service: "user-service".to_string(),
-        grpc_method: "user.UserService/ListUsers".to_string(),
+        service: Arc::from("user-service"),
+        grpc_method: Arc::from("user.UserService/ListUsers"),
         path_params: HashMap::new(),
     };
 
@@ -48,8 +49,8 @@ async fn test_convert_with_json_body() {
         .unwrap();
 
     let routing = RoutingDecision {
-        service: "user-service".to_string(),
-        grpc_method: "user.UserService/CreateUser".to_string(),
+        service: Arc::from("user-service"),
+        grpc_method: Arc::from("user.UserService/CreateUser"),
         path_params: HashMap::new(),
     };
 
@@ -74,8 +75,8 @@ async fn test_convert_with_path_params() {
     path_params.insert("id".to_string(), "123".to_string());
 
     let routing = RoutingDecision {
-        service: "user-service".to_string(),
-        grpc_method: "user.UserService/GetUser".to_string(),
+        service: Arc::from("user-service"),
+        grpc_method: Arc::from("user.UserService/GetUser"),
         path_params,
     };
 
@@ -104,8 +105,8 @@ async fn test_merge_path_params_with_body() {
     path_params.insert("id".to_string(), "456".to_string());
 
     let routing = RoutingDecision {
-        service: "user-service".to_string(),
-        grpc_method: "user.UserService/UpdateUser".to_string(),
+        service: Arc::from("user-service"),
+        grpc_method: Arc::from("user.UserService/UpdateUser"),
         path_params,
     };
 
@@ -129,8 +130,8 @@ async fn test_trace_header_propagation() {
         .unwrap();
 
     let routing = RoutingDecision {
-        service: "user-service".to_string(),
-        grpc_method: "user.UserService/ListUsers".to_string(),
+        service: Arc::from("user-service"),
+        grpc_method: Arc::from("user.UserService/ListUsers"),
         path_params: HashMap::new(),
     };
 

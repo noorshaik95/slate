@@ -79,8 +79,8 @@ impl HttpToGrpcConverter {
         );
 
         Ok(GrpcRequest {
-            service: routing.service.clone(),
-            method: routing.grpc_method.clone(),
+            service: routing.service.to_string(),
+            method: routing.grpc_method.to_string(),
             payload: payload_bytes,
             metadata,
         })

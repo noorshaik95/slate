@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"strings"
@@ -18,12 +19,12 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 }
 
 // Create creates a new user
-func (r *UserRepository) Create(user *models.User) error {
+func (r *UserRepository) Create(ctx context.Context, user *models.User) error {
 	query := `
 		INSERT INTO users (id, email, password_hash, first_name, last_name, phone, is_active, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	`
-	_, err := r.db.Exec(query, user.ID, user.Email, user.PasswordHash, user.FirstName,
+	_, err := r.db.ExecContext(ctx, query, user.ID, user.Email, user.PasswordHash, user.FirstName,
 		user.LastName, user.Phone, user.IsActive, user.CreatedAt, user.UpdatedAt)
 
 	if err != nil {
@@ -36,7 +37,7 @@ func (r *UserRepository) Create(user *models.User) error {
 }
 
 // GetByID retrieves a user by ID
-func (r *UserRepository) GetByID(id string) (*models.User, error) {
+func (r *UserRepository) GetByID(ctx context.Context, id string) (*models.User, error) {
 	user := &models.User{}
 	query := `
 		SELECT u.id, u.email, u.password_hash, u.first_name, u.last_name, u.phone,
@@ -50,7 +51,7 @@ func (r *UserRepository) GetByID(id string) (*models.User, error) {
 	`
 
 	var roles []string
-	err := r.db.QueryRow(query, id).Scan(
+	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&user.ID, &user.Email, &user.PasswordHash, &user.FirstName, &user.LastName,
 		&user.Phone, &user.IsActive, &user.CreatedAt, &user.UpdatedAt,
 		pq.Array(&roles),
@@ -68,7 +69,7 @@ func (r *UserRepository) GetByID(id string) (*models.User, error) {
 }
 
 // GetByEmail retrieves a user by email
-func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
+func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*models.User, error) {
 	user := &models.User{}
 	query := `
 		SELECT u.id, u.email, u.password_hash, u.first_name, u.last_name, u.phone,
@@ -82,7 +83,7 @@ func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 	`
 
 	var roles []string
-	err := r.db.QueryRow(query, email).Scan(
+	err := r.db.QueryRowContext(ctx, query, email).Scan(
 		&user.ID, &user.Email, &user.PasswordHash, &user.FirstName, &user.LastName,
 		&user.Phone, &user.IsActive, &user.CreatedAt, &user.UpdatedAt,
 		pq.Array(&roles),
@@ -100,14 +101,14 @@ func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 }
 
 // Update updates a user
-func (r *UserRepository) Update(user *models.User) error {
+func (r *UserRepository) Update(ctx context.Context, user *models.User) error {
 	query := `
 		UPDATE users
 		SET email = $1, first_name = $2, last_name = $3, phone = $4,
 		    is_active = $5, updated_at = $6
 		WHERE id = $7
 	`
-	result, err := r.db.Exec(query, user.Email, user.FirstName, user.LastName,
+	result, err := r.db.ExecContext(ctx, query, user.Email, user.FirstName, user.LastName,
 		user.Phone, user.IsActive, user.UpdatedAt, user.ID)
 
 	if err != nil {
@@ -127,9 +128,9 @@ func (r *UserRepository) Update(user *models.User) error {
 }
 
 // Delete deletes a user (soft delete by setting is_active to false)
-func (r *UserRepository) Delete(id string) error {
+func (r *UserRepository) Delete(ctx context.Context, id string) error {
 	query := `UPDATE users SET is_active = false WHERE id = $1`
-	result, err := r.db.Exec(query, id)
+	result, err := r.db.ExecContext(ctx, query, id)
 
 	if err != nil {
 		return fmt.Errorf("failed to delete user: %w", err)
@@ -148,7 +149,7 @@ func (r *UserRepository) Delete(id string) error {
 }
 
 // List retrieves a paginated list of users
-func (r *UserRepository) List(page, pageSize int, search, role string, isActive *bool) ([]*models.User, int, error) {
+func (r *UserRepository) List(ctx context.Context, page, pageSize int, search, role string, isActive *bool) ([]*models.User, int, error) {
 	// Build query conditions
 	conditions := []string{}
 	args := []interface{}{}
@@ -239,9 +240,9 @@ func (r *UserRepository) List(page, pageSize int, search, role string, isActive 
 }
 
 // UpdatePassword updates a user's password
-func (r *UserRepository) UpdatePassword(userID, passwordHash string) error {
+func (r *UserRepository) UpdatePassword(ctx context.Context, userID, passwordHash string) error {
 	query := `UPDATE users SET password_hash = $1 WHERE id = $2`
-	result, err := r.db.Exec(query, passwordHash, userID)
+	result, err := r.db.ExecContext(ctx, query, passwordHash, userID)
 
 	if err != nil {
 		return fmt.Errorf("failed to update password: %w", err)

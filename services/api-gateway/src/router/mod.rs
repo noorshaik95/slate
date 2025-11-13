@@ -24,6 +24,7 @@
 //! ```
 
 use std::collections::HashMap;
+use std::sync::Arc;
 use thiserror::Error;
 
 use crate::config::RouteConfig;
@@ -42,10 +43,14 @@ struct RouteKey {
 }
 
 /// Result of routing decision
+/// 
+/// Performance: Uses Arc<str> for service and grpc_method to avoid cloning strings
+/// in the hot path. Cloning Arc is cheap (atomic reference count increment) compared
+/// to cloning the actual string data.
 #[derive(Debug, Clone)]
 pub struct RoutingDecision {
-    pub service: String,
-    pub grpc_method: String,
+    pub service: Arc<str>,
+    pub grpc_method: Arc<str>,
     pub path_params: HashMap<String, String>,
 }
 
@@ -154,8 +159,8 @@ impl RequestRouter {
 
         if let Some(route) = self.routes.get(&key) {
             return Ok(RoutingDecision {
-                service: route.service.clone(),
-                grpc_method: route.grpc_method.clone(),
+                service: Arc::from(route.service.as_str()),
+                grpc_method: Arc::from(route.grpc_method.as_str()),
                 path_params: HashMap::new(),
             });
         }
@@ -168,8 +173,8 @@ impl RequestRouter {
 
             if let Some(params) = pattern.matches(path) {
                 return Ok(RoutingDecision {
-                    service: route.service.clone(),
-                    grpc_method: route.grpc_method.clone(),
+                    service: Arc::from(route.service.as_str()),
+                    grpc_method: Arc::from(route.grpc_method.as_str()),
                     path_params: params,
                 });
             }
@@ -277,8 +282,8 @@ mod tests {
         let router = RequestRouter::new(create_test_routes());
         
         let result = router.route("/api/users", "GET").unwrap();
-        assert_eq!(result.service, "user-service");
-        assert_eq!(result.grpc_method, "user.UserService/ListUsers");
+        assert_eq!(result.service.as_ref(), "user-service");
+        assert_eq!(result.grpc_method.as_ref(), "user.UserService/ListUsers");
         assert!(result.path_params.is_empty());
     }
 
@@ -287,8 +292,8 @@ mod tests {
         let router = RequestRouter::new(create_test_routes());
         
         let result = router.route("/api/users/123", "GET").unwrap();
-        assert_eq!(result.service, "user-service");
-        assert_eq!(result.grpc_method, "user.UserService/GetUser");
+        assert_eq!(result.service.as_ref(), "user-service");
+        assert_eq!(result.grpc_method.as_ref(), "user.UserService/GetUser");
         assert_eq!(result.path_params.get("id"), Some(&"123".to_string()));
     }
 
@@ -297,8 +302,8 @@ mod tests {
         let router = RequestRouter::new(create_test_routes());
         
         let result = router.route("/api/posts/456/comments/789", "GET").unwrap();
-        assert_eq!(result.service, "post-service");
-        assert_eq!(result.grpc_method, "post.PostService/GetComment");
+        assert_eq!(result.service.as_ref(), "post-service");
+        assert_eq!(result.grpc_method.as_ref(), "post.PostService/GetComment");
         assert_eq!(result.path_params.get("post_id"), Some(&"456".to_string()));
         assert_eq!(result.path_params.get("comment_id"), Some(&"789".to_string()));
     }
@@ -309,11 +314,11 @@ mod tests {
         
         // GET should match GetUser
         let result = router.route("/api/users/123", "GET").unwrap();
-        assert_eq!(result.grpc_method, "user.UserService/GetUser");
+        assert_eq!(result.grpc_method.as_ref(), "user.UserService/GetUser");
         
         // DELETE should match DeleteUser
         let result = router.route("/api/users/123", "DELETE").unwrap();
-        assert_eq!(result.grpc_method, "user.UserService/DeleteUser");
+        assert_eq!(result.grpc_method.as_ref(), "user.UserService/DeleteUser");
     }
 
     #[test]
@@ -322,7 +327,7 @@ mod tests {
         
         // Lowercase method should work
         let result = router.route("/api/users", "get").unwrap();
-        assert_eq!(result.service, "user-service");
+        assert_eq!(result.service.as_ref(), "user-service");
     }
 
     #[test]
@@ -393,7 +398,7 @@ mod tests {
         
         // New route should work
         let result = router.route("/api/products", "GET").unwrap();
-        assert_eq!(result.service, "product-service");
+        assert_eq!(result.service.as_ref(), "product-service");
     }
 
     #[test]

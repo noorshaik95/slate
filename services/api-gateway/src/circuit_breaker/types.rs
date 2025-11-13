@@ -20,7 +20,7 @@ fn default_success_threshold() -> u32 {
 }
 
 fn default_timeout_seconds() -> u64 {
-    60 // Wait 60 seconds before transitioning from open to half-open
+    30 // Wait 30 seconds before transitioning from open to half-open (default)
 }
 
 impl Default for CircuitBreakerConfig {
