@@ -12,7 +12,7 @@ use tracing::{debug, error, warn};
 
 use crate::auth::{AuthError, AuthResult, AuthService};
 use crate::grpc::client::GrpcClientPool;
-use crate::router::RequestRouter;
+use crate::router::{RequestRouter, RoutingDecision};
 use tokio::sync::RwLock;
 
 /// Extension type to pass auth context to downstream handlers
@@ -111,6 +111,10 @@ pub async fn auth_middleware(
         grpc_method = %routing_decision.grpc_method,
         "Request routed to backend service"
     );
+
+    // Store routing decision in request extensions for reuse in gateway handler
+    // This avoids duplicate route lookup
+    request.extensions_mut().insert(routing_decision.clone());
 
     // Get channel for the backend service
     let service_channel = match state.grpc_pool.get_channel(&routing_decision.service) {

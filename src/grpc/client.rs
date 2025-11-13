@@ -3,24 +3,27 @@ use std::time::Duration;
 use tonic::transport::{Certificate, Channel, ClientTlsConfig, Endpoint};
 use tracing::{debug, error, info, warn};
 
+use crate::circuit_breaker::CircuitBreaker;
 use crate::config::ServiceConfig;
 use super::types::{GrpcError, GrpcRequest, GrpcResponse};
 use super::constants::*;
 
-/// Pool of gRPC client connections to backend services
+/// Pool of gRPC client connections to backend services with circuit breakers
 #[derive(Clone)]
 pub struct GrpcClientPool {
     clients: HashMap<String, Channel>,
     config: HashMap<String, ServiceConfig>,
+    circuit_breakers: HashMap<String, CircuitBreaker>,
 }
 
 impl GrpcClientPool {
     /// Create a new gRPC client pool with the given service configurations
     pub async fn new(services: HashMap<String, ServiceConfig>) -> Result<Self, GrpcError> {
         info!("Initializing gRPC client pool with {} services", services.len());
-        
+
         let mut clients = HashMap::new();
-        
+        let mut circuit_breakers = HashMap::new();
+
         for (name, config) in &services {
             info!(
                 service = %name,
@@ -29,18 +32,23 @@ impl GrpcClientPool {
                 pool_size = config.connection_pool_size,
                 "Connecting to backend service"
             );
-            
+
             let channel = Self::create_channel(config).await?;
             clients.insert(name.clone(), channel);
-            
-            debug!(service = %name, "Successfully connected to backend service");
+
+            // Create circuit breaker for this service
+            let circuit_breaker = CircuitBreaker::new(config.circuit_breaker.clone());
+            circuit_breakers.insert(name.clone(), circuit_breaker);
+
+            debug!(service = %name, "Successfully connected to backend service with circuit breaker");
         }
-        
+
         info!("gRPC client pool initialized successfully");
-        
+
         Ok(Self {
             clients,
             config: services,
+            circuit_breakers,
         })
     }
     
@@ -114,6 +122,11 @@ impl GrpcClientPool {
             .get(service)
             .cloned()
             .ok_or_else(|| GrpcError::ServiceNotFound(service.to_string()))
+    }
+
+    /// Get the circuit breaker for a specific service
+    pub fn get_circuit_breaker(&self, service: &str) -> Option<CircuitBreaker> {
+        self.circuit_breakers.get(service).cloned()
     }
     
     /// Execute a generic gRPC call with retry logic

@@ -1,4 +1,5 @@
 mod auth;
+mod circuit_breaker;
 mod config;
 mod discovery;
 mod grpc;
@@ -71,14 +72,14 @@ async fn main() -> anyhow::Result<()> {
     let otlp_exporter = opentelemetry_otlp::SpanExporter::builder()
         .with_tonic()
         .with_endpoint(&tempo_endpoint)
-        .with_timeout(std::time::Duration::from_secs(3))
+        .with_timeout(std::time::Duration::from_secs(config.observability.otlp_timeout_secs))
         .build()?;
 
     let tracer_provider = opentelemetry_sdk::trace::SdkTracerProvider::builder()
         .with_batch_exporter(otlp_exporter)
         .with_id_generator(RandomIdGenerator::default())
-        .with_max_events_per_span(64)
-        .with_max_attributes_per_span(16)
+        .with_max_events_per_span(config.observability.max_events_per_span)
+        .with_max_attributes_per_span(config.observability.max_attributes_per_span)
         .with_resource(
             Resource::builder_empty()
                 .with_attributes([KeyValue::new("service.name", service_name.clone())])

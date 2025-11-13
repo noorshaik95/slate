@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+use crate::circuit_breaker::CircuitBreakerConfig;
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct GatewayConfig {
     pub server: ServerConfig,
@@ -17,6 +19,12 @@ pub struct GatewayConfig {
 pub struct ServerConfig {
     pub host: String,
     pub port: u16,
+    #[serde(default = "default_request_timeout_ms")]
+    pub request_timeout_ms: u64,
+}
+
+fn default_request_timeout_ms() -> u64 {
+    30000 // 30 seconds
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -41,6 +49,8 @@ pub struct ServiceConfig {
     pub tls_domain: Option<String>,
     #[serde(default)]
     pub tls_ca_cert_path: Option<String>,
+    #[serde(default)]
+    pub circuit_breaker: CircuitBreakerConfig,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -60,6 +70,24 @@ pub struct RateLimitConfig {
 pub struct ObservabilityConfig {
     pub tempo_endpoint: String,
     pub service_name: String,
+    #[serde(default = "default_otlp_timeout_secs")]
+    pub otlp_timeout_secs: u64,
+    #[serde(default = "default_max_events_per_span")]
+    pub max_events_per_span: u32,
+    #[serde(default = "default_max_attributes_per_span")]
+    pub max_attributes_per_span: u32,
+}
+
+fn default_otlp_timeout_secs() -> u64 {
+    3 // 3 seconds
+}
+
+fn default_max_events_per_span() -> u32 {
+    64
+}
+
+fn default_max_attributes_per_span() -> u32 {
+    16
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

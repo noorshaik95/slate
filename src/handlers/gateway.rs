@@ -7,7 +7,7 @@ use axum::{
 };
 use std::net::SocketAddr;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use tracing::{debug, error, info, warn};
 
 use crate::auth::middleware::AuthContext;
@@ -17,7 +17,30 @@ use crate::shared::state::AppState;
 use super::constants::*;
 use super::types::{GatewayError, map_grpc_error_to_status};
 
-/// Main gateway handler that processes all incoming requests
+/// Main gateway handler with timeout wrapper
+///
+/// Wraps the actual handler with a configurable timeout to prevent hanging requests
+pub async fn gateway_handler(
+    State(state): State<Arc<AppState>>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    request: Request<Body>,
+) -> Result<Response, GatewayError> {
+    let timeout_duration = Duration::from_millis(state.config.server.request_timeout_ms);
+
+    match tokio::time::timeout(
+        timeout_duration,
+        gateway_handler_inner(State(state), ConnectInfo(addr), headers, request)
+    ).await {
+        Ok(result) => result,
+        Err(_) => {
+            error!(timeout_ms = ?timeout_duration.as_millis(), "Request timeout exceeded");
+            Err(GatewayError::Timeout)
+        }
+    }
+}
+
+/// Inner gateway handler that processes all incoming requests
 ///
 /// This handler:
 /// 1. Routes the request to determine target service
@@ -29,7 +52,7 @@ use super::types::{GatewayError, map_grpc_error_to_status};
 /// 7. Converts gRPC response to HTTP
 /// 8. Handles errors and maps to appropriate HTTP status codes
 /// 9. Emits traces and metrics
-pub async fn gateway_handler(
+async fn gateway_handler_inner(
     State(state): State<Arc<AppState>>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
@@ -70,28 +93,23 @@ pub async fn gateway_handler(
         }
     }
 
-    // Route the request to determine target service
-    let router_guard = state.router_lock.read().await;
-    let result = router_guard.route(&path, &method);
-    drop(router_guard);
-
-    let routing_decision = match result {
-        Ok(decision) => decision,
-        Err(e) => {
-            warn!(
+    // Get routing decision from request extensions (set by auth middleware)
+    // This avoids duplicate route lookup and improves performance
+    let routing_decision = request.extensions().get::<crate::router::RoutingDecision>()
+        .cloned()
+        .ok_or_else(|| {
+            error!(
                 path = %path,
                 method = %method,
-                error = %e,
-                "Route not found"
+                "Routing decision not found in request extensions (auth middleware may have failed)"
             );
 
             state.metrics.request_counter
-                .with_label_values(&[path.as_str(), method.as_str(), "404"])
+                .with_label_values(&[path.as_str(), method.as_str(), "500"])
                 .inc();
 
-            return Err(GatewayError::RouteNotFound(e));
-        }
-    };
+            GatewayError::InternalError("Missing routing decision".to_string())
+        })?;
 
     debug!(
         service = %routing_decision.service,
@@ -154,37 +172,79 @@ pub async fn gateway_handler(
         "Calling backend service via gRPC"
     );
 
-    // Call backend service via gRPC
-    // Note: For now, we'll use a placeholder since we need service-specific clients
-    // In a real implementation, this would use the generated proto clients
-    let grpc_response = match call_backend_service(
-        service_channel,
-        &routing_decision.grpc_method,
-        grpc_request,
-    )
-    .await
-    {
-        Ok(resp) => resp,
-        Err(e) => {
-            error!(
-                service = %routing_decision.service,
-                grpc_method = %routing_decision.grpc_method,
-                error = %e,
-                "Backend service call failed"
-            );
-            
-            let status_code = map_grpc_error_to_status(&e);
-            
-            let status_str = status_code.as_u16().to_string();
-            state.metrics.request_counter
-                .with_label_values(&[path.as_str(), method.as_str(), &status_str])
-                .inc();
-            
-            state.metrics.grpc_call_counter
-                .with_label_values(&[routing_decision.service.as_str(), routing_decision.grpc_method.as_str(), "error"])
-                .inc();
-            
-            return Err(e);
+    // Call backend service via gRPC with circuit breaker protection
+    let grpc_response = if let Some(circuit_breaker) = state.grpc_pool.get_circuit_breaker(&routing_decision.service) {
+        // Use circuit breaker for this service
+        match circuit_breaker.call(call_backend_service(
+            service_channel.clone(),
+            &routing_decision.grpc_method,
+            grpc_request.clone(),
+        )).await {
+            Ok(resp) => resp,
+            Err(crate::circuit_breaker::CircuitBreakerError::Open) => {
+                warn!(
+                    service = %routing_decision.service,
+                    "Circuit breaker is OPEN - rejecting request"
+                );
+
+                state.metrics.request_counter
+                    .with_label_values(&[path.as_str(), method.as_str(), "503"])
+                    .inc();
+
+                state.metrics.grpc_call_counter
+                    .with_label_values(&[routing_decision.service.as_str(), routing_decision.grpc_method.as_str(), "circuit_open"])
+                    .inc();
+
+                return Err(GatewayError::ServiceUnavailable(
+                    format!("Service {} is currently unavailable (circuit breaker open)", routing_decision.service)
+                ));
+            }
+            Err(crate::circuit_breaker::CircuitBreakerError::OperationFailed(e)) => {
+                error!(
+                    service = %routing_decision.service,
+                    grpc_method = %routing_decision.grpc_method,
+                    error = %e,
+                    "Backend service call failed"
+                );
+
+                state.metrics.grpc_call_counter
+                    .with_label_values(&[routing_decision.service.as_str(), routing_decision.grpc_method.as_str(), "error"])
+                    .inc();
+
+                return Err(GatewayError::GrpcCallFailed(e));
+            }
+        }
+    } else {
+        // No circuit breaker configured, call directly
+        match call_backend_service(
+            service_channel,
+            &routing_decision.grpc_method,
+            grpc_request,
+        )
+        .await
+        {
+            Ok(resp) => resp,
+            Err(e) => {
+                error!(
+                    service = %routing_decision.service,
+                    grpc_method = %routing_decision.grpc_method,
+                    error = %e,
+                    "Backend service call failed"
+                );
+
+                let status_code = map_grpc_error_to_status(&e);
+
+                let status_str = status_code.as_u16().to_string();
+                state.metrics.request_counter
+                    .with_label_values(&[path.as_str(), method.as_str(), &status_str])
+                    .inc();
+
+                state.metrics.grpc_call_counter
+                    .with_label_values(&[routing_decision.service.as_str(), routing_decision.grpc_method.as_str(), "error"])
+                    .inc();
+
+                return Err(e);
+            }
         }
     };
 
