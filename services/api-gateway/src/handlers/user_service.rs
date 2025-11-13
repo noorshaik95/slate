@@ -6,7 +6,9 @@ use tracing::{debug, error};
 
 /// Inject trace context into gRPC request metadata
 fn inject_trace_context<T>(mut request: tonic::Request<T>) -> tonic::Request<T> {
-    use opentelemetry::propagation::{Injector, TextMapPropagator};
+    use opentelemetry::propagation::Injector;
+    use opentelemetry::trace::TraceContextExt;
+    use tracing_opentelemetry::OpenTelemetrySpanExt;
     
     struct MetadataInjector<'a>(&'a mut tonic::metadata::MetadataMap);
     
@@ -15,15 +17,19 @@ fn inject_trace_context<T>(mut request: tonic::Request<T>) -> tonic::Request<T> 
             if let Ok(metadata_key) = tonic::metadata::MetadataKey::from_bytes(key.as_bytes()) {
                 if let Ok(metadata_value) = tonic::metadata::MetadataValue::try_from(&value) {
                     self.0.insert(metadata_key, metadata_value);
+                    debug!(key = %key, "Injected trace header into gRPC metadata");
                 }
             }
         }
     }
     
-    let context = opentelemetry::Context::current();
-    let mut injector = MetadataInjector(request.metadata_mut());
+    // CRITICAL: Extract the OpenTelemetry context from the current tracing span
+    // This ensures we propagate the correct trace context across service boundaries
+    let current_span = tracing::Span::current();
+    let context = current_span.context();
     
-    // Use the global propagator with a closure
+    // Inject the context into gRPC metadata using the global propagator
+    let mut injector = MetadataInjector(request.metadata_mut());
     opentelemetry::global::get_text_map_propagator(|propagator| {
         propagator.inject_context(&context, &mut injector);
     });
@@ -32,6 +38,7 @@ fn inject_trace_context<T>(mut request: tonic::Request<T>) -> tonic::Request<T> 
 }
 
 /// Handle user service gRPC calls with proper protobuf types
+#[tracing::instrument(skip(channel, json_payload), fields(grpc.service = "user.UserService", grpc.method = %method))]
 pub async fn call_user_service(
     channel: Channel,
     method: &str,
@@ -43,6 +50,7 @@ pub async fn call_user_service(
         "Calling user service with typed client"
     );
 
+    // Create client - we'll inject trace context manually for each request
     let mut client = UserServiceClient::new(channel);
 
     // Parse JSON manually for each request type
@@ -61,7 +69,8 @@ pub async fn call_user_service(
 
             debug!(email = %request.email, "Registering user");
             
-            let grpc_request = inject_trace_context(tonic::Request::new(request));
+            let mut grpc_request = tonic::Request::new(request);
+            grpc_request = inject_trace_context(grpc_request);
             
             let response = client
                 .register(grpc_request)
@@ -97,7 +106,8 @@ pub async fn call_user_service(
 
             debug!(email = %request.email, "Logging in user");
             
-            let grpc_request = inject_trace_context(tonic::Request::new(request));
+            let mut grpc_request = tonic::Request::new(request);
+            grpc_request = inject_trace_context(grpc_request);
             
             let response = client
                 .login(grpc_request)

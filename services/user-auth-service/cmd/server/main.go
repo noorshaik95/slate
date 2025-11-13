@@ -110,7 +110,10 @@ func main() {
 
 	// Initialize gRPC server with OpenTelemetry interceptors
 	grpcServer := grpc.NewServer(
-		grpc.StatsHandler(otelgrpc.NewServerHandler()),
+		grpc.StatsHandler(otelgrpc.NewServerHandler()), // OpenTelemetry stats handler (new API)
+		grpc.ChainUnaryInterceptor(
+			tracing.LoggingUnaryInterceptor(), // Debug interceptor
+		),
 	)
 
 	// Register services

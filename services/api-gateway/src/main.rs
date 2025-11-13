@@ -103,6 +103,13 @@ async fn main() -> anyhow::Result<()> {
     let tracer = tracer_provider.tracer(service_name.clone());
     global::set_tracer_provider(tracer_provider);
 
+    // Set global propagator to W3C Trace Context (CRITICAL for trace propagation!)
+    use opentelemetry::propagation::TextMapPropagator;
+    let propagator = opentelemetry_sdk::propagation::TraceContextPropagator::new();
+    global::set_text_map_propagator(propagator);
+    
+    info!("OpenTelemetry propagator configured: W3C Trace Context");
+
     // Create OpenTelemetry tracing layer
     let telemetry = tracing_opentelemetry::layer().with_tracer(tracer);
 

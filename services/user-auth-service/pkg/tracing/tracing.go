@@ -65,11 +65,12 @@ func InitTracer(cfg Config) (*sdktrace.TracerProvider, error) {
 	// Set global tracer provider
 	otel.SetTracerProvider(tp)
 
-	// Set global propagator to W3C Trace Context
-	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
+	// Set global propagator to W3C Trace Context (CRITICAL for trace propagation!)
+	propagator := propagation.NewCompositeTextMapPropagator(
 		propagation.TraceContext{},
 		propagation.Baggage{},
-	))
+	)
+	otel.SetTextMapPropagator(propagator)
 
 	return tp, nil
 }
