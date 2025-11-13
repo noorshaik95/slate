@@ -12,7 +12,8 @@ bin/
 go.work
 
 # Build artifacts
-server
+/server
+bin/server
 *.pb.go
 api/proto/*.pb.go
 
