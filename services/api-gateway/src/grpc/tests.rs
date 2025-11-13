@@ -3,12 +3,18 @@ use std::collections::HashMap;
 
 #[test]
 fn test_service_config_creation() {
+    use crate::circuit_breaker::CircuitBreakerConfig;
+    
     let config = crate::config::ServiceConfig {
         name: "test-service".to_string(),
         endpoint: "http://localhost:50051".to_string(),
         timeout_ms: 5000,
         connection_pool_size: 5,
         auto_discover: true,
+        tls_enabled: false,
+        tls_domain: None,
+        tls_ca_cert_path: None,
+        circuit_breaker: CircuitBreakerConfig::default(),
     };
     
     assert_eq!(config.name, "test-service");

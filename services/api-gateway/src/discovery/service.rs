@@ -262,6 +262,7 @@ impl RouteDiscoveryService {
     /// * `self` - Arc-wrapped self for sharing across async tasks
     /// * `router` - Arc<RwLock<>> wrapped router for thread-safe updates
     /// * `services` - Map of service configurations to refresh from
+    /// * `route_overrides` - Manual route overrides to apply after each discovery cycle
     ///
     /// # Returns
     /// * `JoinHandle<()>` - Handle to the background task
@@ -269,6 +270,7 @@ impl RouteDiscoveryService {
         self: Arc<Self>,
         router: Arc<RwLock<RequestRouter>>,
         services: HashMap<String, ServiceConfig>,
+        route_overrides: Vec<RouteOverride>,
     ) -> JoinHandle<()> {
         let interval_secs = self.config.refresh_interval_seconds;
 
@@ -377,10 +379,17 @@ impl RouteDiscoveryService {
                     }
                 }
 
+                // Apply route overrides before deduplication
+                let all_routes = self.apply_overrides(all_routes, &route_overrides);
+                info!(
+                    overrides_configured = route_overrides.len(),
+                    "Applied route overrides during periodic refresh"
+                );
+
                 // Deduplicate routes (in case of conflicts across services)
                 let all_routes = RouteValidator::deduplicate_routes(all_routes);
 
-                // Update router with combined routes
+                // Update router with combined routes (including overrides)
                 let route_count = all_routes.len();
                 let mut router_guard = router.write().await;
                 router_guard.update_routes(all_routes);

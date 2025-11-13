@@ -94,12 +94,16 @@ This monorepo contains two main microservices:
 
 ### API Gateway (Rust)
 - ✅ **Dynamic Route Discovery**: Auto-discover routes from gRPC reflection
-- ✅ **Protocol Translation**: HTTP/REST ↔ gRPC conversion
-- ✅ **Authentication**: JWT validation via auth service
-- ✅ **Rate Limiting**: Per-IP rate limiting with sliding window
-- ✅ **Circuit Breaker**: Prevent cascading failures
-- ✅ **Observability**: Metrics, tracing, and logging
-- ✅ **High Performance**: Built with Axum and Tokio
+- ✅ **Protocol Translation**: HTTP/REST ↔ gRPC conversion with dynamic dispatch
+- ✅ **Authentication**: JWT validation via user-auth-service
+- ✅ **Connection Pooling**: Round-robin connection pool for high throughput
+- ✅ **Rate Limiting**: Per-IP rate limiting with sliding window and automatic cleanup
+- ✅ **Circuit Breaker**: Prevent cascading failures with state machine pattern
+- ✅ **Request Timeouts**: Configurable timeouts to prevent resource exhaustion
+- ✅ **Security**: Path traversal protection, body size limits, CORS support
+- ✅ **Health Checks**: Separate liveness and readiness probes for Kubernetes
+- ✅ **Observability**: Metrics, distributed tracing (W3C), and structured logging
+- ✅ **High Performance**: Built with Axum and Tokio, production-ready
 
 ### Observability Stack
 - **Grafana**: Visualization and dashboards
@@ -320,10 +324,48 @@ CREATE TABLE user_roles (
 
 ### Distributed Tracing
 
-View traces in Grafana (http://localhost:3000):
-- Request flow across services
-- Latency breakdown by service
-- Error propagation
+**Full end-to-end tracing** from API Gateway through to backend services using OpenTelemetry and Grafana Tempo.
+
+**Quick Start**:
+```bash
+# Generate traces
+./test_distributed_tracing.sh
+
+# Or manually
+curl -X POST http://localhost:8080/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com","password":"Test123!","first_name":"Test","last_name":"User","phone":"+1234567890"}'
+```
+
+**View in Grafana** (http://localhost:3000):
+1. Navigate to Explore → Select "Tempo"
+2. Use TraceQL queries:
+   ```traceql
+   # All traces
+   { }
+   
+   # By service
+   { resource.service.name = "api-gateway" }
+   { resource.service.name = "user-auth-service" }
+   
+   # By operation
+   { span.name = "user.UserService/Register" }
+   
+   # Errors only
+   { status = error }
+   ```
+
+**Features**:
+- ✅ W3C Trace Context propagation
+- ✅ Request flow visualization across services
+- ✅ Latency breakdown by service and operation
+- ✅ Error propagation and debugging
+- ✅ Service dependency mapping
+
+**Documentation**:
+- Quick Start: `TRACING_QUICK_START.md`
+- Full Setup: `DISTRIBUTED_TRACING_SETUP.md`
+- Implementation: `TRACING_IMPLEMENTATION_SUMMARY.md`
 
 ### Logs
 
@@ -378,6 +420,30 @@ go test -v ./...
 cd services/api-gateway
 cargo test
 ```
+
+### Smoke Tests
+
+Run end-to-end smoke tests to verify the full stack:
+
+```bash
+# Start the full stack first
+docker-compose up -d
+
+# Wait for services to be ready
+sleep 10
+
+# Run smoke tests
+./tests/smoke_test.sh
+```
+
+The smoke tests verify:
+- ✅ Gateway health endpoints (liveness/readiness)
+- ✅ Metrics endpoint
+- ✅ User registration and login flows
+- ✅ Authenticated API calls
+- ✅ CORS headers (if enabled)
+- ✅ Rate limiting
+- ✅ Path traversal protection
 
 ### Integration Testing with grpcurl
 

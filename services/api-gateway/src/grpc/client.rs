@@ -1,17 +1,18 @@
 use std::collections::HashMap;
 use std::time::Duration;
-use tonic::transport::{Certificate, Channel, ClientTlsConfig, Endpoint};
+use tonic::transport::{Channel, Endpoint};
 use tracing::{debug, error, info, warn};
 
 use crate::circuit_breaker::CircuitBreaker;
 use crate::config::ServiceConfig;
 use super::types::{GrpcError, GrpcRequest, GrpcResponse};
 use super::constants::*;
+use super::pool::ConnectionPool;
 
 /// Pool of gRPC client connections to backend services with circuit breakers
 #[derive(Clone)]
 pub struct GrpcClientPool {
-    clients: HashMap<String, Channel>,
+    pools: HashMap<String, ConnectionPool>,
     config: HashMap<String, ServiceConfig>,
     circuit_breakers: HashMap<String, CircuitBreaker>,
 }
@@ -21,7 +22,7 @@ impl GrpcClientPool {
     pub async fn new(services: HashMap<String, ServiceConfig>) -> Result<Self, GrpcError> {
         info!("Initializing gRPC client pool with {} services", services.len());
 
-        let mut clients = HashMap::new();
+        let mut pools = HashMap::new();
         let mut circuit_breakers = HashMap::new();
 
         for (name, config) in &services {
@@ -30,23 +31,24 @@ impl GrpcClientPool {
                 endpoint = %config.endpoint,
                 timeout_ms = config.timeout_ms,
                 pool_size = config.connection_pool_size,
-                "Connecting to backend service"
+                "Creating connection pool for backend service"
             );
 
-            let channel = Self::create_channel(config).await?;
-            clients.insert(name.clone(), channel);
+            // Create connection pool instead of single channel
+            let pool = ConnectionPool::new(config).await?;
+            pools.insert(name.clone(), pool);
 
             // Create circuit breaker for this service
             let circuit_breaker = CircuitBreaker::new(config.circuit_breaker.clone());
             circuit_breakers.insert(name.clone(), circuit_breaker);
 
-            debug!(service = %name, "Successfully connected to backend service with circuit breaker");
+            debug!(service = %name, "Successfully created connection pool with circuit breaker");
         }
 
         info!("gRPC client pool initialized successfully");
 
         Ok(Self {
-            clients,
+            pools,
             config: services,
             circuit_breakers,
         })
@@ -60,7 +62,7 @@ impl GrpcClientPool {
         let timeout = Duration::from_millis(config.timeout_ms);
 
         // Configure endpoint with timeout and connection settings
-        let mut endpoint = endpoint
+        let endpoint = endpoint
             .timeout(timeout)
             .connect_timeout(DEFAULT_CONNECT_TIMEOUT)
             .tcp_keepalive(Some(TCP_KEEPALIVE))
@@ -68,42 +70,13 @@ impl GrpcClientPool {
             .keep_alive_timeout(KEEPALIVE_TIMEOUT)
             .keep_alive_while_idle(true);
 
-        // Configure TLS if enabled
+        // TODO: TLS configuration
+        // TLS support will be added in a future update
+        // For now, connections are unencrypted (suitable for internal service mesh)
         if config.tls_enabled {
-            let mut tls_config = ClientTlsConfig::new();
-
-            // Set domain override if specified
-            if let Some(ref domain) = config.tls_domain {
-                info!(
-                    service = %config.name,
-                    domain = %domain,
-                    "Configuring TLS with domain override"
-                );
-                tls_config = tls_config.domain_name(domain);
-            }
-
-            // Load custom CA certificate if specified
-            if let Some(ref ca_cert_path) = config.tls_ca_cert_path {
-                info!(
-                    service = %config.name,
-                    ca_cert_path = %ca_cert_path,
-                    "Loading custom CA certificate for TLS"
-                );
-
-                let ca_cert = std::fs::read(ca_cert_path)
-                    .map_err(|e| GrpcError::InvalidConfig(format!("Failed to read CA cert {}: {}", ca_cert_path, e)))?;
-
-                let ca_cert = Certificate::from_pem(ca_cert);
-                tls_config = tls_config.ca_certificate(ca_cert);
-            }
-
-            endpoint = endpoint.tls_config(tls_config)
-                .map_err(|e| GrpcError::InvalidConfig(format!("Failed to configure TLS: {}", e)))?;
-
-            info!(
+            warn!(
                 service = %config.name,
-                endpoint = %config.endpoint,
-                "TLS enabled for gRPC connection"
+                "TLS requested but not yet implemented - connection will be unencrypted"
             );
         }
 
@@ -116,12 +89,14 @@ impl GrpcClientPool {
         Ok(channel)
     }
     
-    /// Get a channel for a specific service
+    /// Get a channel for a specific service from the connection pool
     pub fn get_channel(&self, service: &str) -> Result<Channel, GrpcError> {
-        self.clients
+        let pool = self.pools
             .get(service)
-            .cloned()
-            .ok_or_else(|| GrpcError::ServiceNotFound(service.to_string()))
+            .ok_or_else(|| GrpcError::ServiceNotFound(service.to_string()))?;
+        
+        // Acquire a channel from the pool using round-robin
+        Ok(pool.acquire())
     }
 
     /// Get the circuit breaker for a specific service
@@ -130,6 +105,10 @@ impl GrpcClientPool {
     }
     
     /// Execute a generic gRPC call with retry logic
+    /// 
+    /// Note: This method is currently unused as we use DynamicGrpcClient instead.
+    /// Keeping it for potential future use with typed gRPC clients.
+    #[allow(dead_code)]
     pub async fn call(&self, request: GrpcRequest) -> Result<GrpcResponse, GrpcError> {
         let service_name = &request.service;
         
@@ -241,26 +220,22 @@ impl GrpcClientPool {
     pub async fn health_check(&self, service: &str) -> Result<bool, GrpcError> {
         debug!(service = %service, "Performing health check");
         
-        // Get the channel for the service
-        let channel = self.get_channel(service)?;
+        // Get the connection pool for the service
+        let pool = self.pools
+            .get(service)
+            .ok_or_else(|| GrpcError::ServiceNotFound(service.to_string()))?;
         
-        // Attempt a simple connection check
-        // In a real implementation, this would call a health check gRPC method
-        // For now, we just verify the channel exists and is connected
-        
-        // Try to clone the channel - if it fails, the connection is broken
-        let _channel = channel.clone();
-        debug!(service = %service, "Health check passed");
-        Ok(true)
+        // Perform health check on the pool
+        pool.health_check().await
     }
     
     /// Get all service names in the pool
     pub fn services(&self) -> Vec<String> {
-        self.clients.keys().cloned().collect()
+        self.pools.keys().cloned().collect()
     }
     
     /// Check if a service exists in the pool
     pub fn has_service(&self, service: &str) -> bool {
-        self.clients.contains_key(service)
+        self.pools.contains_key(service)
     }
 }

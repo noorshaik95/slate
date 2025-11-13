@@ -21,8 +21,8 @@ services:
   # User Auth Service (Go)
   user-auth-service:
     build:
-      context: ./services/user-auth-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/user-auth-service/Dockerfile
     environment:
       SERVER_HOST: "0.0.0.0"
       SERVER_PORT: "8081"
@@ -37,19 +37,22 @@ services:
       JWT_REFRESH_TOKEN_DURATION: "168"
       GRPC_HOST: "0.0.0.0"
       GRPC_PORT: "50051"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "tempo:4317"
     ports:
       - "50051:50051"
       - "8081:8081"
     depends_on:
       postgres:
         condition: service_healthy
+      tempo:
+        condition: service_started
     restart: unless-stopped
 
   # API Gateway (Rust/Axum)
   api-gateway:
     build:
-      context: ./services/api-gateway
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
     environment:
       RUST_LOG: info,debug
       GATEWAY_SERVER_HOST: "0.0.0.0"

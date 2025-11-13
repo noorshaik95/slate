@@ -2,6 +2,7 @@ mod types;
 mod constants;
 pub mod gateway;
 pub mod admin;
+pub mod user_service;
 
 #[cfg(test)]
 mod tests;

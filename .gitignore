@@ -1,4 +1,5 @@
 # Rust
+services/api-gateway/target/
 /target/
 Cargo.lock
 

@@ -18,6 +18,9 @@ pub enum GrpcError {
     
     #[error("Invalid configuration: {0}")]
     InvalidConfig(String),
+    
+    #[error("Conversion error: {0}")]
+    ConversionError(String),
 }
 
 impl From<tonic::transport::Error> for GrpcError {

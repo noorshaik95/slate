@@ -9,6 +9,7 @@ use super::types::{ClientRateState, RateLimitError};
 use super::constants::{EXCLUDED_PATHS, CLEANUP_THRESHOLD_MULTIPLIER};
 
 /// Rate limiter that tracks requests per client IP using a sliding window algorithm
+#[derive(Clone)]
 pub struct RateLimiter {
     store: Arc<RwLock<HashMap<IpAddr, ClientRateState>>>,
     config: RateLimitConfig,

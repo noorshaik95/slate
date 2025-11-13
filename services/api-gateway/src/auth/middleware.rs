@@ -53,6 +53,7 @@ pub struct AuthMiddlewareState {
     pub auth_service: Arc<AuthService>,
     pub grpc_pool: Arc<GrpcClientPool>,
     pub router_lock: Arc<RwLock<RequestRouter>>,
+    pub public_routes: Vec<(String, String)>, // (path, method) tuples
 }
 
 /// Authorization middleware that enforces dynamic auth policies
@@ -69,8 +70,8 @@ pub async fn auth_middleware(
     mut request: Request<Body>,
     next: Next,
 ) -> Result<Response, AuthMiddlewareResponse> {
-    let path = request.uri().path();
-    let method = request.method().as_str();
+    let path = request.uri().path().to_string();
+    let method = request.method().as_str().to_string();
 
     debug!(
         path = %path,
@@ -88,7 +89,7 @@ pub async fn auth_middleware(
 
     // Route the request to determine target service and gRPC method
     let router_guard = state.router_lock.read().await;
-    let routing_decision = match router_guard.route(path, method) {
+    let routing_decision = match router_guard.route(&path, &method) {
         Ok(decision) => {
             let result = decision.clone();
             drop(router_guard);
@@ -115,6 +116,15 @@ pub async fn auth_middleware(
     // Store routing decision in request extensions for reuse in gateway handler
     // This avoids duplicate route lookup
     request.extensions_mut().insert(routing_decision.clone());
+
+    // Check if this is a public route (after routing so we have the decision)
+    let is_public = state.public_routes.iter().any(|(p, m)| p == &path && m == &method);
+    if is_public {
+        debug!(path = %path, method = %method, "Skipping auth for public route");
+        let auth_ctx = AuthContext::unauthenticated();
+        request.extensions_mut().insert(auth_ctx);
+        return Ok(next.run(request).await);
+    }
 
     // Get channel for the backend service
     let service_channel = match state.grpc_pool.get_channel(&routing_decision.service) {

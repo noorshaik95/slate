@@ -5,8 +5,11 @@ mod discovery;
 mod grpc;
 mod handlers;
 mod health;
+mod observability;
+mod proto;
 mod rate_limit;
 mod router;
+mod security;
 mod shared;
 
 
@@ -35,7 +38,7 @@ use crate::discovery::RouteDiscoveryService;
 use crate::grpc::client::GrpcClientPool;
 use crate::handlers::gateway::gateway_handler;
 use crate::handlers::refresh_routes_handler;
-use crate::health::{health_handler, HealthChecker};
+use crate::health::{health_handler, liveness_handler, readiness_handler, HealthChecker};
 use crate::rate_limit::RateLimiter;
 use crate::router::RequestRouter;
 use crate::shared::state::AppState;
@@ -246,17 +249,27 @@ async fn main() -> anyhow::Result<()> {
     let health_checker = Arc::new(HealthChecker::new(shared_state.grpc_pool.clone()));
 
     // Create auth middleware state
+    let public_routes: Vec<(String, String)> = config
+        .auth
+        .public_routes
+        .iter()
+        .map(|r| (r.path.clone(), r.method.clone()))
+        .collect();
+    
     let auth_middleware_state = auth::middleware::AuthMiddlewareState {
         auth_service: shared_state.auth_service.clone(),
         grpc_pool: shared_state.grpc_pool.clone(),
         router_lock: shared_state.router_lock.clone(),
+        public_routes,
     };
 
     // Build Axum router
     info!("Building HTTP router");
-    let app = Router::new()
-        // Health check endpoint
+    let mut app = Router::new()
+        // Health check endpoints
         .route("/health", get(health_handler))
+        .route("/health/live", get(liveness_handler))
+        .route("/health/ready", get(readiness_handler))
         .with_state(health_checker)
         // Metrics endpoint
         .route("/metrics", get(metrics))
@@ -284,13 +297,75 @@ async fn main() -> anyhow::Result<()> {
         // Add tracing layer
         .layer(TraceLayer::new_for_http());
 
+    // Add CORS middleware if enabled
+    if let Some(cors_config) = &config.cors {
+        if cors_config.enabled {
+            use tower_http::cors::{CorsLayer, Any};
+            use axum::http::Method;
+
+            info!("Configuring CORS middleware");
+
+            let mut cors = CorsLayer::new();
+
+            // Configure allowed origins
+            if cors_config.allowed_origins.contains(&"*".to_string()) {
+                cors = cors.allow_origin(Any);
+            } else {
+                for origin in &cors_config.allowed_origins {
+                    if let Ok(origin_header) = origin.parse::<axum::http::HeaderValue>() {
+                        cors = cors.allow_origin(origin_header);
+                    }
+                }
+            }
+
+            // Configure allowed methods
+            let methods: Vec<Method> = cors_config
+                .allowed_methods
+                .iter()
+                .filter_map(|m| m.parse().ok())
+                .collect();
+            cors = cors.allow_methods(methods);
+
+            // Configure allowed headers
+            if !cors_config.allowed_headers.is_empty() {
+                let headers: Vec<_> = cors_config
+                    .allowed_headers
+                    .iter()
+                    .filter_map(|h| h.parse().ok())
+                    .collect();
+                cors = cors.allow_headers(headers);
+            }
+
+            // Configure exposed headers
+            if !cors_config.expose_headers.is_empty() {
+                let headers: Vec<_> = cors_config
+                    .expose_headers
+                    .iter()
+                    .filter_map(|h| h.parse().ok())
+                    .collect();
+                cors = cors.expose_headers(headers);
+            }
+
+            // Configure max age
+            cors = cors.max_age(std::time::Duration::from_secs(cors_config.max_age_seconds));
+
+            // Configure credentials
+            if cors_config.allow_credentials {
+                cors = cors.allow_credentials(true);
+            }
+
+            app = app.layer(cors);
+            info!("CORS middleware configured successfully");
+        }
+    }
+
     // Start periodic refresh background task (if discovery is enabled)
-    let refresh_task_handle = if let (Some(discovery_svc), Some(router_lck)) = 
-        (shared_state.discovery_service.clone(), shared_state.router_lock.clone()) 
-    {
+    let refresh_task_handle = if let Some(discovery_svc) = shared_state.discovery_service.clone() {
         info!("Starting periodic refresh background task");
         let services = config.services.clone();
-        Some(discovery_svc.start_refresh_task(router_lck, services))
+        let router_lck = shared_state.router_lock.clone();
+        let route_overrides = config.route_overrides.clone();
+        Some(discovery_svc.start_refresh_task(router_lck, services, route_overrides))
     } else {
         None
     };
@@ -318,7 +393,7 @@ async fn main() -> anyhow::Result<()> {
                 rx.await.ok();
             })
             .await
-            .unwrap();
+            .expect("Server failed to start or encountered an error during execution");
     });
 
     info!("API Gateway is ready to accept requests");

@@ -301,6 +301,7 @@ async fn gateway_handler_inner(
 /// Convert HTTP request to gRPC format
 ///
 /// This function:
+/// - Validates and sanitizes path parameters
 /// - Extracts the request body
 /// - Includes path parameters in the payload
 /// - Propagates trace headers as gRPC metadata
@@ -313,12 +314,24 @@ pub(crate) async fn convert_http_to_grpc(
     auth_context: Option<&AuthContext>,
 ) -> Result<Vec<u8>, GatewayError> {
     use axum::body::to_bytes;
+    use crate::security::PathValidator;
     
     debug!(
         grpc_method = %grpc_method,
         path_params = ?path_params,
         "Converting HTTP request to gRPC"
     );
+
+    // Validate and sanitize path parameters to prevent directory traversal attacks
+    let sanitized_params = if !path_params.is_empty() {
+        PathValidator::sanitize_path_params(path_params)
+            .map_err(|e| {
+                error!(error = %e, "Path parameter validation failed");
+                GatewayError::ConversionError(format!("Invalid path parameter: {}", e))
+            })?
+    } else {
+        path_params.clone()
+    };
 
     // Extract request body with size limit to prevent memory exhaustion attacks
     let body_bytes = to_bytes(request.into_body(), super::constants::MAX_REQUEST_BODY_SIZE)
@@ -333,10 +346,10 @@ pub(crate) async fn convert_http_to_grpc(
             .map_err(|e| GatewayError::ConversionError(format!("{}: {}", ERR_MSG_INVALID_JSON, e)))?
     };
 
-    // Merge path parameters into payload
-    if !path_params.is_empty() {
+    // Merge sanitized path parameters into payload
+    if !sanitized_params.is_empty() {
         if let Some(obj) = payload.as_object_mut() {
-            for (key, value) in path_params {
+            for (key, value) in &sanitized_params {
                 obj.insert(key.clone(), serde_json::Value::String(value.clone()));
             }
         }
@@ -356,23 +369,9 @@ pub(crate) async fn convert_http_to_grpc(
         }
     }
 
-    // Extract trace headers for propagation
-    let mut trace_metadata = std::collections::HashMap::new();
-    for header_name in TRACE_HEADERS {
-        if let Some(value) = headers.get(*header_name) {
-            if let Ok(value_str) = value.to_str() {
-                trace_metadata.insert(header_name.to_string(), value_str.to_string());
-            }
-        }
-    }
-
-    // Add trace metadata to payload for now
-    // In a real implementation, this would be sent as gRPC metadata
-    if !trace_metadata.is_empty() {
-        if let Some(obj) = payload.as_object_mut() {
-            obj.insert(METADATA_TRACE.to_string(), serde_json::json!(trace_metadata));
-        }
-    }
+    // Note: Trace headers are now extracted and injected into gRPC metadata
+    // by the DynamicGrpcClient, not added to the payload
+    // This ensures proper W3C trace context propagation
 
     // Serialize to bytes
     let payload_bytes = serde_json::to_vec(&payload)
@@ -406,42 +405,83 @@ pub(crate) async fn convert_grpc_to_http(grpc_response: Vec<u8>) -> Result<Respo
     Ok(response)
 }
 
-/// Call backend service via gRPC
+/// Call backend service via gRPC using dynamic client
 ///
-/// Note: This is a placeholder implementation. In a real system, this would:
-/// 1. Use the service-specific generated proto clients
-/// 2. Make actual gRPC calls with proper request/response types
-/// 3. Handle streaming if needed
-///
-/// For now, we'll return a mock response to demonstrate the flow
+/// This function:
+/// 1. Routes to appropriate typed client based on service
+/// 2. Makes the actual gRPC call with proper protobuf types
+/// 3. Returns the response
 pub(crate) async fn call_backend_service(
-    _channel: tonic::transport::Channel,
+    channel: tonic::transport::Channel,
     grpc_method: &str,
-    _request_payload: Vec<u8>,
+    request_payload: Vec<u8>,
 ) -> Result<Vec<u8>, GatewayError> {
     debug!(
         grpc_method = %grpc_method,
-        "Calling backend service (placeholder implementation)"
+        payload_size = request_payload.len(),
+        "Calling backend service with typed client"
     );
 
-    // TODO: Implement actual gRPC calls using service-specific clients
-    // For now, return a placeholder response
-    warn!(
-        grpc_method = %grpc_method,
-        ERR_MSG_PLACEHOLDER_GRPC
-    );
+    // Extract service name from grpc_method (format: "service.ServiceName/Method")
+    let service_name = grpc_method
+        .split('/')
+        .next()
+        .ok_or_else(|| GatewayError::ConversionError("Invalid gRPC method format".to_string()))?;
 
-    // Return a mock success response
-    let mock_response = serde_json::json!({
-        "success": true,
-        "message": "Placeholder response - gRPC call not yet implemented",
-        "method": grpc_method
-    });
+    let method_name = grpc_method
+        .split('/')
+        .nth(1)
+        .ok_or_else(|| GatewayError::ConversionError("Invalid gRPC method format".to_string()))?;
 
-    let response_bytes = serde_json::to_vec(&mock_response)
-        .map_err(|e| GatewayError::ConversionError(format!("{}: {}", ERR_MSG_SERIALIZE_MOCK, e)))?;
+    // Route to appropriate typed client based on service
+    match service_name {
+        "user.UserService" => {
+            use crate::handlers::user_service::call_user_service;
+            call_user_service(channel, method_name, request_payload).await
+        }
+        _ => {
+            // Fall back to dynamic client for other services
+            use crate::grpc::DynamicGrpcClient;
+            use std::collections::HashMap;
 
-    Ok(response_bytes)
+            debug!(
+                service = %service_name,
+                "Using dynamic client for non-user service"
+            );
+
+            let mut trace_headers = HashMap::new();
+            let mut clean_payload = request_payload.clone();
+
+            if let Ok(mut json_value) = serde_json::from_slice::<serde_json::Value>(&request_payload) {
+                if let Some(obj) = json_value.as_object_mut() {
+                    if let Some(trace_data) = obj.remove(METADATA_TRACE) {
+                        if let Some(trace_obj) = trace_data.as_object() {
+                            for (key, value) in trace_obj {
+                                if let Some(value_str) = value.as_str() {
+                                    trace_headers.insert(key.clone(), value_str.to_string());
+                                }
+                            }
+                        }
+                    }
+                    clean_payload = serde_json::to_vec(&json_value)
+                        .map_err(|e| GatewayError::ConversionError(format!("Failed to serialize clean payload: {}", e)))?;
+                }
+            }
+
+            let mut client = DynamicGrpcClient::new(channel, service_name.to_string());
+            client
+                .call(method_name, clean_payload, trace_headers)
+                .await
+                .map_err(|e| {
+                    error!(
+                        grpc_method = %grpc_method,
+                        error = %e,
+                        "Dynamic gRPC call failed"
+                    );
+                    GatewayError::GrpcCallFailed(e.to_string())
+                })
+        }
+    }
 }
 
 

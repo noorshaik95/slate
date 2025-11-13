@@ -1,23 +1,25 @@
 package main
 
 import (
-	"fmt"
-	"log"
+	"context"
 	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
 
+	pb "github.com/noorshaik95/axum-grafana-example/services/user-auth-service/api/proto"
 	"github.com/noorshaik95/axum-grafana-example/services/user-auth-service/internal/config"
 	grpcHandler "github.com/noorshaik95/axum-grafana-example/services/user-auth-service/internal/grpc"
 	"github.com/noorshaik95/axum-grafana-example/services/user-auth-service/internal/repository"
 	"github.com/noorshaik95/axum-grafana-example/services/user-auth-service/internal/service"
 	"github.com/noorshaik95/axum-grafana-example/services/user-auth-service/migrations"
-	pb "github.com/noorshaik95/axum-grafana-example/services/user-auth-service/api/proto"
 	"github.com/noorshaik95/axum-grafana-example/services/user-auth-service/pkg/database"
 	"github.com/noorshaik95/axum-grafana-example/services/user-auth-service/pkg/jwt"
 	"github.com/noorshaik95/axum-grafana-example/services/user-auth-service/pkg/logger"
+	"github.com/noorshaik95/axum-grafana-example/services/user-auth-service/pkg/tracing"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
@@ -32,6 +34,36 @@ func main() {
 	if err != nil {
 		log.Error("Failed to load configuration:", err)
 		os.Exit(1)
+	}
+
+	// Initialize OpenTelemetry tracing
+	otlpEndpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+	if otlpEndpoint == "" {
+		otlpEndpoint = "tempo:4317" // Default to Tempo
+	}
+
+	tracingCfg := tracing.Config{
+		ServiceName:    "user-auth-service",
+		ServiceVersion: "1.0.0",
+		OTLPEndpoint:   otlpEndpoint,
+		OTLPInsecure:   true, // Use insecure for local development
+		SamplingRate:   1.0,  // Sample all traces
+	}
+
+	log.Info("Initializing OpenTelemetry tracing with endpoint:", otlpEndpoint)
+	tp, err := tracing.InitTracer(tracingCfg)
+	if err != nil {
+		log.Error("Failed to initialize tracing:", err)
+		log.Info("Continuing without tracing...")
+	} else {
+		log.Info("OpenTelemetry tracing initialized successfully")
+		defer func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := tracing.Shutdown(ctx, tp); err != nil {
+				log.Error("Failed to shutdown tracer provider:", err)
+			}
+		}()
 	}
 
 	// Connect to database
@@ -76,8 +108,10 @@ func main() {
 	// Initialize services
 	userService := service.NewUserService(userRepo, roleRepo, tokenService)
 
-	// Initialize gRPC server
-	grpcServer := grpc.NewServer()
+	// Initialize gRPC server with OpenTelemetry interceptors
+	grpcServer := grpc.NewServer(
+		grpc.StatsHandler(otelgrpc.NewServerHandler()),
+	)
 
 	// Register services
 	userServiceServer := grpcHandler.NewUserServiceServer(userService)

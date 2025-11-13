@@ -13,6 +13,8 @@ pub struct GatewayConfig {
     pub discovery: DiscoveryConfig,
     #[serde(default)]
     pub route_overrides: Vec<RouteOverride>,
+    #[serde(default)]
+    pub cors: Option<CorsConfig>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -57,6 +59,14 @@ pub struct ServiceConfig {
 pub struct AuthConfig {
     pub service_endpoint: String,
     pub timeout_ms: u64,
+    #[serde(default)]
+    pub public_routes: Vec<PublicRoute>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct PublicRoute {
+    pub path: String,
+    pub method: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -107,4 +117,53 @@ pub struct RouteOverride {
     pub grpc_method: String,
     pub http_path: Option<String>,
     pub http_method: Option<String>,
+    #[serde(default)]
+    pub service: Option<String>,
+}
+
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct CorsConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default)]
+    pub allowed_origins: Vec<String>,
+    #[serde(default)]
+    pub allowed_methods: Vec<String>,
+    #[serde(default)]
+    pub allowed_headers: Vec<String>,
+    #[serde(default)]
+    pub expose_headers: Vec<String>,
+    #[serde(default = "default_max_age")]
+    pub max_age_seconds: u64,
+    #[serde(default)]
+    pub allow_credentials: bool,
+}
+
+fn default_max_age() -> u64 {
+    3600 // 1 hour
+}
+
+impl Default for CorsConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            allowed_origins: vec!["*".to_string()],
+            allowed_methods: vec![
+                "GET".to_string(),
+                "POST".to_string(),
+                "PUT".to_string(),
+                "DELETE".to_string(),
+                "OPTIONS".to_string(),
+            ],
+            allowed_headers: vec![
+                "content-type".to_string(),
+                "authorization".to_string(),
+                "x-trace-id".to_string(),
+            ],
+            expose_headers: vec![],
+            max_age_seconds: 3600,
+            allow_credentials: false,
+        }
+    }
 }

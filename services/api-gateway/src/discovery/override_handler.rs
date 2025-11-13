@@ -1,5 +1,5 @@
-use std::collections::HashMap;
-use tracing::info;
+use std::collections::{HashMap, HashSet};
+use tracing::{info, warn};
 
 use crate::config::{RouteConfig, RouteOverride};
 
@@ -7,14 +7,15 @@ use crate::config::{RouteConfig, RouteOverride};
 pub struct OverrideHandler;
 
 impl OverrideHandler {
-    /// Apply manual overrides to discovered routes
+    /// Apply manual overrides to discovered routes and add new routes for overrides
+    /// that don't match any discovered routes
     ///
     /// # Arguments
     /// * `discovered` - List of discovered routes
     /// * `overrides` - List of manual route overrides
     ///
     /// # Returns
-    /// * List of routes with overrides applied
+    /// * List of routes with overrides applied and new routes added
     pub fn apply_overrides(
         discovered: Vec<RouteConfig>,
         overrides: &[RouteOverride],
@@ -35,11 +36,15 @@ impl OverrideHandler {
             .map(|o| (o.grpc_method.clone(), o))
             .collect();
 
+        // Track which overrides have been applied
+        let mut applied_overrides: HashSet<String> = HashSet::new();
         let mut result = Vec::new();
+        let discovered_count = discovered.len();
 
+        // First pass: apply overrides to discovered routes
         for route in discovered {
             if let Some(override_config) = override_map.get(&route.grpc_method) {
-                // Apply override
+                // Apply override to existing route
                 let overridden_route = RouteConfig {
                     path: override_config
                         .http_path
@@ -59,15 +64,57 @@ impl OverrideHandler {
                     original_method = %route.method,
                     override_path = %overridden_route.path,
                     override_method = %overridden_route.method,
-                    "Applied route override"
+                    "Applied route override to discovered route"
                 );
 
+                applied_overrides.insert(route.grpc_method.clone());
                 result.push(overridden_route);
             } else {
                 // No override, use discovered route as-is
                 result.push(route);
             }
         }
+
+        // Second pass: add new routes for overrides that weren't applied
+        for override_config in overrides {
+            if !applied_overrides.contains(&override_config.grpc_method) {
+                // This override doesn't match any discovered route, so add it as a new route
+                if let (Some(http_path), Some(http_method), Some(service)) = (
+                    &override_config.http_path,
+                    &override_config.http_method,
+                    &override_config.service,
+                ) {
+                    let new_route = RouteConfig {
+                        path: http_path.clone(),
+                        method: http_method.clone(),
+                        service: service.clone(),
+                        grpc_method: override_config.grpc_method.clone(),
+                    };
+
+                    info!(
+                        grpc_method = %override_config.grpc_method,
+                        http_path = %http_path,
+                        http_method = %http_method,
+                        service = %service,
+                        "Added new route from override (not discovered)"
+                    );
+
+                    result.push(new_route);
+                } else {
+                    warn!(
+                        grpc_method = %override_config.grpc_method,
+                        "Override not applied: missing required fields (http_path, http_method, or service)"
+                    );
+                }
+            }
+        }
+
+        info!(
+            total_routes = result.len(),
+            discovered = discovered_count,
+            added_from_overrides = result.len() - discovered_count,
+            "Route override processing complete"
+        );
 
         result
     }

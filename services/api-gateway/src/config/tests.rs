@@ -49,6 +49,8 @@ fn test_validate_valid_config() {
 }
 
 fn create_valid_config() -> GatewayConfig {
+    use crate::circuit_breaker::CircuitBreakerConfig;
+    
     let mut services = HashMap::new();
     services.insert(
         "test-service".to_string(),
@@ -58,6 +60,10 @@ fn create_valid_config() -> GatewayConfig {
             timeout_ms: 5000,
             connection_pool_size: 5,
             auto_discover: true,
+            tls_enabled: false,
+            tls_domain: None,
+            tls_ca_cert_path: None,
+            circuit_breaker: CircuitBreakerConfig::default(),
         },
     );
 
@@ -65,6 +71,7 @@ fn create_valid_config() -> GatewayConfig {
         server: ServerConfig {
             host: "0.0.0.0".to_string(),
             port: 8080,
+            request_timeout_ms: 30000,
         },
         services,
         auth: AuthConfig {
@@ -79,11 +86,15 @@ fn create_valid_config() -> GatewayConfig {
         observability: ObservabilityConfig {
             tempo_endpoint: "http://localhost:4317".to_string(),
             service_name: "api-gateway".to_string(),
+            otlp_timeout_secs: 3,
+            max_events_per_span: 64,
+            max_attributes_per_span: 16,
         },
         discovery: DiscoveryConfig {
             enabled: true,
             refresh_interval_seconds: 300,
         },
         route_overrides: vec![],
+        cors: None,
     }
 }

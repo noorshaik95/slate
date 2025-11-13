@@ -4,10 +4,11 @@
 proto:
 	@echo "Generating protobuf code..."
 	@mkdir -p api/proto
-	protoc --go_out=. --go_opt=paths=source_relative \
+	PATH=$$PATH:$(shell go env GOPATH)/bin protoc --go_out=. --go_opt=paths=source_relative \
 		--go-grpc_out=. --go-grpc_opt=paths=source_relative \
 		-I ../../proto \
 		../../proto/user.proto
+	@mv -f user.pb.go user_grpc.pb.go api/proto/ 2>/dev/null || true
 
 # Build the service
 build: proto

@@ -11,4 +11,4 @@ pub use types::{HealthState, HealthStatus, ServiceHealth};
 
 // Re-export public components
 pub use checker::HealthChecker;
-pub use handler::health_handler;
+pub use handler::{health_handler, liveness_handler, readiness_handler};

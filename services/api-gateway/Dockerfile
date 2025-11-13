@@ -6,17 +6,23 @@ RUN apt-get update && apt-get install -y protobuf-compiler && rm -rf /var/lib/ap
 
 WORKDIR /app
 
-# Copy proto files first for proto compilation
+# Copy proto files for proto compilation (needed for build.rs)
 COPY proto ./proto
-COPY build.rs ./build.rs
+COPY services/api-gateway/build.rs ./build.rs
 
 # Copy Cargo files for dependency caching
-COPY Cargo.toml Cargo.lock ./
+COPY services/api-gateway/Cargo.toml services/api-gateway/Cargo.lock ./
 
-# Copy source code
-COPY src ./src
+# Create a dummy main.rs to build dependencies
+RUN mkdir -p src && echo "fn main() {}" > src/main.rs
 
-# Build the application (this will compile protos via build.rs)
+# Build dependencies only (this layer will be cached unless Cargo.toml/Cargo.lock changes)
+RUN cargo build --release && rm -rf src
+
+# Copy actual source code
+COPY services/api-gateway/src ./src
+
+# Build the application with actual source (this will compile protos via build.rs)
 RUN cargo build --release
 
 # Runtime Stage
@@ -30,7 +36,7 @@ COPY --from=builder /app/target/release/api-gateway /usr/local/bin/app
 RUN mkdir -p /app/config
 
 # Copy default gateway configuration file
-COPY config/gateway-config.yaml /app/config/gateway-config.yaml
+COPY config/gateway-config.docker.yaml /app/config/gateway-config.yaml
 
 EXPOSE 8080
 CMD ["app"]
