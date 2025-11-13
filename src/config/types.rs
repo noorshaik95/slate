@@ -35,6 +35,12 @@ pub struct ServiceConfig {
     pub connection_pool_size: usize,
     #[serde(default)]
     pub auto_discover: bool,
+    #[serde(default)]
+    pub tls_enabled: bool,
+    #[serde(default)]
+    pub tls_domain: Option<String>,
+    #[serde(default)]
+    pub tls_ca_cert_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

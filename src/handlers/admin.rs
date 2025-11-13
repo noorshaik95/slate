@@ -41,15 +41,6 @@ pub async fn refresh_routes_handler(
             RefreshError::ServiceUnavailable("Route discovery is not enabled".to_string())
         })?;
 
-    // Get router from app state (wrapped in RwLock for thread-safe updates)
-    let router = state
-        .router_lock
-        .as_ref()
-        .ok_or_else(|| {
-            error!("Router lock not available in app state");
-            RefreshError::ServiceUnavailable("Router not configured for dynamic updates".to_string())
-        })?;
-
     // Discover routes from all services
     let services_queried = state
         .config
@@ -97,7 +88,7 @@ pub async fn refresh_routes_handler(
     let routes_count = final_routes.len();
 
     // Update router with new routes
-    let mut router_guard = router.write().await;
+    let mut router_guard = state.router_lock.write().await;
     router_guard.update_routes(final_routes);
     drop(router_guard);
 

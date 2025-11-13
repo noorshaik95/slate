@@ -2,6 +2,9 @@
 pub const SYSTEM_PATH_HEALTH: &str = "/health";
 pub const SYSTEM_PATH_METRICS: &str = "/metrics";
 
+/// Maximum request body size in bytes (10 MB)
+pub const MAX_REQUEST_BODY_SIZE: usize = 10 * 1024 * 1024;
+
 /// Error codes for gateway errors
 pub const ERR_CODE_ROUTE_NOT_FOUND: &str = "ROUTE_NOT_FOUND";
 pub const ERR_CODE_SERVICE_UNAVAILABLE: &str = "SERVICE_UNAVAILABLE";

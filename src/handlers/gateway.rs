@@ -71,48 +71,25 @@ pub async fn gateway_handler(
     }
 
     // Route the request to determine target service
-    // Use RwLock-wrapped router if available (for dynamic updates), otherwise use static router
-    let routing_decision = if let Some(router_lock) = &state.router_lock {
-        // Dynamic routing with RwLock (allows concurrent reads)
-        let router_guard = router_lock.read().await;
-        let result = router_guard.route(&path, &method);
-        drop(router_guard);
-        
-        match result {
-            Ok(decision) => decision,
-            Err(e) => {
-                warn!(
-                    path = %path,
-                    method = %method,
-                    error = %e,
-                    "Route not found"
-                );
-                
-                state.metrics.request_counter
-                    .with_label_values(&[path.as_str(), method.as_str(), "404"])
-                    .inc();
-                
-                return Err(GatewayError::RouteNotFound(e));
-            }
-        }
-    } else {
-        // Static routing (no dynamic updates)
-        match state.router.route(&path, &method) {
-            Ok(decision) => decision,
-            Err(e) => {
-                warn!(
-                    path = %path,
-                    method = %method,
-                    error = %e,
-                    "Route not found"
-                );
-                
-                state.metrics.request_counter
-                    .with_label_values(&[path.as_str(), method.as_str(), "404"])
-                    .inc();
-                
-                return Err(GatewayError::RouteNotFound(e));
-            }
+    let router_guard = state.router_lock.read().await;
+    let result = router_guard.route(&path, &method);
+    drop(router_guard);
+
+    let routing_decision = match result {
+        Ok(decision) => decision,
+        Err(e) => {
+            warn!(
+                path = %path,
+                method = %method,
+                error = %e,
+                "Route not found"
+            );
+
+            state.metrics.request_counter
+                .with_label_values(&[path.as_str(), method.as_str(), "404"])
+                .inc();
+
+            return Err(GatewayError::RouteNotFound(e));
         }
     };
 
@@ -283,8 +260,8 @@ pub(crate) async fn convert_http_to_grpc(
         "Converting HTTP request to gRPC"
     );
 
-    // Extract request body
-    let body_bytes = to_bytes(request.into_body(), usize::MAX)
+    // Extract request body with size limit to prevent memory exhaustion attacks
+    let body_bytes = to_bytes(request.into_body(), super::constants::MAX_REQUEST_BODY_SIZE)
         .await
         .map_err(|e| GatewayError::ConversionError(format!("{}: {}", ERR_MSG_READ_BODY, e)))?;
 

@@ -24,7 +24,7 @@ use prometheus::{Encoder, TextEncoder};
 use std::{net::SocketAddr, sync::Arc};
 use tokio::sync::RwLock;
 use tower_http::trace::TraceLayer;
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use crate::auth::middleware::auth_middleware;
@@ -146,9 +146,9 @@ async fn main() -> anyhow::Result<()> {
     };
 
     // Initialize route discovery service (if enabled)
-    let (router, router_lock, discovery_service) = if config.discovery.enabled {
+    let (router_lock, discovery_service) = if config.discovery.enabled {
         info!("Route discovery is enabled, initializing discovery service");
-        
+
         // Create discovery service
         let discovery_service = RouteDiscoveryService::new(
             Arc::new(grpc_pool.clone()),
@@ -184,16 +184,16 @@ async fn main() -> anyhow::Result<()> {
         );
 
         // Create router wrapped in Arc<RwLock<>> for thread-safe updates
-        let router = RequestRouter::new(final_routes.clone());
         let router_lock = Arc::new(RwLock::new(RequestRouter::new(final_routes)));
 
-        (router, Some(router_lock), Some(discovery_service))
+        (router_lock, Some(discovery_service))
     } else {
         info!("Route discovery is disabled, using empty routing table");
         warn!("Gateway will not expose any routes without discovery enabled");
-        
-        let router = RequestRouter::new(Vec::new());
-        (router, None, None)
+
+        // Still use RwLock for consistency, even without dynamic updates
+        let router_lock = Arc::new(RwLock::new(RequestRouter::new(Vec::new())));
+        (router_lock, None)
     };
 
     // Initialize rate limiter (if enabled)
@@ -213,27 +213,32 @@ async fn main() -> anyhow::Result<()> {
         None
     };
 
-    // Create application state with discovery service support
-    info!("Creating application state");
-    let shared_state = if let (Some(discovery_svc), Some(router_lck)) = (discovery_service, router_lock.clone()) {
-        Arc::new(AppState::with_discovery(
-            config.clone(),
-            grpc_pool.clone(),
-            auth_service,
-            router,
-            rate_limiter,
-            discovery_svc,
-            router_lck,
-        ))
+    // Start rate limiter cleanup task to prevent memory leak
+    let cleanup_task_handle = if let Some(ref limiter) = rate_limiter {
+        info!("Starting rate limiter cleanup background task");
+        let limiter_clone = limiter.clone();
+        Some(tokio::spawn(async move {
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(300)); // 5 minutes
+            loop {
+                interval.tick().await;
+                limiter_clone.cleanup_expired().await;
+                debug!("Rate limiter cleanup completed");
+            }
+        }))
     } else {
-        Arc::new(AppState::new(
-            config.clone(),
-            grpc_pool.clone(),
-            auth_service,
-            router,
-            rate_limiter,
-        ))
+        None
     };
+
+    // Create application state
+    info!("Creating application state");
+    let shared_state = Arc::new(AppState::new(
+        config.clone(),
+        grpc_pool.clone(),
+        auth_service,
+        router_lock.clone(),
+        rate_limiter,
+        discovery_service,
+    ));
 
     // Initialize health checker
     info!("Initializing health checker");
@@ -243,7 +248,6 @@ async fn main() -> anyhow::Result<()> {
     let auth_middleware_state = auth::middleware::AuthMiddlewareState {
         auth_service: shared_state.auth_service.clone(),
         grpc_pool: shared_state.grpc_pool.clone(),
-        router: shared_state.router.clone(),
         router_lock: shared_state.router_lock.clone(),
     };
 
@@ -333,6 +337,12 @@ async fn main() -> anyhow::Result<()> {
     // Abort periodic refresh task if running
     if let Some(handle) = refresh_task_handle {
         info!("Stopping periodic route refresh task");
+        handle.abort();
+    }
+
+    // Abort rate limiter cleanup task if running
+    if let Some(handle) = cleanup_task_handle {
+        info!("Stopping rate limiter cleanup task");
         handle.abort();
     }
 

@@ -52,8 +52,7 @@ impl AuthContext {
 pub struct AuthMiddlewareState {
     pub auth_service: Arc<AuthService>,
     pub grpc_pool: Arc<GrpcClientPool>,
-    pub router: Arc<RequestRouter>,
-    pub router_lock: Option<Arc<RwLock<RequestRouter>>>,
+    pub router_lock: Arc<RwLock<RequestRouter>>,
 }
 
 /// Authorization middleware that enforces dynamic auth policies
@@ -88,40 +87,22 @@ pub async fn auth_middleware(
     }
 
     // Route the request to determine target service and gRPC method
-    // Use RwLock-wrapped router if available (for dynamic updates), otherwise use static router
-    let routing_decision = if let Some(router_lock) = &state.router_lock {
-        // Dynamic routing with RwLock (allows concurrent reads)
-        let router_guard = router_lock.read().await;
-        match router_guard.route(path, method) {
-            Ok(decision) => {
-                let result = decision.clone();
-                drop(router_guard);
-                result
-            }
-            Err(e) => {
-                drop(router_guard);
-                warn!(
-                    path = %path,
-                    method = %method,
-                    error = %e,
-                    "Route not found"
-                );
-                return Err(AuthMiddlewareResponse::NotFound);
-            }
+    let router_guard = state.router_lock.read().await;
+    let routing_decision = match router_guard.route(path, method) {
+        Ok(decision) => {
+            let result = decision.clone();
+            drop(router_guard);
+            result
         }
-    } else {
-        // Static routing (no dynamic updates)
-        match state.router.route(path, method) {
-            Ok(decision) => decision,
-            Err(e) => {
-                warn!(
-                    path = %path,
-                    method = %method,
-                    error = %e,
-                    "Route not found"
-                );
-                return Err(AuthMiddlewareResponse::NotFound);
-            }
+        Err(e) => {
+            drop(router_guard);
+            warn!(
+                path = %path,
+                method = %method,
+                error = %e,
+                "Route not found"
+            );
+            return Err(AuthMiddlewareResponse::NotFound);
         }
     };
 

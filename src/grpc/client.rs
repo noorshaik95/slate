@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::time::Duration;
-use tonic::transport::{Channel, Endpoint};
+use tonic::transport::{Certificate, Channel, ClientTlsConfig, Endpoint};
 use tracing::{debug, error, info, warn};
 
 use crate::config::ServiceConfig;
@@ -48,24 +48,63 @@ impl GrpcClientPool {
     async fn create_channel(config: &ServiceConfig) -> Result<Channel, GrpcError> {
         let endpoint = config.endpoint.parse::<Endpoint>()
             .map_err(|e| GrpcError::InvalidConfig(format!("Invalid endpoint {}: {}", config.endpoint, e)))?;
-        
+
         let timeout = Duration::from_millis(config.timeout_ms);
-        
+
         // Configure endpoint with timeout and connection settings
-        let endpoint = endpoint
+        let mut endpoint = endpoint
             .timeout(timeout)
             .connect_timeout(DEFAULT_CONNECT_TIMEOUT)
             .tcp_keepalive(Some(TCP_KEEPALIVE))
             .http2_keep_alive_interval(HTTP2_KEEPALIVE_INTERVAL)
             .keep_alive_timeout(KEEPALIVE_TIMEOUT)
             .keep_alive_while_idle(true);
-        
+
+        // Configure TLS if enabled
+        if config.tls_enabled {
+            let mut tls_config = ClientTlsConfig::new();
+
+            // Set domain override if specified
+            if let Some(ref domain) = config.tls_domain {
+                info!(
+                    service = %config.name,
+                    domain = %domain,
+                    "Configuring TLS with domain override"
+                );
+                tls_config = tls_config.domain_name(domain);
+            }
+
+            // Load custom CA certificate if specified
+            if let Some(ref ca_cert_path) = config.tls_ca_cert_path {
+                info!(
+                    service = %config.name,
+                    ca_cert_path = %ca_cert_path,
+                    "Loading custom CA certificate for TLS"
+                );
+
+                let ca_cert = std::fs::read(ca_cert_path)
+                    .map_err(|e| GrpcError::InvalidConfig(format!("Failed to read CA cert {}: {}", ca_cert_path, e)))?;
+
+                let ca_cert = Certificate::from_pem(ca_cert);
+                tls_config = tls_config.ca_certificate(ca_cert);
+            }
+
+            endpoint = endpoint.tls_config(tls_config)
+                .map_err(|e| GrpcError::InvalidConfig(format!("Failed to configure TLS: {}", e)))?;
+
+            info!(
+                service = %config.name,
+                endpoint = %config.endpoint,
+                "TLS enabled for gRPC connection"
+            );
+        }
+
         // Connect to the service
         let channel = endpoint
             .connect()
             .await
             .map_err(|e| GrpcError::ConnectionError(format!("Failed to connect to {}: {}", config.endpoint, e)))?;
-        
+
         Ok(channel)
     }
     

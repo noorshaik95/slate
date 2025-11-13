@@ -14,13 +14,12 @@ pub struct AppState {
     pub config: GatewayConfig,
     pub grpc_pool: Arc<GrpcClientPool>,
     pub auth_service: Arc<AuthService>,
-    pub router: Arc<RequestRouter>,
+    pub router_lock: Arc<RwLock<RequestRouter>>,
     pub rate_limiter: Option<Arc<RateLimiter>>,
     pub registry: Registry,
     pub metrics: GatewayMetrics,
     // For dynamic route updates (used by admin endpoint and periodic refresh)
     pub discovery_service: Option<Arc<RouteDiscoveryService>>,
-    pub router_lock: Option<Arc<RwLock<RequestRouter>>>,
 }
 
 #[derive(Clone)]
@@ -88,38 +87,14 @@ impl GatewayMetrics {
 }
 
 impl AppState {
+    /// Create AppState with optional discovery service support
     pub fn new(
         config: GatewayConfig,
         grpc_pool: GrpcClientPool,
         auth_service: AuthService,
-        router: RequestRouter,
-        rate_limiter: Option<RateLimiter>,
-    ) -> Self {
-        let registry = Registry::new();
-        let metrics = GatewayMetrics::new(&registry);
-
-        AppState {
-            config,
-            grpc_pool: Arc::new(grpc_pool),
-            auth_service: Arc::new(auth_service),
-            router: Arc::new(router),
-            rate_limiter: rate_limiter.map(Arc::new),
-            registry,
-            metrics,
-            discovery_service: None,
-            router_lock: None,
-        }
-    }
-
-    /// Create AppState with discovery service support for dynamic route updates
-    pub fn with_discovery(
-        config: GatewayConfig,
-        grpc_pool: GrpcClientPool,
-        auth_service: AuthService,
-        router: RequestRouter,
-        rate_limiter: Option<RateLimiter>,
-        discovery_service: RouteDiscoveryService,
         router_lock: Arc<RwLock<RequestRouter>>,
+        rate_limiter: Option<RateLimiter>,
+        discovery_service: Option<RouteDiscoveryService>,
     ) -> Self {
         let registry = Registry::new();
         let metrics = GatewayMetrics::new(&registry);
@@ -128,12 +103,11 @@ impl AppState {
             config,
             grpc_pool: Arc::new(grpc_pool),
             auth_service: Arc::new(auth_service),
-            router: Arc::new(router),
+            router_lock,
             rate_limiter: rate_limiter.map(Arc::new),
             registry,
             metrics,
-            discovery_service: Some(Arc::new(discovery_service)),
-            router_lock: Some(router_lock),
+            discovery_service: discovery_service.map(Arc::new),
         }
     }
 }
