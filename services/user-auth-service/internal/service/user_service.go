@@ -5,18 +5,16 @@ import (
 	"time"
 
 	"github.com/noorshaik95/axum-grafana-example/services/user-auth-service/internal/models"
-	"github.com/noorshaik95/axum-grafana-example/services/user-auth-service/internal/repository"
-	"github.com/noorshaik95/axum-grafana-example/services/user-auth-service/pkg/jwt"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type UserService struct {
-	userRepo  *repository.UserRepository
-	roleRepo  *repository.RoleRepository
-	tokenSvc  *jwt.TokenService
+	userRepo UserRepositoryInterface
+	roleRepo RoleRepositoryInterface
+	tokenSvc TokenServiceInterface
 }
 
-func NewUserService(userRepo *repository.UserRepository, roleRepo *repository.RoleRepository, tokenSvc *jwt.TokenService) *UserService {
+func NewUserService(userRepo UserRepositoryInterface, roleRepo RoleRepositoryInterface, tokenSvc TokenServiceInterface) *UserService {
 	return &UserService{
 		userRepo: userRepo,
 		roleRepo: roleRepo,

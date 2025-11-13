@@ -104,9 +104,10 @@ func main() {
 		cfg.JWT.AccessTokenDuration,
 		cfg.JWT.RefreshTokenDuration,
 	)
+	tokenServiceAdapter := jwt.NewTokenServiceAdapter(tokenService)
 
 	// Initialize services
-	userService := service.NewUserService(userRepo, roleRepo, tokenService)
+	userService := service.NewUserService(userRepo, roleRepo, tokenServiceAdapter)
 
 	// Initialize gRPC server with OpenTelemetry interceptors
 	grpcServer := grpc.NewServer(
