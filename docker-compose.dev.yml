@@ -1,0 +1,81 @@
+version: '3.8'
+
+# Development override - allows running services individually while connecting to shared infrastructure
+services:
+  # PostgreSQL for local development
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: userauth
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data-dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Observability Stack (minimal for dev)
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+
+  tempo:
+    image: grafana/tempo:latest
+    command: [ "-config.file=/etc/tempo/tempo.yaml" ]
+    volumes:
+      - ./config/tempo.yaml:/etc/tempo/tempo.yaml
+    ports:
+      - "14268:14268"
+      - "3200:3200"
+      - "4317:4317"
+      - "4318:4318"
+
+  loki:
+    image: grafana/loki:2.8.2
+    command: "-config.file=/etc/loki/local-config.yaml"
+    volumes:
+      - ./config/loki.yaml:/etc/loki/local-config.yaml
+      - loki-data-dev:/loki
+    ports:
+      - "3100:3100"
+    user: "root"
+    environment:
+      - PUID=1000
+      - PGID=1000
+    entrypoint:
+      - sh
+      - -c
+      - |
+        mkdir -p /loki/chunks /loki/index /loki/boltdb-cache /loki/compactor /loki/rules
+        chown -R loki:loki /loki
+        exec /usr/bin/loki -config.file=/etc/loki/local-config.yaml
+
+  grafana:
+    image: grafana/grafana:latest
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+    volumes:
+      - ./config/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+      - tempo
+      - loki
+
+volumes:
+  postgres-data-dev:
+    driver: local
+  loki-data-dev:
+    driver: local

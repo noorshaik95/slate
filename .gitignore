@@ -1,6 +1,35 @@
-# Project exclude paths
+# Rust
 /target/
+Cargo.lock
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+services/user-auth-service/bin/
+services/user-auth-service/api/proto/*.pb.go
+
+# IDEs
 .idea
-.kiro
+.vscode/
+*.swp
+*.swo
+*~
+
+# Environment
+.env
+.env.local
+
+# Docker volumes
 mongo-data
 loki-data
+postgres-data
+
+# OS
+.DS_Store
+.kiro

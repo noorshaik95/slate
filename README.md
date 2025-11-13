@@ -1,399 +1,491 @@
-# API Gateway with Observability Stack
+# Microservices Monorepo
 
-A high-performance, production-ready API Gateway built with Rust, featuring automatic gRPC service discovery, dynamic routing, circuit breakers, and comprehensive observability.
+A modern microservices architecture with API Gateway and User Authentication service, featuring complete observability with Grafana, Prometheus, Tempo, and Loki.
 
-## Features
+## 🏗️ Architecture Overview
 
-### Core Functionality
-- **🚀 Dynamic Route Discovery**: Automatically discover routes from gRPC services via reflection
-- **🔄 Protocol Translation**: HTTP/REST to gRPC conversion with path parameter extraction
-- **🔐 Dynamic Authorization**: Service-defined auth policies with JWT validation
-- **⚡ Rate Limiting**: Per-client IP rate limiting with sliding window algorithm
-- **🛡️ Circuit Breaker**: Per-service circuit breakers prevent cascading failures
-- **⏱️ Request Timeouts**: Configurable request-level and service-level timeouts
-- **🔒 TLS Support**: Secure backend connections with custom CA certificates
+This monorepo contains two main microservices:
 
-### Observability
-- **📊 Metrics**: Prometheus metrics for requests, latency, errors, circuit breaker state
-- **📝 Distributed Tracing**: OpenTelemetry integration with Tempo
-- **🔍 Structured Logging**: JSON logs compatible with Loki/Grafana
-- **📈 Grafana Dashboards**: Pre-configured dashboards (via docker-compose)
-
-### Production-Ready
-- **🔄 Graceful Shutdown**: Properly handle SIGTERM/SIGINT
-- **💾 Memory Safe**: Bounded request sizes, rate limiter cleanup, no memory leaks
-- **🏥 Health Checks**: Service health monitoring
-- **📦 Docker Support**: Full docker-compose stack included
-
-## Architecture
+1. **API Gateway** (Rust/Axum) - High-performance HTTP/gRPC gateway with auth, rate limiting, circuit breakers, and observability
+2. **User Auth Service** (Go) - Complete user management with JWT authentication and RBAC
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                        API Gateway                           │
+│                        API Gateway (Rust)                    │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
 │  │  Auth        │  │  Rate        │  │  Circuit     │     │
 │  │  Middleware  │→ │  Limiter     │→ │  Breaker     │     │
 │  └──────────────┘  └──────────────┘  └──────────────┘     │
-│          ↓                                    ↓             │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
-│  │  Route       │  │  HTTP→gRPC   │  │  gRPC        │     │
-│  │  Discovery   │→ │  Converter   │→ │  Pool        │     │
-│  └──────────────┘  └──────────────┘  └──────────────┘     │
 └─────────────────────────────────────────────────────────────┘
                            ↓
         ┌──────────────────┼──────────────────┐
-        ↓                  ↓                   ↓
-┌───────────────┐  ┌───────────────┐  ┌───────────────┐
-│  Auth         │  │  Backend      │  │  User         │
-│  Service      │  │  Service 1    │  │  Service N    │
-│  (gRPC)       │  │  (gRPC)       │  │  (gRPC)       │
-└───────────────┘  └───────────────┘  └───────────────┘
+        ↓                                      ↓
+┌───────────────────────┐          ┌───────────────────────┐
+│  User Auth Service    │          │  Other Backend        │
+│  (Go/gRPC)            │          │  Services (gRPC)      │
+│  ├─ Authentication    │          │  ├─ Business Logic    │
+│  ├─ User CRUD         │          │  └─ ...               │
+│  ├─ RBAC              │          └───────────────────────┘
+│  └─ PostgreSQL        │
+└───────────────────────┘
 ```
 
-## Quick Start
+## 📁 Repository Structure
+
+```
+.
+├── services/
+│   ├── api-gateway/              # Rust-based API Gateway
+│   │   ├── src/                  # Source code
+│   │   │   ├── auth/             # Authentication & authorization
+│   │   │   ├── circuit_breaker/  # Circuit breaker implementation
+│   │   │   ├── handlers/         # HTTP handlers
+│   │   │   └── ...
+│   │   ├── Cargo.toml            # Rust dependencies
+│   │   ├── Dockerfile            # Gateway Docker image
+│   │   └── build.rs              # Proto build script
+│   │
+│   └── user-auth-service/        # Go-based User Auth Service
+│       ├── cmd/server/           # Main server entry point
+│       ├── internal/
+│       │   ├── config/           # Configuration management
+│       │   ├── grpc/             # gRPC handlers
+│       │   ├── models/           # Data models
+│       │   ├── repository/       # Database layer
+│       │   └── service/          # Business logic
+│       ├── pkg/
+│       │   ├── database/         # Database utilities
+│       │   ├── jwt/              # JWT token management
+│       │   └── logger/           # Logging utilities
+│       ├── migrations/           # SQL migrations
+│       ├── api/proto/            # Generated protobuf code
+│       ├── go.mod                # Go dependencies
+│       ├── Dockerfile            # Auth service Docker image
+│       └── Makefile              # Build automation
+│
+├── proto/                        # Shared protobuf definitions
+│   ├── auth.proto               # Auth service proto
+│   ├── service_auth.proto       # Service auth policy proto
+│   └── user.proto               # User service proto (new)
+│
+├── config/                       # Shared configuration
+│   ├── gateway-config.docker.yaml
+│   ├── prometheus.yml
+│   ├── tempo.yaml
+│   ├── loki.yaml
+│   └── grafana-datasources.yaml
+│
+├── docker-compose.yml            # Full stack orchestration
+├── docker-compose.dev.yml        # Development environment
+├── .env.example                  # Environment variables template
+└── README.md                     # This file
+```
+
+## ✨ Features
+
+### User Auth Service (Go)
+- ✅ **User Management**: Complete CRUD operations
+- ✅ **Authentication**: JWT-based with access/refresh tokens
+- ✅ **Authorization**: Role-Based Access Control (RBAC)
+- ✅ **Profile Management**: User profile updates
+- ✅ **PostgreSQL**: Persistent storage with migrations
+- ✅ **gRPC API**: High-performance gRPC server
+- ✅ **Security**: Bcrypt password hashing, secure tokens
+
+### API Gateway (Rust)
+- ✅ **Dynamic Route Discovery**: Auto-discover routes from gRPC reflection
+- ✅ **Protocol Translation**: HTTP/REST ↔ gRPC conversion
+- ✅ **Authentication**: JWT validation via auth service
+- ✅ **Rate Limiting**: Per-IP rate limiting with sliding window
+- ✅ **Circuit Breaker**: Prevent cascading failures
+- ✅ **Observability**: Metrics, tracing, and logging
+- ✅ **High Performance**: Built with Axum and Tokio
+
+### Observability Stack
+- **Grafana**: Visualization and dashboards
+- **Prometheus**: Metrics collection
+- **Tempo**: Distributed tracing
+- **Loki**: Log aggregation
+- **Promtail**: Log shipping
+
+## 🚀 Quick Start
 
 ### Prerequisites
+- Docker & Docker Compose
+- Go 1.21+ (for local development)
 - Rust 1.70+ (for local development)
-- Docker and Docker Compose (for running the full stack)
+- Protocol Buffers compiler (protoc)
 
-### Running with Docker Compose
+### Run Full Stack
 
 ```bash
-# Start the full stack (gateway + observability)
-docker-compose up -d
+# Clone the repository
+git clone <repository-url>
+cd axum-grafana-example
 
-# View logs
-docker-compose logs -f gateway
+# Copy environment variables
+cp .env.example .env
 
-# Access services
-# - API Gateway: http://localhost:8080
-# - Grafana: http://localhost:3000 (admin/admin)
-# - Prometheus: http://localhost:9090
-# - Tempo: http://localhost:3200
+# Start all services
+docker-compose up --build
+
+# Or run in detached mode
+docker-compose up -d --build
 ```
 
-### Local Development
+### Access Services
+
+- **API Gateway**: http://localhost:8080
+- **User Auth Service (gRPC)**: localhost:50051
+- **Grafana**: http://localhost:3000 (admin/admin)
+- **Prometheus**: http://localhost:9090
+- **PostgreSQL**: localhost:5432
+
+## 🛠️ Development
+
+### Running Services Individually
+
+#### 1. Start Infrastructure Only
 
 ```bash
-# Install protoc (required for gRPC)
-# Ubuntu/Debian
-sudo apt-get install protobuf-compiler
+# Start PostgreSQL and observability stack
+docker-compose -f docker-compose.dev.yml up -d
+```
 
-# macOS
-brew install protobuf
+#### 2. Run User Auth Service Locally
 
-# Build
+```bash
+cd services/user-auth-service
+
+# Install dependencies
+go mod download
+
+# Generate protobuf code
+make proto
+
+# Run the service
+make run
+
+# Or build and run separately
+make build
+./bin/server
+```
+
+**Environment Variables:**
+```bash
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=postgres
+DB_NAME=userauth
+JWT_SECRET=your-secret-key
+GRPC_PORT=50051
+```
+
+#### 3. Run API Gateway Locally
+
+```bash
+cd services/api-gateway
+
+# Build and run
+GATEWAY_AUTH_SERVICE_ENDPOINT=http://localhost:50051 cargo run
+
+# Or with release optimizations
 cargo build --release
-
-# Run (requires configuration)
-GATEWAY_CONFIG_PATH=config/gateway-config.yaml cargo run --release
+./target/release/api-gateway
 ```
 
-## Configuration
+## 📡 API Documentation
 
-### Gateway Configuration (`config/gateway-config.yaml`)
+### User Auth Service (gRPC)
 
-```yaml
-server:
-  host: "0.0.0.0"
-  port: 8080
-  request_timeout_ms: 30000  # 30 seconds
+#### Authentication Endpoints
 
-services:
-  user-service:
-    name: "user-service"
-    endpoint: "http://user-service:50051"
-    timeout_ms: 5000
-    connection_pool_size: 10
-    auto_discover: true  # Enable route discovery
-    tls_enabled: false
-    circuit_breaker:
-      failure_threshold: 5
-      success_threshold: 2
-      timeout_seconds: 60
-
-auth:
-  service_endpoint: "http://auth-service:50051"
-  timeout_ms: 3000
-
-rate_limit:
-  enabled: true
-  requests_per_minute: 100
-  window_seconds: 60
-
-observability:
-  tempo_endpoint: "http://tempo:4317"
-  service_name: "api-gateway"
-  otlp_timeout_secs: 3
-  max_events_per_span: 64
-  max_attributes_per_span: 16
-
-discovery:
-  enabled: true
-  refresh_interval_seconds: 300  # 5 minutes
-
-# Manual route overrides (optional)
-route_overrides:
-  - grpc_method: "user.UserService/GetUser"
-    http_path: "/api/v2/users/:id"
-    http_method: "GET"
-```
-
-## API Endpoints
-
-### System Endpoints
-
-- `GET /health` - Health check endpoint
-- `GET /metrics` - Prometheus metrics
-- `POST /admin/refresh-routes` - Manual route refresh (requires auth)
-
-### Dynamic Routes
-
-Routes are automatically discovered from backend gRPC services using reflection. The gateway maps gRPC methods to HTTP endpoints based on conventions:
-
-**Naming Convention:**
-- `GetUser` → `GET /api/users/:id`
-- `ListUsers` → `GET /api/users`
-- `CreateUser` → `POST /api/users`
-- `UpdateUser` → `PUT /api/users/:id`
-- `DeleteUser` → `DELETE /api/users/:id`
-
-**Example Request:**
+**Register**
 ```bash
-# Automatically routed to user.UserService/GetUser
-curl -H "Authorization: Bearer <token>" \
-  http://localhost:8080/api/users/123
+grpcurl -plaintext -d '{
+  "email": "user@example.com",
+  "password": "password123",
+  "first_name": "John",
+  "last_name": "Doe",
+  "phone": "+1234567890"
+}' localhost:50051 user.UserService/Register
 ```
 
-## Features in Detail
-
-### Circuit Breaker
-
-Protects against cascading failures by tracking service health:
-
-- **Closed State**: Normal operation
-- **Open State**: Too many failures, requests fail fast
-- **Half-Open State**: Testing if service recovered
-
-Configuration per service:
-```yaml
-circuit_breaker:
-  failure_threshold: 5      # Open after 5 consecutive failures
-  success_threshold: 2      # Close after 2 consecutive successes
-  timeout_seconds: 60       # Wait 60s before testing recovery
+**Login**
+```bash
+grpcurl -plaintext -d '{
+  "email": "user@example.com",
+  "password": "password123"
+}' localhost:50051 user.UserService/Login
 ```
 
-### Rate Limiting
-
-Per-client IP rate limiting with sliding window:
-
-```yaml
-rate_limit:
-  enabled: true
-  requests_per_minute: 100
-  window_seconds: 60
+**Validate Token**
+```bash
+grpcurl -plaintext -d '{
+  "token": "your-jwt-token"
+}' localhost:50051 user.UserService/ValidateToken
 ```
 
-### TLS for Backend Services
-
-Secure connections to backend services:
-
-```yaml
-services:
-  secure-service:
-    tls_enabled: true
-    tls_domain: "secure-service.internal"
-    tls_ca_cert_path: "/path/to/ca.pem"
+**Refresh Token**
+```bash
+grpcurl -plaintext -d '{
+  "refresh_token": "your-refresh-token"
+}' localhost:50051 user.UserService/RefreshToken
 ```
 
-### Authentication & Authorization
+#### User Management Endpoints
 
-Dynamic auth policies fetched from backend services:
+- **CreateUser**: Create new user (admin)
+- **GetUser**: Get user by ID
+- **UpdateUser**: Update user details
+- **DeleteUser**: Soft delete user
+- **ListUsers**: List users with pagination
 
-1. Gateway queries service for auth policy
-2. If auth required, validates JWT token
-3. Checks user roles against required roles
-4. Passes auth context to backend service
+#### Profile Management
 
-## Observability
+- **GetProfile**: Get user profile
+- **UpdateProfile**: Update profile details
+- **ChangePassword**: Change user password
+
+#### Role Management (RBAC)
+
+- **AssignRole**: Assign role to user
+- **RemoveRole**: Remove role from user
+- **GetUserRoles**: Get all user roles
+- **CheckPermission**: Check user permission
+
+### Default Roles
+
+| Role | Permissions |
+|------|-------------|
+| **admin** | users.*, roles.*, system.manage |
+| **user** | profile.read, profile.update |
+| **manager** | users.read, users.update, profile.* |
+
+### Default Admin User
+- **Email**: `admin@example.com`
+- **Password**: `admin123` ⚠️ **Change in production!**
+
+## 🗄️ Database Schema
+
+### Users
+```sql
+CREATE TABLE users (
+    id VARCHAR(36) PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    phone VARCHAR(20),
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL
+);
+```
+
+### Roles
+```sql
+CREATE TABLE roles (
+    id VARCHAR(36) PRIMARY KEY,
+    name VARCHAR(50) UNIQUE NOT NULL,
+    description TEXT,
+    permissions TEXT[],
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL
+);
+```
+
+### User_Roles
+```sql
+CREATE TABLE user_roles (
+    user_id VARCHAR(36) REFERENCES users(id),
+    role_id VARCHAR(36) REFERENCES roles(id),
+    assigned_at TIMESTAMP NOT NULL,
+    PRIMARY KEY (user_id, role_id)
+);
+```
+
+## 📊 Observability
 
 ### Metrics
 
-Available at `http://localhost:8080/metrics`:
-
-**Request Metrics:**
-- `api_gateway_requests_total` - Total requests by route, method, status
-- `api_gateway_request_duration_seconds` - Request latency histogram
-
-**Backend Metrics:**
-- `api_gateway_grpc_calls_total` - gRPC calls by service, method, status
-- `api_gateway_circuit_breaker_state_changes_total` - Circuit breaker transitions
-- `api_gateway_active_connections_total` - Active backend connections
-
-**Security Metrics:**
-- `gateway_auth_failures_total` - Authentication failures
+**API Gateway** (http://localhost:8080/metrics):
+- `api_gateway_requests_total` - Total requests
+- `api_gateway_request_duration_seconds` - Request latency
+- `api_gateway_grpc_calls_total` - gRPC calls
+- `api_gateway_circuit_breaker_state_changes_total` - Circuit breaker events
+- `gateway_auth_failures_total` - Auth failures
 - `gateway_rate_limit_exceeded_total` - Rate limit rejections
 
 ### Distributed Tracing
 
-Traces exported to Tempo via OTLP. View in Grafana:
+View traces in Grafana (http://localhost:3000):
 - Request flow across services
-- Latency breakdown
+- Latency breakdown by service
 - Error propagation
 
-### Logging
-
-Structured JSON logs sent to Loki:
-```json
-{
-  "timestamp": "2024-01-15T10:30:45Z",
-  "level": "INFO",
-  "target": "api_gateway::handlers::gateway",
-  "fields": {
-    "message": "Request completed successfully",
-    "path": "/api/users/123",
-    "method": "GET",
-    "duration_ms": 45
-  }
-}
-```
-
-## Development
-
-### Project Structure
-
-```
-src/
-├── auth/               # Authentication & authorization
-│   ├── middleware.rs   # Auth middleware
-│   ├── service.rs      # Auth service client
-│   └── types.rs        # Auth types
-├── circuit_breaker/    # Circuit breaker implementation
-│   ├── breaker.rs      # Circuit breaker logic
-│   └── types.rs        # Circuit breaker types
-├── config/             # Configuration management
-├── discovery/          # Route discovery from gRPC
-├── grpc/               # gRPC client pool
-├── handlers/           # HTTP handlers
-│   ├── gateway.rs      # Main gateway handler
-│   └── admin.rs        # Admin endpoints
-├── health/             # Health checking
-├── rate_limit/         # Rate limiting
-├── router/             # Request routing
-└── shared/             # Shared state & metrics
-```
-
-### Running Tests
+### Logs
 
 ```bash
-# Run all tests
+# View all logs
+docker-compose logs -f
+
+# View specific service
+docker-compose logs -f user-auth-service
+docker-compose logs -f api-gateway
+
+# Query in Loki/Grafana
+{container="user-auth-service"}
+{container="api-gateway"}
+```
+
+## 🔒 Security
+
+### Production Checklist
+
+- [ ] Change default admin password
+- [ ] Update `JWT_SECRET` to strong random value (32+ chars)
+- [ ] Set strong PostgreSQL password
+- [ ] Enable TLS for gRPC connections
+- [ ] Configure CORS with specific origins
+- [ ] Enable rate limiting with appropriate thresholds
+- [ ] Set up monitoring alerts
+- [ ] Review and restrict role permissions
+- [ ] Implement token blacklist for logout
+- [ ] Use HTTPS in production
+- [ ] Regular security audits
+
+### JWT Configuration
+
+- **Access Token**: 15 minutes (default)
+- **Refresh Token**: 7 days (default)
+- **Algorithm**: HS256
+- **Claims**: user_id, email, roles
+
+## 🧪 Testing
+
+### Test User Auth Service
+
+```bash
+cd services/user-auth-service
+go test -v ./...
+```
+
+### Test API Gateway
+
+```bash
+cd services/api-gateway
 cargo test
-
-# Run specific module tests
-cargo test router::
-cargo test circuit_breaker::
-
-# Run with logging
-RUST_LOG=debug cargo test
 ```
 
-### Building for Production
+### Integration Testing with grpcurl
 
 ```bash
-# Build optimized release binary
-cargo build --release
+# Install grpcurl
+go install github.com/fullstorydev/grpcurl/cmd/grpcurl@latest
 
-# Binary location
-./target/release/api-gateway
-```
-
-## Security Considerations
-
-### Request Validation
-- Request body size limited to 10 MB (configurable)
-- Path parameter sanitization
-- JWT token validation
-
-### TLS/mTLS
-- Support for custom CA certificates
-- Domain name verification
-- Client certificate authentication (configurable)
-
-### Rate Limiting
-- Per-IP rate limiting
-- Health/metrics endpoints excluded
-- Configurable thresholds
-
-## Performance
-
-**Benchmarks** (on 4-core CPU, 8GB RAM):
-- Throughput: ~50k req/s (simple routes)
-- Latency p50: <2ms
-- Latency p99: <10ms
-- Memory: ~100MB baseline + ~1KB per route
-
-**Optimizations:**
-- Zero-copy request body handling where possible
-- Route lookup via HashMap (O(1)) for static routes
-- Connection pooling for gRPC backends
-- Efficient circuit breaker state checks
-
-## Troubleshooting
-
-### Gateway won't start
-```bash
-# Check config file exists
-ls -la config/gateway-config.yaml
-
-# Validate YAML syntax
-python3 -c "import yaml; yaml.safe_load(open('config/gateway-config.yaml'))"
-
-# Check logs
-docker-compose logs gateway
-```
-
-### No routes discovered
-```bash
-# Check services have reflection enabled
+# List services
 grpcurl -plaintext localhost:50051 list
 
-# Check auto_discover is true in config
-grep auto_discover config/gateway-config.yaml
-
-# Manually refresh routes
-curl -X POST http://localhost:8080/admin/refresh-routes \
-  -H "Authorization: Bearer <admin-token>"
+# Describe service
+grpcurl -plaintext localhost:50051 describe user.UserService
 ```
 
-### Circuit breaker keeps opening
+## 🐛 Troubleshooting
+
+### Database Connection Issues
+
 ```bash
-# Check backend service health
-curl http://localhost:8080/health
+# Check PostgreSQL is running
+docker-compose ps postgres
 
-# View circuit breaker metrics
-curl http://localhost:8080/metrics | grep circuit_breaker
+# Test connection
+psql -h localhost -U postgres -d userauth
 
-# Adjust thresholds in config
-failure_threshold: 10  # Increase to be more tolerant
+# View logs
+docker-compose logs postgres
 ```
 
-## Contributing
+### gRPC Connection Issues
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+```bash
+# Test gRPC is accessible
+grpcurl -plaintext localhost:50051 list
 
-## License
+# Check service logs
+docker-compose logs user-auth-service
+```
 
-[Add your license here]
+### Service Won't Start
 
-## Acknowledgments
+```bash
+# Clean rebuild
+docker-compose down -v
+docker-compose up --build
 
-Built with:
-- [Axum](https://github.com/tokio-rs/axum) - Web framework
-- [Tonic](https://github.com/hyperium/tonic) - gRPC framework
+# Check for port conflicts
+lsof -i :8080  # API Gateway
+lsof -i :50051 # User Auth
+lsof -i :5432  # PostgreSQL
+```
+
+### Proto Generation Issues
+
+```bash
+cd services/user-auth-service
+
+# Install protoc plugins
+go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+# Regenerate proto code
+make proto
+```
+
+## 🔧 Building for Production
+
+```bash
+# Build all services
+docker-compose build
+
+# Build specific service
+docker-compose build user-auth-service
+docker-compose build api-gateway
+
+# Run in production mode
+docker-compose up -d
+
+# View service status
+docker-compose ps
+```
+
+## 📚 Additional Documentation
+
+- [API Gateway Details](services/api-gateway/README.md) - Detailed gateway documentation
+- [Proto Definitions](proto/) - gRPC service definitions
+- [Migrations](services/user-auth-service/migrations/) - Database schema
+
+## 🤝 Contributing
+
+1. Create a feature branch
+2. Make your changes
+3. Run tests
+4. Submit a pull request
+
+## 📄 License
+
+MIT License - See LICENSE file for details
+
+## 🙏 Built With
+
+- [Axum](https://github.com/tokio-rs/axum) - Web framework (Rust)
+- [Gin](https://github.com/gin-gonic/gin) - Web framework (Go)
+- [Tonic](https://github.com/hyperium/tonic) - gRPC (Rust)
+- [gRPC-Go](https://github.com/grpc/grpc-go) - gRPC (Go)
+- [PostgreSQL](https://www.postgresql.org/) - Database
 - [OpenTelemetry](https://opentelemetry.io/) - Observability
 - [Prometheus](https://prometheus.io/) - Metrics
 - [Grafana](https://grafana.com/) - Visualization
+- [Tempo](https://grafana.com/oss/tempo/) - Tracing
+- [Loki](https://grafana.com/oss/loki/) - Logging
