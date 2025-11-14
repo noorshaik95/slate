@@ -69,7 +69,7 @@ linters:
     - revive
     - staticcheck
     - stylecheck
-    - typecheck
+    # typecheck disabled - redundant with go build step and causes module cache issues
     - unconvert
     - unparam
     - unused
