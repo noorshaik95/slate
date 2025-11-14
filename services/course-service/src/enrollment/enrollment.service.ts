@@ -191,7 +191,16 @@ export class EnrollmentService {
     // Populate course information
     const enrollmentsWithCourses = await Promise.all(
       enrollments.map(async (enrollment) => {
-        const course = await this.courseRepository.findById(enrollment.courseId.toString());
+        // Handle both populated and unpopulated courseId
+        let courseId: string;
+        if (enrollment.courseId && typeof enrollment.courseId === 'object') {
+          // CourseId is populated as a document
+          courseId = (enrollment.courseId as any)._id.toString();
+        } else {
+          // CourseId is just an ObjectId
+          courseId = enrollment.courseId?.toString() || '';
+        }
+        const course = await this.courseRepository.findById(courseId);
         return {
           enrollment,
           course,
