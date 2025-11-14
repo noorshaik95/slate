@@ -389,7 +389,7 @@ Location: `.github/workflows/onboarding-service-ci.yml`
 
 **Status Badge**:
 ```markdown
-![CI Status](https://github.com/yourusername/slate/workflows/Onboarding%20Service%20CI/badge.svg)
+![CI Status](https://github.com/noorshaik95/slate/workflows/Onboarding%20Service%20CI/badge.svg)
 ```
 
 ### Codecov Integration

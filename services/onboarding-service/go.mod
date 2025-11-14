@@ -1,4 +1,4 @@
-module github.com/yourusername/slate/services/onboarding-service
+module github.com/noorshaik95/slate/services/onboarding-service
 
 go 1.23.0
 
@@ -8,7 +8,7 @@ require (
 	github.com/lib/pq v1.10.9
 	github.com/rs/zerolog v1.33.0
 	github.com/segmentio/kafka-go v0.4.47
-	github.com/yourusername/slate/proto v0.0.0
+	github.com/noorshaik95/slate/proto v0.0.0
 	go.opentelemetry.io/otel v1.24.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.24.0
 	go.opentelemetry.io/otel/sdk v1.24.0
@@ -62,4 +62,4 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240311132316-a219d84964c2 // indirect
 )
 
-replace github.com/yourusername/slate/proto => ../../proto
+replace github.com/noorshaik95/slate/proto => ../../proto

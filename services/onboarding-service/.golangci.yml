@@ -17,7 +17,7 @@ linters-settings:
   gocyclo:
     min-complexity: 15
   goimports:
-    local-prefixes: github.com/yourusername/slate
+    local-prefixes: github.com/noorshaik95/slate
   golint:
     min-confidence: 0
   gomnd:

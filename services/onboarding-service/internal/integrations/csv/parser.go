@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/yourusername/slate/services/onboarding-service/internal/models"
+	"github.com/noorshaik95/slate/services/onboarding-service/internal/models"
 )
 
 // ValidationError represents a CSV validation error

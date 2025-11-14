@@ -16,15 +16,15 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
-	"github.com/yourusername/slate/services/onboarding-service/internal/config"
-	"github.com/yourusername/slate/services/onboarding-service/internal/repository"
-	"github.com/yourusername/slate/services/onboarding-service/migrations"
-	"github.com/yourusername/slate/services/onboarding-service/pkg/database"
-	"github.com/yourusername/slate/services/onboarding-service/pkg/kafka"
-	"github.com/yourusername/slate/services/onboarding-service/pkg/logger"
-	"github.com/yourusername/slate/services/onboarding-service/pkg/metrics"
-	"github.com/yourusername/slate/services/onboarding-service/pkg/tracing"
-	ws "github.com/yourusername/slate/services/onboarding-service/pkg/websocket"
+	"github.com/noorshaik95/slate/services/onboarding-service/internal/config"
+	"github.com/noorshaik95/slate/services/onboarding-service/internal/repository"
+	"github.com/noorshaik95/slate/services/onboarding-service/migrations"
+	"github.com/noorshaik95/slate/services/onboarding-service/pkg/database"
+	"github.com/noorshaik95/slate/services/onboarding-service/pkg/kafka"
+	"github.com/noorshaik95/slate/services/onboarding-service/pkg/logger"
+	"github.com/noorshaik95/slate/services/onboarding-service/pkg/metrics"
+	"github.com/noorshaik95/slate/services/onboarding-service/pkg/tracing"
+	ws "github.com/noorshaik95/slate/services/onboarding-service/pkg/websocket"
 )
 
 var upgrader = websocket.Upgrader{

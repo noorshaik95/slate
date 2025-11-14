@@ -11,9 +11,9 @@ import (
 	"time"
 
 	_ "github.com/lib/pq"
-	"github.com/yourusername/slate/services/onboarding-service/internal/models"
-	"github.com/yourusername/slate/services/onboarding-service/internal/repository"
-	"github.com/yourusername/slate/services/onboarding-service/migrations"
+	"github.com/noorshaik95/slate/services/onboarding-service/internal/models"
+	"github.com/noorshaik95/slate/services/onboarding-service/internal/repository"
+	"github.com/noorshaik95/slate/services/onboarding-service/migrations"
 )
 
 var testDB *sql.DB

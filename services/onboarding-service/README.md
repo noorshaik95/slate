@@ -426,7 +426,7 @@ GitHub Actions runs on every push:
 - ✅ Security scan (gosec)
 - ✅ Docker image build
 
-**Status**: ![CI Status](https://github.com/yourusername/slate/workflows/Onboarding%20Service%20CI/badge.svg)
+**Status**: ![CI Status](https://github.com/noorshaik95/slate/workflows/Onboarding%20Service%20CI/badge.svg)
 
 ## Roadmap
 
@@ -452,7 +452,7 @@ GitHub Actions runs on every push:
 ## Support
 
 For issues or questions:
-- GitHub Issues: https://github.com/yourusername/slate/issues
+- GitHub Issues: https://github.com/noorshaik95/slate/issues
 - Documentation: `/docs/onboarding-service/`
 
 ## License

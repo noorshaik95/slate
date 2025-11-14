@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package onboarding;
 
-option go_package = "github.com/yourusername/slate/proto/onboarding";
+option go_package = "github.com/noorshaik95/slate/proto/onboarding";
 
 import "google/protobuf/timestamp.proto";
 

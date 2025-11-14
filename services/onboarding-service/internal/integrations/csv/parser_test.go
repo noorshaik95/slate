@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/yourusername/slate/services/onboarding-service/internal/models"
+	"github.com/noorshaik95/slate/services/onboarding-service/internal/models"
 )
 
 func TestParser_Parse_ValidCSV(t *testing.T) {

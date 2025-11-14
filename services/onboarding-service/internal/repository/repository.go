@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
-	"github.com/yourusername/slate/services/onboarding-service/internal/models"
+	"github.com/noorshaik95/slate/services/onboarding-service/internal/models"
 )
 
 // Repository handles all database operations
