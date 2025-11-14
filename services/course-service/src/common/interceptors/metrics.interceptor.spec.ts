@@ -14,10 +14,7 @@ describe('MetricsInterceptor', () => {
     };
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        MetricsInterceptor,
-        { provide: MetricsService, useValue: mockMetricsService },
-      ],
+      providers: [MetricsInterceptor, { provide: MetricsService, useValue: mockMetricsService }],
     }).compile();
 
     interceptor = module.get<MetricsInterceptor>(MetricsInterceptor);
@@ -79,10 +76,7 @@ describe('MetricsInterceptor', () => {
     const context = createMockExecutionContext('listCourses');
     const callHandler = createMockCallHandler({ courses: [] });
 
-    const startTime = Date.now();
-
     interceptor.intercept(context, callHandler).subscribe(() => {
-      const duration = (Date.now() - startTime) / 1000;
       const recordedDuration = (metricsService.observeGrpcRequestDuration as jest.Mock).mock
         .calls[0][2];
 

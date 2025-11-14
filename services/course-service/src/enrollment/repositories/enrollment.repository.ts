@@ -1,17 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import {
-  Enrollment,
-  EnrollmentDocument,
-  EnrollmentStatus,
-} from '../schemas/enrollment.schema';
+import { Enrollment, EnrollmentDocument, EnrollmentStatus } from '../schemas/enrollment.schema';
 
 @Injectable()
 export class EnrollmentRepository {
-  constructor(
-    @InjectModel(Enrollment.name) private enrollmentModel: Model<EnrollmentDocument>,
-  ) {}
+  constructor(@InjectModel(Enrollment.name) private enrollmentModel: Model<EnrollmentDocument>) {}
 
   async create(enrollment: Partial<Enrollment>): Promise<EnrollmentDocument> {
     const createdEnrollment = new this.enrollmentModel(enrollment);

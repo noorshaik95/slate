@@ -20,12 +20,9 @@ describe('Course Service Integration Tests', () => {
           isGlobal: true,
           load: [configuration],
         }),
-        MongooseModule.forRoot(
-          process.env.MONGO_URI || 'mongodb://localhost:27017/course-test',
-          {
-            dbName: 'course-test',
-          },
-        ),
+        MongooseModule.forRoot(process.env.MONGO_URI || 'mongodb://localhost:27017/course-test', {
+          dbName: 'course-test',
+        }),
         CourseModule,
         EnrollmentModule,
       ],
@@ -165,9 +162,7 @@ describe('Course Service Integration Tests', () => {
     });
 
     it('should prevent duplicate enrollment', async () => {
-      await expect(
-        enrollmentService.selfEnroll(courseId, 'student-test-1'),
-      ).rejects.toThrow();
+      await expect(enrollmentService.selfEnroll(courseId, 'student-test-1')).rejects.toThrow();
     });
 
     it('should retrieve course roster', async () => {
