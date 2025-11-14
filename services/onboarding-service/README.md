@@ -103,12 +103,32 @@ service OnboardingService {
 ```
 
 ### HTTP/REST (via API Gateway - Port 8080)
+
+**Auto-discovered routes** (via API Gateway conventions):
 ```
-POST   /api/onboarding/jobs           - Create bulk onboarding job
-GET    /api/onboarding/jobs           - List all jobs (paginated)
-GET    /api/onboarding/jobs/{id}      - Get job details
+POST   /api/jobs                      - Create bulk onboarding job
+GET    /api/jobs                      - List all jobs (paginated)
+GET    /api/jobs/:id                  - Get job details
+GET    /api/tasks/:id                 - Get task details
+GET    /api/tasks                     - List tasks for a job
+POST   /api/integrationconfigs        - Create integration config
+GET    /api/integrationconfigs/:id    - Get integration config
+GET    /api/integrationconfigs        - List integration configs
+PUT    /api/integrationconfigs/:id    - Update integration config
+DELETE /api/integrationconfigs/:id    - Delete integration config
+```
+
+**Custom routes** (explicitly configured):
+```
+POST   /api/jobs/:id/cancel           - Cancel a job
+POST   /api/jobs/:id/retry            - Retry a failed job
+POST   /api/tasks/:id/retry           - Retry a failed task
 POST   /api/onboarding/upload/csv     - Upload CSV file
-GET    /api/onboarding/audit          - Get audit logs
+POST   /api/onboarding/batch          - Process batch via API
+POST   /api/integrationconfigs/:id/sync - Trigger integration sync
+GET    /api/auditlogs                 - Get audit logs
+POST   /api/onboarding/export         - Export data
+GET    /api/onboarding/health         - Health check
 ```
 
 ### WebSocket (Port 8083)

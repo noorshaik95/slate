@@ -50,20 +50,27 @@ route_overrides:
     http_method: "POST"
     service: "user-auth-service"
 
-  # Onboarding Service Routes
-  - grpc_method: "onboarding.OnboardingService/CreateJob"
-    http_path: "/api/onboarding/jobs"
+  # Onboarding Service Routes (non-standard methods only - standard CRUD is auto-discovered)
+  # Standard methods auto-discovered:
+  #   CreateJob → POST /api/jobs
+  #   GetJob → GET /api/jobs/:id
+  #   ListJobs → GET /api/jobs
+  #   GetTask → GET /api/tasks/:id
+  #   ListTasks → GET /api/tasks
+
+  - grpc_method: "onboarding.OnboardingService/CancelJob"
+    http_path: "/api/jobs/:id/cancel"
     http_method: "POST"
     service: "onboarding-service"
 
-  - grpc_method: "onboarding.OnboardingService/GetJob"
-    http_path: "/api/onboarding/jobs/{job_id}"
-    http_method: "GET"
+  - grpc_method: "onboarding.OnboardingService/RetryJob"
+    http_path: "/api/jobs/:id/retry"
+    http_method: "POST"
     service: "onboarding-service"
 
-  - grpc_method: "onboarding.OnboardingService/ListJobs"
-    http_path: "/api/onboarding/jobs"
-    http_method: "GET"
+  - grpc_method: "onboarding.OnboardingService/RetryTask"
+    http_path: "/api/tasks/:id/retry"
+    http_method: "POST"
     service: "onboarding-service"
 
   - grpc_method: "onboarding.OnboardingService/UploadCSV"
@@ -71,9 +78,24 @@ route_overrides:
     http_method: "POST"
     service: "onboarding-service"
 
+  - grpc_method: "onboarding.OnboardingService/ProcessBatch"
+    http_path: "/api/onboarding/batch"
+    http_method: "POST"
+    service: "onboarding-service"
+
+  - grpc_method: "onboarding.OnboardingService/SyncIntegration"
+    http_path: "/api/integrationconfigs/:id/sync"
+    http_method: "POST"
+    service: "onboarding-service"
+
   - grpc_method: "onboarding.OnboardingService/GetAuditLogs"
-    http_path: "/api/onboarding/audit"
+    http_path: "/api/auditlogs"
     http_method: "GET"
+    service: "onboarding-service"
+
+  - grpc_method: "onboarding.OnboardingService/ExportData"
+    http_path: "/api/onboarding/export"
+    http_method: "POST"
     service: "onboarding-service"
 
   - grpc_method: "onboarding.OnboardingService/Health"
