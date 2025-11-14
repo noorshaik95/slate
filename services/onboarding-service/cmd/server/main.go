@@ -43,22 +43,28 @@ func main() {
 	}
 
 	// Initialize logger
-	logger.Init(cfg.LogLevel)
+	_ = logger.NewLogger(cfg.LogLevel)
 	log.Info().Msg("Starting Onboarding Service")
 
 	// Initialize tracing
-	tp, err := tracing.InitTracer("onboarding-service", cfg.Telemetry.OTLPEndpoint)
+	tp, err := tracing.InitTracer(tracing.Config{
+		ServiceName:    "onboarding-service",
+		ServiceVersion: "1.0.0",
+		OTLPEndpoint:   cfg.Telemetry.OTLPEndpoint,
+		OTLPInsecure:   true,
+		SamplingRate:   1.0,
+	})
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to initialize tracer")
 	}
 	defer func() {
-		if err := tp.Shutdown(context.Background()); err != nil {
+		if err := tracing.Shutdown(context.Background(), tp); err != nil {
 			log.Error().Err(err).Msg("Failed to shutdown tracer")
 		}
 	}()
 
 	// Initialize metrics
-	metrics.InitMetrics("onboarding_service")
+	_ = metrics.NewMetrics(nil)
 
 	// Connect to database
 	db, err := database.NewPostgresDB(
@@ -79,12 +85,12 @@ func main() {
 	defer db.Close()
 
 	// Run migrations
-	if err := migrations.RunMigrations(db); err != nil {
+	if err := migrations.RunMigrations(db.DB); err != nil {
 		log.Fatal().Err(err).Msg("Failed to run database migrations")
 	}
 
 	// Initialize repository
-	repo := repository.NewRepository(db)
+	repo := repository.NewRepository(db.DB)
 
 	// Initialize Kafka producer
 	kafkaProducer := kafka.NewProducer(cfg.Kafka.Brokers)

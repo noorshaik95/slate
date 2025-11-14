@@ -2,8 +2,8 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -29,22 +29,28 @@ func main() {
 	}
 
 	// Initialize logger
-	logger.Init(cfg.LogLevel)
+	_ = logger.NewLogger(cfg.LogLevel)
 	log.Info().Msg("Starting Onboarding Worker")
 
 	// Initialize tracing
-	tp, err := tracing.InitTracer("onboarding-worker", cfg.Telemetry.OTLPEndpoint)
+	tp, err := tracing.InitTracer(tracing.Config{
+		ServiceName:    "onboarding-worker",
+		ServiceVersion: "1.0.0",
+		OTLPEndpoint:   cfg.Telemetry.OTLPEndpoint,
+		OTLPInsecure:   true,
+		SamplingRate:   1.0,
+	})
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to initialize tracer")
 	}
 	defer func() {
-		if err := tp.Shutdown(context.Background()); err != nil {
+		if err := tracing.Shutdown(context.Background(), tp); err != nil {
 			log.Error().Err(err).Msg("Failed to shutdown tracer")
 		}
 	}()
 
 	// Initialize metrics
-	metrics.InitMetrics("onboarding_worker")
+	_ = metrics.NewMetrics(nil)
 
 	// Connect to database
 	db, err := database.NewPostgresDB(
@@ -65,12 +71,12 @@ func main() {
 	defer db.Close()
 
 	// Run migrations
-	if err := migrations.RunMigrations(db); err != nil {
+	if err := migrations.RunMigrations(db.DB); err != nil {
 		log.Fatal().Err(err).Msg("Failed to run database migrations")
 	}
 
 	// Initialize repository
-	repo := repository.NewRepository(db)
+	repo := repository.NewRepository(db.DB)
 
 	// Initialize Kafka consumer
 	consumer := kafka.NewConsumer(
@@ -264,8 +270,8 @@ func (w *Worker) createAuditLog(ctx context.Context, task *models.Task, userID s
 
 	auditLog := &models.AuditLog{
 		TenantID:    task.TenantID,
-		JobID:       task.JobID,
-		TaskID:      task.ID,
+		JobID:       sql.NullString{String: task.JobID, Valid: task.JobID != ""},
+		TaskID:      sql.NullString{String: task.ID, Valid: task.ID != ""},
 		EventType:   models.EventUserCreated,
 		EventData:   string(eventData),
 		PerformedBy: "system",
