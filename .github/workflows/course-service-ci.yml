@@ -62,7 +62,7 @@ jobs:
           echo "Coverage report:"
           cat coverage/coverage-summary.json
           echo ""
-          echo "Note: Coverage threshold (80%) is enforced by Jest configuration"
+          echo "Note: Coverage thresholds (70% lines/statements, 50% functions, 40% branches) are enforced by Jest configuration"
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
@@ -100,12 +100,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20.x'
-          cache: 'npm'
-          cache-dependency-path: services/course-service/package-lock.json
 
       - name: Install dependencies
         working-directory: services/course-service
-        run: npm ci
+        run: npm install
 
       - name: Run ESLint
         working-directory: services/course-service
@@ -113,7 +111,7 @@ jobs:
 
       - name: Check formatting
         working-directory: services/course-service
-        run: npm run format -- --check
+        run: npm run format:check
 
   build:
     name: Build
@@ -128,12 +126,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20.x'
-          cache: 'npm'
-          cache-dependency-path: services/course-service/package-lock.json
 
       - name: Install dependencies
         working-directory: services/course-service
-        run: npm ci
+        run: npm install
 
       - name: Build application
         working-directory: services/course-service
@@ -187,6 +183,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20.x'
+
+      - name: Install dependencies
+        working-directory: services/course-service
+        run: npm install
 
       - name: Run npm audit
         working-directory: services/course-service
