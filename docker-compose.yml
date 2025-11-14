@@ -108,6 +108,161 @@ services:
           memory: 128M
     restart: unless-stopped
 
+  # Tenant Service (Go) - Epic 9: US-9.1 Tenant Provisioning
+  tenant-service:
+    build:
+      context: .
+      dockerfile: services/tenant-service/Dockerfile
+    environment:
+      SERVER_HOST: "0.0.0.0"
+      SERVER_PORT: "8083"
+      DB_HOST: "postgres"
+      DB_PORT: "5432"
+      DB_USER: "postgres"
+      DB_PASSWORD: "postgres"
+      DB_NAME: "tenantdb"
+      DB_SSLMODE: "disable"
+      GRPC_HOST: "0.0.0.0"
+      GRPC_PORT: "50053"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "tempo:4317"
+      REDIS_HOST: "redis"
+      REDIS_PORT: "6379"
+      USER_SERVICE_URL: "user-auth-service:50051"
+      EMAIL_SERVICE_URL: "email-service:50052"
+      EMAIL_ENABLED: "true"
+      WELCOME_EMAIL_DELAY_SECONDS: "5"
+      BASE_SETUP_URL: "http://localhost:8080"
+      LOG_LEVEL: "info"
+      ENVIRONMENT: "development"
+    ports:
+      - "50053:50053"
+      - "8083:8083"
+      - "9093:9090"  # Prometheus metrics endpoint
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      tempo:
+        condition: service_started
+      user-auth-service:
+        condition: service_started
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    restart: unless-stopped
+
+  # Email Service (Go) - Epic 9: AC4 Welcome email
+  email-service:
+    build:
+      context: .
+      dockerfile: services/email-service/Dockerfile
+    environment:
+      SERVER_HOST: "0.0.0.0"
+      SERVER_PORT: "8082"
+      DB_HOST: "postgres"
+      DB_PORT: "5432"
+      DB_USER: "postgres"
+      DB_PASSWORD: "postgres"
+      DB_NAME: "emaildb"
+      DB_SSLMODE: "disable"
+      GRPC_HOST: "0.0.0.0"
+      GRPC_PORT: "50052"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "tempo:4317"
+      SMTP_HOST: "mailhog"
+      SMTP_PORT: "1025"
+      SMTP_USERNAME: ""
+      SMTP_PASSWORD: ""
+      SMTP_FROM_EMAIL: "noreply@slate.local"
+      SMTP_FROM_NAME: "Slate Platform"
+      LOG_LEVEL: "info"
+      ENVIRONMENT: "development"
+    ports:
+      - "50052:50052"
+      - "8082:8082"
+      - "9092:9090"  # Prometheus metrics endpoint
+    depends_on:
+      postgres:
+        condition: service_healthy
+      tempo:
+        condition: service_started
+      mailhog:
+        condition: service_started
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    restart: unless-stopped
+
+  # Metrics Service (Go) - Epic 9: US-9.2 Usage Metrics Dashboard
+  metrics-service:
+    build:
+      context: .
+      dockerfile: services/metrics-service/Dockerfile
+    environment:
+      SERVER_HOST: "0.0.0.0"
+      SERVER_PORT: "8084"
+      DB_HOST: "postgres"
+      DB_PORT: "5432"
+      DB_USER: "postgres"
+      DB_PASSWORD: "postgres"
+      DB_NAME: "metricsdb"
+      DB_SSLMODE: "disable"
+      GRPC_HOST: "0.0.0.0"
+      GRPC_PORT: "50054"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "tempo:4317"
+      PROMETHEUS_URL: "http://prometheus:9090"
+      METRICS_UPDATE_INTERVAL: "30"  # AC6: Update every 30 seconds
+      ERROR_RATE_THRESHOLD: "1.0"    # AC7: Alert if error rate > 1%
+      UPTIME_THRESHOLD: "99.5"       # AC7: Alert if uptime < 99.5%
+      LOG_LEVEL: "info"
+      ENVIRONMENT: "development"
+    ports:
+      - "50054:50054"
+      - "8084:8084"
+      - "9094:9090"  # Prometheus metrics endpoint
+    depends_on:
+      postgres:
+        condition: service_healthy
+      prometheus:
+        condition: service_started
+      tempo:
+        condition: service_started
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    restart: unless-stopped
+
+  # MailHog for Email Testing (Development Only)
+  mailhog:
+    image: mailhog/mailhog:latest
+    ports:
+      - "1025:1025"  # SMTP server
+      - "8025:8025"  # Web UI
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 128M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    restart: unless-stopped
+
   # API Gateway (Rust/Axum)
   api-gateway:
     build:
@@ -137,6 +292,9 @@ services:
       - loki
       - grafana
       - user-auth-service
+      - tenant-service
+      - email-service
+      - metrics-service
     deploy:
       resources:
         limits:
