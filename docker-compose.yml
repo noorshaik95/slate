@@ -108,6 +108,66 @@ services:
           memory: 128M
     restart: unless-stopped
 
+  # Video Conferencing Service (Rust) - Epic 7: Live Video
+  video-conferencing-service:
+    build:
+      context: .
+      dockerfile: services/video-conferencing-service/Dockerfile
+    environment:
+      # Server Configuration
+      SERVER_HOST: "0.0.0.0"
+      GRPC_PORT: "50052"
+      WS_PORT: "8082"
+      HTTP_PORT: "8083"
+      # Database Configuration
+      DB_HOST: "postgres"
+      DB_PORT: "5432"
+      DB_NAME: "slate_video"
+      DB_USER: "postgres"
+      DB_PASSWORD: "postgres"
+      DB_MAX_CONNECTIONS: "25"
+      # WebRTC Configuration
+      WEBRTC_PORT_MIN: "50000"
+      WEBRTC_PORT_MAX: "50100"
+      # Recording Configuration (AC8, AC9)
+      RECORDING_ENABLED: "true"
+      GCS_BUCKET: "slate-recordings"
+      GCS_PROJECT_ID: "slate-project"
+      RECORDING_TIMEOUT: "1800"  # 30 minutes (AC9)
+      TEMP_STORAGE_PATH: "/tmp/recordings"
+      # Observability
+      TEMPO_ENDPOINT: "http://tempo:4317"
+      SERVICE_NAME: "video-conferencing-service"
+      PROMETHEUS_PORT: "9092"
+      RUST_LOG: "info,video_conferencing_service=debug"
+      # Session Configuration
+      MAX_PARTICIPANTS: "50"  # AC5: 50 concurrent participants
+      JOIN_WINDOW_MINUTES: "10"  # AC3: Join enabled 10 min before start
+      DEFAULT_DURATION_MINUTES: "60"
+      MAX_DURATION_MINUTES: "240"
+      AUTO_END_AFTER_MINUTES: "300"
+    ports:
+      - "50052:50052"  # gRPC
+      - "8082:8082"    # WebSocket/HTTP
+      - "9092:9092"    # Metrics
+      - "50000-50100:50000-50100/udp"  # WebRTC media ports
+    volumes:
+      - video-recordings:/tmp/recordings
+    depends_on:
+      postgres:
+        condition: service_healthy
+      tempo:
+        condition: service_started
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '1.0'
+          memory: 512M
+    restart: unless-stopped
+
   # API Gateway (Rust/Axum)
   api-gateway:
     build:
@@ -137,6 +197,7 @@ services:
       - loki
       - grafana
       - user-auth-service
+      - video-conferencing-service
     deploy:
       resources:
         limits:
@@ -264,4 +325,6 @@ volumes:
   redis-data:
     driver: local
   loki-data:
+    driver: local
+  video-recordings:
     driver: local
