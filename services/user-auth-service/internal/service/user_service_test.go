@@ -168,6 +168,7 @@ func createTestUser() *models.User {
 		FirstName:    "John",
 		LastName:     "Doe",
 		Phone:        "+1234567890",
+		Timezone:     "UTC",
 		IsActive:     true,
 		Roles:        []string{"user"},
 		CreatedAt:    time.Now(),

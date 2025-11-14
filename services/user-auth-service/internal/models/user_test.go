@@ -22,6 +22,7 @@ func TestNewUser(t *testing.T) {
 	assert.Equal(t, firstName, user.FirstName)
 	assert.Equal(t, lastName, user.LastName)
 	assert.Equal(t, phone, user.Phone)
+	assert.Equal(t, "UTC", user.Timezone)
 	assert.True(t, user.IsActive)
 	assert.False(t, user.CreatedAt.IsZero())
 	assert.False(t, user.UpdatedAt.IsZero())
@@ -122,6 +123,9 @@ func TestUser_ToProfile(t *testing.T) {
 		FirstName: "John",
 		LastName:  "Doe",
 		Phone:     "+1234567890",
+		Timezone:  "America/New_York",
+		AvatarURL: "https://example.com/avatar.jpg",
+		Bio:       "Test user bio",
 		Roles:     []string{"user", "admin"},
 		CreatedAt: now,
 		UpdatedAt: now,
@@ -134,9 +138,10 @@ func TestUser_ToProfile(t *testing.T) {
 	assert.Equal(t, user.FirstName, profile.FirstName)
 	assert.Equal(t, user.LastName, profile.LastName)
 	assert.Equal(t, user.Phone, profile.Phone)
+	assert.Equal(t, user.AvatarURL, profile.AvatarURL)
+	assert.Equal(t, user.Bio, profile.Bio)
+	assert.Equal(t, user.Timezone, profile.Timezone)
 	assert.Equal(t, user.Roles, profile.Roles)
 	assert.Equal(t, user.CreatedAt, profile.CreatedAt)
 	assert.Equal(t, user.UpdatedAt, profile.UpdatedAt)
-	assert.Empty(t, profile.AvatarURL)
-	assert.Empty(t, profile.Bio)
 }
