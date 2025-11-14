@@ -25,10 +25,30 @@ type MetricsCollector struct {
 	// Request metrics
 	requestDuration *prometheus.HistogramVec
 	requestTotal    *prometheus.CounterVec
+
+	// Registry for testing
+	registry prometheus.Registerer
 }
 
 // NewMetricsCollector creates a new metrics collector for tenant service
+// Uses the default global registry
 func NewMetricsCollector() *MetricsCollector {
+	return NewMetricsCollectorWithRegistry(nil)
+}
+
+// NewMetricsCollectorWithRegistry creates a new metrics collector with a custom registry
+// If registry is nil, uses promauto (global registry). For tests, pass a custom registry.
+func NewMetricsCollectorWithRegistry(registry prometheus.Registerer) *MetricsCollector {
+	if registry == nil {
+		// Use promauto for production (global registry)
+		return newMetricsCollectorPromauto()
+	}
+
+	// Use custom registry for tests
+	return newMetricsCollectorWithReg(registry)
+}
+
+func newMetricsCollectorPromauto() *MetricsCollector {
 	return &MetricsCollector{
 		// AC7: Provisioning metrics (must complete within 2 minutes)
 		provisioningTotal: promauto.NewCounterVec(
@@ -113,6 +133,115 @@ func NewMetricsCollector() *MetricsCollector {
 			},
 			[]string{"operation", "status"},
 		),
+	}
+}
+
+func newMetricsCollectorWithReg(registry prometheus.Registerer) *MetricsCollector {
+	provisioningTotal := prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "tenant_provisioning_total",
+			Help: "Total number of tenant provisioning attempts",
+		},
+		[]string{"status"},
+	)
+	provisioningDuration := prometheus.NewHistogram(
+		prometheus.HistogramOpts{
+			Name:    "tenant_provisioning_duration_seconds",
+			Help:    "Duration of tenant provisioning in seconds (AC7: must be < 120s)",
+			Buckets: []float64{5, 10, 20, 30, 60, 90, 120, 180, 300},
+		},
+	)
+	provisioningErrors := prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "tenant_provisioning_errors_total",
+			Help: "Total number of tenant provisioning errors by type",
+		},
+		[]string{"error_type"},
+	)
+	tenantsTotal := prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "tenants_total",
+			Help: "Total number of tenants in the system",
+		},
+	)
+	tenantsActiveTotal := prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "tenants_active_total",
+			Help: "Total number of active tenants",
+		},
+	)
+	tenantsByTier := prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "tenants_by_tier",
+			Help: "Number of tenants by subscription tier",
+		},
+		[]string{"tier"},
+	)
+	storageQuotaTotal := prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "tenant_storage_quota_bytes",
+			Help: "Storage quota in bytes for each tenant",
+		},
+		[]string{"tenant_id", "tier"},
+	)
+	storageUsedTotal := prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "tenant_storage_used_bytes",
+			Help: "Storage used in bytes for each tenant",
+		},
+		[]string{"tenant_id", "tier"},
+	)
+	storageUsagePercent := prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "tenant_storage_usage_percentage",
+			Help: "Storage usage percentage for each tenant",
+		},
+		[]string{"tenant_id", "tier"},
+	)
+	requestDuration := prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "tenant_service_request_duration_seconds",
+			Help:    "Duration of tenant service requests in seconds",
+			Buckets: prometheus.DefBuckets,
+		},
+		[]string{"operation", "status"},
+	)
+	requestTotal := prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "tenant_service_requests_total",
+			Help: "Total number of tenant service requests",
+		},
+		[]string{"operation", "status"},
+	)
+
+	// Register all metrics
+	registry.MustRegister(
+		provisioningTotal,
+		provisioningDuration,
+		provisioningErrors,
+		tenantsTotal,
+		tenantsActiveTotal,
+		tenantsByTier,
+		storageQuotaTotal,
+		storageUsedTotal,
+		storageUsagePercent,
+		requestDuration,
+		requestTotal,
+	)
+
+	return &MetricsCollector{
+		provisioningTotal:    provisioningTotal,
+		provisioningDuration: provisioningDuration,
+		provisioningErrors:   provisioningErrors,
+		tenantsTotal:         tenantsTotal,
+		tenantsActiveTotal:   tenantsActiveTotal,
+		tenantsByTier:        tenantsByTier,
+		storageQuotaTotal:    storageQuotaTotal,
+		storageUsedTotal:     storageUsedTotal,
+		storageUsagePercent:  storageUsagePercent,
+		requestDuration:      requestDuration,
+		requestTotal:         requestTotal,
+		registry:             registry,
 	}
 }
 

@@ -106,7 +106,8 @@ func (r *rateLimiter) checkLimit(key string, limit int, windowSeconds int) (bool
 	}
 
 	// Use in-memory fallback
-	return r.fallback.checkLimit(key, limit, windowSeconds), 0, nil
+	allowed, retryAfter := r.fallback.checkLimit(key, limit, windowSeconds)
+	return allowed, retryAfter, nil
 }
 
 // checkRedisLimit uses Redis for distributed rate limiting
@@ -137,7 +138,8 @@ func (r *rateLimiter) checkRedisLimit(key string, limit int, windowSeconds int) 
 // memoryRateLimiter methods
 
 // checkLimit checks rate limit using in-memory storage
-func (m *memoryRateLimiter) checkLimit(key string, limit int, windowSeconds int) bool {
+// Returns (allowed, retryAfter)
+func (m *memoryRateLimiter) checkLimit(key string, limit int, windowSeconds int) (bool, int) {
 	m.mu.Lock()
 	entry, exists := m.limits[key]
 	if !exists {
@@ -162,11 +164,16 @@ func (m *memoryRateLimiter) checkLimit(key string, limit int, windowSeconds int)
 
 	// Check limit
 	if entry.count >= limit {
-		return false
+		// Calculate retry-after as seconds until window expires
+		retryAfter := int(entry.windowEnd.Sub(now).Seconds())
+		if retryAfter < 0 {
+			retryAfter = 0
+		}
+		return false, retryAfter
 	}
 
 	entry.count++
-	return true
+	return true, 0
 }
 
 // cleanup periodically removes expired entries

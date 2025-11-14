@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"slate/services/tenant-service/internal/models"
 	"slate/services/tenant-service/pkg/metrics"
 )
@@ -218,7 +219,7 @@ func TestCreateTenant_Success(t *testing.T) {
 	repo := newMockRepository()
 	userClient := &mockUserServiceClient{}
 	emailClient := &mockEmailServiceClient{}
-	metricsCollector := metrics.NewMetricsCollector()
+	metricsCollector := metrics.NewMetricsCollectorWithRegistry(prometheus.NewRegistry())
 
 	// Add test tier
 	repo.tiers["tier-free-001"] = &models.SubscriptionTier{
@@ -276,7 +277,7 @@ func TestCreateTenant_ProfessionalTier(t *testing.T) {
 	repo := newMockRepository()
 	userClient := &mockUserServiceClient{}
 	emailClient := &mockEmailServiceClient{}
-	metricsCollector := metrics.NewMetricsCollector()
+	metricsCollector := metrics.NewMetricsCollectorWithRegistry(prometheus.NewRegistry())
 
 	// Add Professional tier (AC2: Dedicated database)
 	repo.tiers["tier-pro-001"] = &models.SubscriptionTier{
@@ -314,7 +315,7 @@ func TestCreateTenant_ProfessionalTier(t *testing.T) {
 func TestGetStorageQuota_Success(t *testing.T) {
 	// Setup
 	repo := newMockRepository()
-	service := NewTenantService(repo, nil, nil, metrics.NewMetricsCollector(), "")
+	service := NewTenantService(repo, nil, nil, metrics.NewMetricsCollectorWithRegistry(prometheus.NewRegistry()), "")
 
 	// Create tenant
 	tenant := &models.Tenant{
@@ -348,7 +349,7 @@ func TestGetStorageQuota_Success(t *testing.T) {
 func TestUpdateStorageUsage_WithinQuota(t *testing.T) {
 	// Setup
 	repo := newMockRepository()
-	service := NewTenantService(repo, nil, nil, metrics.NewMetricsCollector(), "")
+	service := NewTenantService(repo, nil, nil, metrics.NewMetricsCollectorWithRegistry(prometheus.NewRegistry()), "")
 
 	tenant := &models.Tenant{
 		ID:                "tenant-1",
@@ -379,7 +380,7 @@ func TestUpdateStorageUsage_WithinQuota(t *testing.T) {
 func TestUpdateStorageUsage_ExceedsQuota(t *testing.T) {
 	// Setup
 	repo := newMockRepository()
-	service := NewTenantService(repo, nil, nil, metrics.NewMetricsCollector(), "")
+	service := NewTenantService(repo, nil, nil, metrics.NewMetricsCollectorWithRegistry(prometheus.NewRegistry()), "")
 
 	tenant := &models.Tenant{
 		ID:                "tenant-1",
@@ -406,7 +407,7 @@ func TestUpdateStorageUsage_ExceedsQuota(t *testing.T) {
 func TestListTenants_WithFilters(t *testing.T) {
 	// Setup
 	repo := newMockRepository()
-	service := NewTenantService(repo, nil, nil, metrics.NewMetricsCollector(), "")
+	service := NewTenantService(repo, nil, nil, metrics.NewMetricsCollectorWithRegistry(prometheus.NewRegistry()), "")
 
 	// Create multiple tenants
 	tenants := []*models.Tenant{
@@ -438,7 +439,7 @@ func TestListTenants_WithFilters(t *testing.T) {
 func TestDeleteTenant_WithActiveUsers(t *testing.T) {
 	// Setup
 	repo := newMockRepository()
-	service := NewTenantService(repo, nil, nil, metrics.NewMetricsCollector(), "")
+	service := NewTenantService(repo, nil, nil, metrics.NewMetricsCollectorWithRegistry(prometheus.NewRegistry()), "")
 
 	tenant := &models.Tenant{
 		ID:         "tenant-1",
@@ -464,7 +465,7 @@ func TestDeleteTenant_WithActiveUsers(t *testing.T) {
 func TestDeleteTenant_ForceDelete(t *testing.T) {
 	// Setup
 	repo := newMockRepository()
-	service := NewTenantService(repo, nil, nil, metrics.NewMetricsCollector(), "")
+	service := NewTenantService(repo, nil, nil, metrics.NewMetricsCollectorWithRegistry(prometheus.NewRegistry()), "")
 
 	tenant := &models.Tenant{
 		ID:         "tenant-1",
@@ -490,7 +491,7 @@ func TestDeleteTenant_ForceDelete(t *testing.T) {
 func TestUpdateTenant_Success(t *testing.T) {
 	// Setup
 	repo := newMockRepository()
-	service := NewTenantService(repo, nil, nil, metrics.NewMetricsCollector(), "")
+	service := NewTenantService(repo, nil, nil, metrics.NewMetricsCollectorWithRegistry(prometheus.NewRegistry()), "")
 
 	tenant := &models.Tenant{
 		ID:       "tenant-1",
@@ -529,7 +530,7 @@ func TestUpdateTenant_Success(t *testing.T) {
 func TestGetTenant_NotFound(t *testing.T) {
 	// Setup
 	repo := newMockRepository()
-	service := NewTenantService(repo, nil, nil, metrics.NewMetricsCollector(), "")
+	service := NewTenantService(repo, nil, nil, metrics.NewMetricsCollectorWithRegistry(prometheus.NewRegistry()), "")
 
 	// Test get non-existent tenant
 	_, err := service.GetTenant(context.Background(), "non-existent")

@@ -65,10 +65,31 @@ func TestMetricsCollector_ProvisioningDuration(t *testing.T) {
 		provisioningDuration.Observe(d)
 	}
 
-	// Verify observations were recorded
-	count := testutil.ToFloat64(provisioningDuration)
-	if count != float64(len(durations)) {
-		t.Errorf("Expected %d observations, got %f", len(durations), count)
+	// Verify histogram was registered and has observations
+	metricCount := testutil.CollectAndCount(provisioningDuration)
+	if metricCount == 0 {
+		t.Error("Expected histogram to be registered")
+	}
+
+	// For histograms, we need to gather and check the sample count
+	metrics, err := registry.Gather()
+	if err != nil {
+		t.Fatalf("Failed to gather metrics: %v", err)
+	}
+
+	var sampleCount uint64
+	for _, mf := range metrics {
+		if mf.GetName() == "tenant_provisioning_duration_seconds_test" {
+			for _, m := range mf.GetMetric() {
+				if h := m.GetHistogram(); h != nil {
+					sampleCount = h.GetSampleCount()
+				}
+			}
+		}
+	}
+
+	if sampleCount != uint64(len(durations)) {
+		t.Errorf("Expected %d observations, got %d", len(durations), sampleCount)
 	}
 }
 
@@ -313,9 +334,24 @@ func TestMetricsCollector_AC7_ProvisioningUnder2Minutes(t *testing.T) {
 	}
 
 	// Verify all observations recorded
-	count := testutil.ToFloat64(provisioningDuration)
+	metrics, err := registry.Gather()
+	if err != nil {
+		t.Fatalf("Failed to gather metrics: %v", err)
+	}
+
+	var sampleCount uint64
+	for _, mf := range metrics {
+		if mf.GetName() == "tenant_provisioning_duration_seconds_ac7_test" {
+			for _, m := range mf.GetMetric() {
+				if h := m.GetHistogram(); h != nil {
+					sampleCount = h.GetSampleCount()
+				}
+			}
+		}
+	}
+
 	totalObservations := len(validDurations) + len(invalidDurations)
-	if count != float64(totalObservations) {
-		t.Errorf("Expected %d observations, got %f", totalObservations, count)
+	if sampleCount != uint64(totalObservations) {
+		t.Errorf("Expected %d observations, got %d", totalObservations, sampleCount)
 	}
 }

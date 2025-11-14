@@ -17,7 +17,7 @@ func TestMemoryRateLimiter_AllowWithinLimit(t *testing.T) {
 	window := 60
 
 	for i := 0; i < 5; i++ {
-		allowed := limiter.checkLimit(key, limit, window)
+		allowed, _ := limiter.checkLimit(key, limit, window)
 		if !allowed {
 			t.Errorf("Request %d should be allowed", i+1)
 		}
@@ -35,11 +35,11 @@ func TestMemoryRateLimiter_ExceedsLimit(t *testing.T) {
 
 	// Make 5 requests (at limit)
 	for i := 0; i < 5; i++ {
-		limiter.checkLimit(key, limit, window)
+		_, _ = limiter.checkLimit(key, limit, window)
 	}
 
 	// 6th request should be denied
-	allowed := limiter.checkLimit(key, limit, window)
+	allowed, _ := limiter.checkLimit(key, limit, window)
 	if allowed {
 		t.Error("Request should be denied after exceeding limit")
 	}
@@ -56,11 +56,12 @@ func TestMemoryRateLimiter_WindowReset(t *testing.T) {
 
 	// Make 3 requests (at limit)
 	for i := 0; i < 3; i++ {
-		limiter.checkLimit(key, limit, window)
+		_, _ = limiter.checkLimit(key, limit, window)
 	}
 
 	// Should be denied
-	if limiter.checkLimit(key, limit, window) {
+	allowed, _ := limiter.checkLimit(key, limit, window)
+	if allowed {
 		t.Error("Request should be denied")
 	}
 
@@ -68,7 +69,8 @@ func TestMemoryRateLimiter_WindowReset(t *testing.T) {
 	time.Sleep(1100 * time.Millisecond)
 
 	// Should be allowed after window reset
-	if !limiter.checkLimit(key, limit, window) {
+	allowed2, _ := limiter.checkLimit(key, limit, window)
+	if !allowed2 {
 		t.Error("Request should be allowed after window reset")
 	}
 }
@@ -83,19 +85,23 @@ func TestMemoryRateLimiter_MultipleKeys(t *testing.T) {
 
 	// Different keys should have independent limits
 	for i := 0; i < 3; i++ {
-		if !limiter.checkLimit("key1", limit, window) {
+		allowed1, _ := limiter.checkLimit("key1", limit, window)
+		if !allowed1 {
 			t.Error("key1 should be allowed")
 		}
-		if !limiter.checkLimit("key2", limit, window) {
+		allowed2, _ := limiter.checkLimit("key2", limit, window)
+		if !allowed2 {
 			t.Error("key2 should be allowed")
 		}
 	}
 
 	// Both keys should now be at limit
-	if limiter.checkLimit("key1", limit, window) {
+	allowed3, _ := limiter.checkLimit("key1", limit, window)
+	if allowed3 {
 		t.Error("key1 should be denied")
 	}
-	if limiter.checkLimit("key2", limit, window) {
+	allowed4, _ := limiter.checkLimit("key2", limit, window)
+	if allowed4 {
 		t.Error("key2 should be denied")
 	}
 }
@@ -120,7 +126,7 @@ func TestMemoryRateLimiter_Concurrent(t *testing.T) {
 		go func(goroutineID int) {
 			defer wg.Done()
 			for j := 0; j < requestsPerGoroutine; j++ {
-				result := limiter.checkLimit(key, limit, window)
+				result, _ := limiter.checkLimit(key, limit, window)
 				mu.Lock()
 				allowed[goroutineID*requestsPerGoroutine+j] = result
 				mu.Unlock()
@@ -258,9 +264,9 @@ func TestMemoryRateLimiter_Cleanup(t *testing.T) {
 	}
 
 	// Add some entries
-	limiter.checkLimit("key1", 5, 1) // 1 second window
-	limiter.checkLimit("key2", 5, 1)
-	limiter.checkLimit("key3", 5, 1)
+	_, _ = limiter.checkLimit("key1", 5, 1) // 1 second window
+	_, _ = limiter.checkLimit("key2", 5, 1)
+	_, _ = limiter.checkLimit("key3", 5, 1)
 
 	if len(limiter.limits) != 3 {
 		t.Errorf("Expected 3 entries, got %d", len(limiter.limits))
