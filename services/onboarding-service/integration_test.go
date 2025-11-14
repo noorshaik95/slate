@@ -96,13 +96,16 @@ func getEnvOrDefault(key, defaultValue string) string {
 	return defaultValue
 }
 
+// testTenantID is the default tenant created by migrations
+const testTenantID = "00000000-0000-0000-0000-000000000001"
+
 func TestIntegration_JobLifecycle(t *testing.T) {
 	ctx := context.Background()
 	repo := repository.NewRepository(testDB)
 
 	// Create a job
 	job := &models.Job{
-		TenantID:    "tenant-test",
+		TenantID:    testTenantID,
 		Name:        "Integration Test Job",
 		Description: "Testing job lifecycle",
 		SourceType:  models.SourceTypeCSV,
@@ -169,7 +172,7 @@ func TestIntegration_TaskLifecycle(t *testing.T) {
 
 	// Create a job first
 	job := &models.Job{
-		TenantID:   "tenant-test",
+		TenantID:   testTenantID,
 		Name:       "Task Test Job",
 		SourceType: models.SourceTypeCSV,
 		Status:     models.JobStatusPending,
@@ -249,7 +252,7 @@ func TestIntegration_BatchTaskCreation(t *testing.T) {
 
 	// Create a job
 	job := &models.Job{
-		TenantID:   "tenant-test",
+		TenantID:   testTenantID,
 		Name:       "Batch Test Job",
 		SourceType: models.SourceTypeCSV,
 		Status:     models.JobStatusPending,
@@ -311,7 +314,7 @@ func TestIntegration_AuditLog(t *testing.T) {
 
 	// Create a job
 	job := &models.Job{
-		TenantID:   "tenant-test",
+		TenantID:   testTenantID,
 		Name:       "Audit Test Job",
 		SourceType: models.SourceTypeAPI,
 		Status:     models.JobStatusPending,
@@ -362,7 +365,7 @@ func TestIntegration_JobProgress(t *testing.T) {
 
 	// Create a job
 	job := &models.Job{
-		TenantID:   "tenant-test",
+		TenantID:   testTenantID,
 		Name:       "Progress Test Job",
 		SourceType: models.SourceTypeCSV,
 		Status:     models.JobStatusProcessing,
