@@ -2,7 +2,7 @@ name: Assignment Grading Service CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop, 'claude/**' ]
     paths:
       - 'services/assignment-grading-service/**'
       - '.github/workflows/assignment-grading-service-ci.yml'
