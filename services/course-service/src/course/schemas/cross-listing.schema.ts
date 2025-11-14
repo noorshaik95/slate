@@ -5,7 +5,7 @@ export type CrossListingDocument = CrossListing & Document;
 
 @Schema({ timestamps: true })
 export class CrossListing {
-  @Prop({ required: true, unique: true })
+  @Prop({ required: true })
   groupId: string;
 
   @Prop({ type: [String], required: true })
@@ -13,6 +13,9 @@ export class CrossListing {
 
   @Prop({ required: true })
   createdBy: string;
+
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export const CrossListingSchema = SchemaFactory.createForClass(CrossListing);

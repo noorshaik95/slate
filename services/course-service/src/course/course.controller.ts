@@ -189,7 +189,10 @@ export class CourseController {
   // Prerequisites
   @GrpcMethod('CourseService', 'AddPrerequisite')
   async addPrerequisite(data: any) {
-    const course = await this.courseService.addPrerequisite(data.courseId, data.prerequisiteCourseId);
+    const course = await this.courseService.addPrerequisite(
+      data.courseId,
+      data.prerequisiteCourseId,
+    );
     return { course: this.toCourseProto(course) };
   }
 

@@ -153,7 +153,7 @@ export class CourseService {
     return course;
   }
 
-  async checkPrerequisites(courseId: string, studentId: string) {
+  async checkPrerequisites(courseId: string, _studentId: string) {
     const course = await this.getCourse(courseId);
 
     if (!course.prerequisiteCourseIds || course.prerequisiteCourseIds.length === 0) {
@@ -308,9 +308,7 @@ export class CourseService {
       return { courses: [course], groupId: null };
     }
 
-    const courses = await this.courseRepository.findByCrossListingGroup(
-      course.crossListingGroupId,
-    );
+    const courses = await this.courseRepository.findByCrossListingGroup(course.crossListingGroupId);
     return { courses, groupId: course.crossListingGroupId };
   }
 }

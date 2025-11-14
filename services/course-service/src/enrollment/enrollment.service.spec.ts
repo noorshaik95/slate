@@ -153,9 +153,7 @@ describe('EnrollmentService', () => {
       courseRepository.findById.mockResolvedValue(mockCourse as any);
       enrollmentRepository.findByCourseAndStudent.mockResolvedValue(mockEnrollment as any);
 
-      await expect(service.selfEnroll('course-1', 'student-1')).rejects.toThrow(
-        ConflictException,
-      );
+      await expect(service.selfEnroll('course-1', 'student-1')).rejects.toThrow(ConflictException);
       await expect(service.selfEnroll('course-1', 'student-1')).rejects.toThrow(
         'Student is already enrolled in this course',
       );
@@ -167,7 +165,10 @@ describe('EnrollmentService', () => {
       courseRepository.findById.mockResolvedValue(mockCourse as any);
       enrollmentRepository.findByCourseAndStudent.mockResolvedValue(null);
       sectionRepository.findById.mockResolvedValue(mockSection as any);
-      enrollmentRepository.create.mockResolvedValue({ ...mockEnrollment, sectionId: 'section-1' } as any);
+      enrollmentRepository.create.mockResolvedValue({
+        ...mockEnrollment,
+        sectionId: 'section-1',
+      } as any);
       sectionRepository.incrementEnrolledCount.mockResolvedValue(mockSection as any);
 
       const result = await service.selfEnroll('course-1', 'student-1', 'section-1');
@@ -196,9 +197,9 @@ describe('EnrollmentService', () => {
       enrollmentRepository.findByCourseAndStudent.mockResolvedValue(null);
       sectionRepository.findById.mockResolvedValue(null);
 
-      await expect(service.selfEnroll('course-1', 'student-1', 'non-existent-section')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.selfEnroll('course-1', 'student-1', 'non-existent-section'),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -214,11 +215,7 @@ describe('EnrollmentService', () => {
       enrollmentRepository.findByCourseAndStudent.mockResolvedValue(null);
       enrollmentRepository.create.mockResolvedValue(instructorEnrollment as any);
 
-      const result = await service.instructorAddStudent(
-        'course-1',
-        'student-1',
-        'instructor-1',
-      );
+      const result = await service.instructorAddStudent('course-1', 'student-1', 'instructor-1');
 
       expect(enrollmentRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -274,7 +271,10 @@ describe('EnrollmentService', () => {
       courseRepository.findById.mockResolvedValue(mockCourse as any);
       enrollmentRepository.findByCourseAndStudent.mockResolvedValue(null);
       sectionRepository.findById.mockResolvedValue(mockSection as any);
-      enrollmentRepository.create.mockResolvedValue({ ...mockEnrollment, sectionId: 'section-1' } as any);
+      enrollmentRepository.create.mockResolvedValue({
+        ...mockEnrollment,
+        sectionId: 'section-1',
+      } as any);
 
       await service.instructorAddStudent('course-1', 'student-1', 'instructor-1', 'section-1');
 
@@ -298,9 +298,7 @@ describe('EnrollmentService', () => {
     it('should throw NotFoundException when enrollment does not exist', async () => {
       enrollmentRepository.findById.mockResolvedValue(null);
 
-      await expect(service.removeEnrollment('non-existent-id')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.removeEnrollment('non-existent-id')).rejects.toThrow(NotFoundException);
     });
 
     it('should decrement section count when enrollment has section', async () => {

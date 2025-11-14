@@ -29,13 +29,13 @@ export class CrossListingRepository {
 
   async addCourse(groupId: string, courseId: string): Promise<CrossListingDocument | null> {
     return this.crossListingModel
-      .findOneAndUpdate(groupId, { $addToSet: { courseIds: courseId } }, { new: true })
+      .findOneAndUpdate({ groupId }, { $addToSet: { courseIds: courseId } }, { new: true })
       .exec();
   }
 
   async removeCourse(groupId: string, courseId: string): Promise<CrossListingDocument | null> {
     return this.crossListingModel
-      .findOneAndUpdate(groupId, { $pull: { courseIds: courseId } }, { new: true })
+      .findOneAndUpdate({ groupId }, { $pull: { courseIds: courseId } }, { new: true })
       .exec();
   }
 }

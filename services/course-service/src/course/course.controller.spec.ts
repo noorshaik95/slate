@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { CourseController } from './course.controller';
 import { CourseService } from './course.service';
 import { EnrollmentService } from '../enrollment/enrollment.service';
+import { MetricsService } from '../observability/metrics.service';
 import { EnrollmentType, EnrollmentStatus } from '../enrollment/schemas/enrollment.schema';
 
 describe('CourseController', () => {
@@ -73,11 +74,18 @@ describe('CourseController', () => {
       getStudentEnrollments: jest.fn(),
     };
 
+    const mockMetricsService = {
+      incrementCoursesCreated: jest.fn(),
+      incrementEnrollments: jest.fn(),
+      observeGrpcRequestDuration: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [CourseController],
       providers: [
         { provide: CourseService, useValue: mockCourseService },
         { provide: EnrollmentService, useValue: mockEnrollmentService },
+        { provide: MetricsService, useValue: mockMetricsService },
       ],
     }).compile();
 
@@ -169,11 +177,7 @@ describe('CourseController', () => {
         studentId: 'student-1',
       });
 
-      expect(enrollmentService.selfEnroll).toHaveBeenCalledWith(
-        'course-1',
-        'student-1',
-        undefined,
-      );
+      expect(enrollmentService.selfEnroll).toHaveBeenCalledWith('course-1', 'student-1', undefined);
       expect(result.enrollment.id).toBe('enrollment-1');
       expect(result.enrollment.enrollmentType).toBe(1); // SELF
     });

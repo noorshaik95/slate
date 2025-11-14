@@ -1,4 +1,4 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { EnrollmentService } from './enrollment.service';
 import { EnrollmentRepository } from './repositories/enrollment.repository';

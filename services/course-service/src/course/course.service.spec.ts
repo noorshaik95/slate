@@ -365,9 +365,6 @@ describe('CourseService', () => {
           .mockResolvedValueOnce(course1 as any);
 
         await expect(service.addPrerequisite('course-1', 'course-2')).rejects.toThrow(
-          BadRequestException,
-        );
-        await expect(service.addPrerequisite('course-1', 'course-2')).rejects.toThrow(
           'Circular prerequisite dependency detected',
         );
       });
@@ -437,9 +434,9 @@ describe('CourseService', () => {
       it('should throw NotFoundException when course not found', async () => {
         courseRepository.addCoInstructor.mockResolvedValue(null);
 
-        await expect(
-          service.addCoInstructor('non-existent-id', 'co-instructor-1'),
-        ).rejects.toThrow(NotFoundException);
+        await expect(service.addCoInstructor('non-existent-id', 'co-instructor-1')).rejects.toThrow(
+          NotFoundException,
+        );
       });
     });
 
