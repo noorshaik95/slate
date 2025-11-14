@@ -11,6 +11,18 @@ services:
     auto_discover: true
     tls_enabled: false
 
+  course-service:
+    name: "course-service"
+    endpoint: "http://course-service:50052"
+    timeout_ms: 5000
+    connection_pool_size: 10
+    auto_discover: true
+    tls_enabled: false
+    circuit_breaker:
+      failure_threshold: 5
+      success_threshold: 2
+      timeout_seconds: 30
+
 discovery:
   enabled: true
   refresh_interval_seconds: 300
@@ -41,6 +53,98 @@ route_overrides:
     http_path: "/api/auth/logout"
     http_method: "POST"
     service: "user-auth-service"
+
+  # Course Service - Publishing
+  - grpc_method: "course.CourseService/PublishCourse"
+    http_path: "/api/courses/:id/publish"
+    http_method: "POST"
+    service: "course-service"
+
+  - grpc_method: "course.CourseService/UnpublishCourse"
+    http_path: "/api/courses/:id/unpublish"
+    http_method: "POST"
+    service: "course-service"
+
+  # Course Service - Enrollment
+  - grpc_method: "course.CourseService/SelfEnroll"
+    http_path: "/api/courses/:id/enroll"
+    http_method: "POST"
+    service: "course-service"
+
+  - grpc_method: "course.CourseService/InstructorAddStudent"
+    http_path: "/api/courses/:id/students"
+    http_method: "POST"
+    service: "course-service"
+
+  - grpc_method: "course.CourseService/RemoveEnrollment"
+    http_path: "/api/enrollments/:id"
+    http_method: "DELETE"
+    service: "course-service"
+
+  - grpc_method: "course.CourseService/GetCourseRoster"
+    http_path: "/api/courses/:id/roster"
+    http_method: "GET"
+    service: "course-service"
+
+  - grpc_method: "course.CourseService/GetStudentEnrollments"
+    http_path: "/api/students/:id/enrollments"
+    http_method: "GET"
+    service: "course-service"
+
+  # Course Service - Templates
+  - grpc_method: "course.CourseService/CreateCourseFromTemplate"
+    http_path: "/api/templates/:id/create-course"
+    http_method: "POST"
+    service: "course-service"
+
+  # Course Service - Prerequisites
+  - grpc_method: "course.CourseService/AddPrerequisite"
+    http_path: "/api/courses/:id/prerequisites"
+    http_method: "POST"
+    service: "course-service"
+
+  - grpc_method: "course.CourseService/RemovePrerequisite"
+    http_path: "/api/courses/:id/prerequisites/:prerequisite_id"
+    http_method: "DELETE"
+    service: "course-service"
+
+  - grpc_method: "course.CourseService/CheckPrerequisites"
+    http_path: "/api/courses/:id/prerequisites/check"
+    http_method: "POST"
+    service: "course-service"
+
+  # Course Service - Co-teaching
+  - grpc_method: "course.CourseService/AddCoInstructor"
+    http_path: "/api/courses/:id/co-instructors"
+    http_method: "POST"
+    service: "course-service"
+
+  - grpc_method: "course.CourseService/RemoveCoInstructor"
+    http_path: "/api/courses/:id/co-instructors/:co_instructor_id"
+    http_method: "DELETE"
+    service: "course-service"
+
+  # Course Service - Sections
+  - grpc_method: "course.CourseService/ListCourseSections"
+    http_path: "/api/courses/:id/sections"
+    http_method: "GET"
+    service: "course-service"
+
+  # Course Service - Cross-listing
+  - grpc_method: "course.CourseService/CrossListCourses"
+    http_path: "/api/courses/cross-list"
+    http_method: "POST"
+    service: "course-service"
+
+  - grpc_method: "course.CourseService/RemoveCrossListing"
+    http_path: "/api/cross-listings/:id"
+    http_method: "DELETE"
+    service: "course-service"
+
+  - grpc_method: "course.CourseService/GetCrossListedCourses"
+    http_path: "/api/courses/:id/cross-listed"
+    http_method: "GET"
+    service: "course-service"
 
 auth:
   service_endpoint: "http://user-auth-service:50051"
