@@ -215,7 +215,7 @@ func (p *Parser) parseRow(record []string, headerMap map[string]int, jobID, tena
 		Email:         email,
 		FirstName:     firstName,
 		LastName:      lastName,
-		Role:          role,
+		Role:          strings.ToLower(role), // Normalize role to lowercase
 		StudentID:     studentID,
 		Department:    department,
 		CourseCodes:   courseCodes,
@@ -236,7 +236,19 @@ func (p *Parser) parseRow(record []string, headerMap map[string]int, jobID, tena
 
 func isValidEmail(email string) bool {
 	// Simple email validation
-	return strings.Contains(email, "@") && strings.Contains(email, ".")
+	if !strings.Contains(email, "@") || !strings.Contains(email, ".") {
+		return false
+	}
+	// Must have something before and after @
+	parts := strings.Split(email, "@")
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return false
+	}
+	// Domain part must have at least one character before the dot
+	if strings.HasPrefix(parts[1], ".") {
+		return false
+	}
+	return true
 }
 
 func isValidRole(role string) bool {

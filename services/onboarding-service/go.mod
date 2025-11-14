@@ -1,35 +1,35 @@
 module github.com/noorshaik95/slate/services/onboarding-service
 
-go 1.23.0
+go 1.24.7
 
 require (
+	github.com/crewjam/saml v0.4.14
+	github.com/go-ldap/ldap/v3 v3.4.6
+	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.1
 	github.com/lib/pq v1.10.9
+	github.com/microsoftgraph/msgraph-sdk-go v1.35.0
+	github.com/noorshaik95/slate/proto v0.0.0
+	github.com/prometheus/client_golang v1.19.0
+	github.com/redis/go-redis/v9 v9.5.1
 	github.com/rs/zerolog v1.33.0
 	github.com/segmentio/kafka-go v0.4.47
-	github.com/noorshaik95/slate/proto v0.0.0
+	github.com/xuri/excelize/v2 v2.8.1
 	go.opentelemetry.io/otel v1.24.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.24.0
 	go.opentelemetry.io/otel/sdk v1.24.0
 	go.opentelemetry.io/otel/trace v1.24.0
-	google.golang.org/grpc v1.62.1
-	google.golang.org/protobuf v1.33.0
-	github.com/prometheus/client_golang v1.19.0
-	github.com/redis/go-redis/v9 v9.5.1
-	github.com/golang-jwt/jwt/v5 v5.2.1
-	github.com/go-ldap/ldap/v3 v3.4.6
-	github.com/crewjam/saml v0.4.14
 	golang.org/x/oauth2 v0.18.0
 	google.golang.org/api v0.169.0
-	github.com/microsoftgraph/msgraph-sdk-go v1.35.0
-	github.com/xuri/excelize/v2 v2.8.1
+	google.golang.org/grpc v1.62.1
+	google.golang.org/protobuf v1.36.10
 )
 
 require (
 	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
-	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/beevik/etree v1.3.0 // indirect
+	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/crewjam/httperr v0.2.0 // indirect
@@ -39,9 +39,9 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.19.1 // indirect
 	github.com/jonboulle/clockwork v0.4.0 // indirect
 	github.com/klauspost/compress v1.17.7 // indirect
+	github.com/mattermost/xml-roundtrip-validator v0.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/mattermost/xml-roundtrip-validator v0.1.0 // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
 	github.com/pierrec/lz4/v4 v4.1.21 // indirect
 	github.com/prometheus/client_model v0.6.0 // indirect

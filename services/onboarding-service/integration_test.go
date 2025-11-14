@@ -1,6 +1,7 @@
+//go:build integration
 // +build integration
 
-package main
+package onboarding_test
 
 import (
 	"context"
