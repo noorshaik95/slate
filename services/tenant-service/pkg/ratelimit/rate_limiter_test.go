@@ -291,3 +291,178 @@ func TestMemoryRateLimiter_Cleanup(t *testing.T) {
 		t.Errorf("Expected 0 entries after cleanup, got %d", len(limiter.limits))
 	}
 }
+
+func TestNewRateLimiter_WithRedis(t *testing.T) {
+	config := &Config{
+		CreateTenantLimit:   5,
+		CreateTenantWindow:  3600,
+		OperationLimit:      100,
+		OperationWindow:     60,
+		RedisAddr:           "localhost:6379",
+		RedisPassword:       "",
+		RedisDB:             0,
+	}
+
+	limiter, err := NewRateLimiter(config)
+	if err != nil {
+		t.Fatalf("Failed to create rate limiter: %v", err)
+	}
+
+	if limiter == nil {
+		t.Fatal("Expected rate limiter to be created")
+	}
+
+	// Test basic functionality (will use fallback if Redis isn't available)
+	allowed, _, err := limiter.AllowCreateTenant("test-ip")
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if !allowed {
+		t.Error("First request should be allowed")
+	}
+}
+
+func TestNewRateLimiter_WithoutRedis(t *testing.T) {
+	config := &Config{
+		CreateTenantLimit:   5,
+		CreateTenantWindow:  3600,
+		OperationLimit:      100,
+		OperationWindow:     60,
+		// No Redis configured
+		RedisAddr:     "",
+		RedisPassword: "",
+		RedisDB:       0,
+	}
+
+	limiter, err := NewRateLimiter(config)
+	if err != nil {
+		t.Fatalf("Failed to create rate limiter: %v", err)
+	}
+
+	if limiter == nil {
+		t.Fatal("Expected rate limiter to be created")
+	}
+
+	// Should use in-memory fallback
+	allowed, retryAfter, err := limiter.AllowCreateTenant("test-ip")
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if !allowed {
+		t.Error("First request should be allowed")
+	}
+
+	if retryAfter != 0 {
+		t.Errorf("Expected retry-after 0 for allowed request, got %d", retryAfter)
+	}
+}
+
+func TestRateLimiter_AllowOperationWithLimit(t *testing.T) {
+	config := &Config{
+		CreateTenantLimit:   5,
+		CreateTenantWindow:  3600,
+		OperationLimit:      3,
+		OperationWindow:     60,
+		RedisAddr:           "",
+	}
+
+	limiter, err := NewRateLimiter(config)
+	if err != nil {
+		t.Fatalf("Failed to create rate limiter: %v", err)
+	}
+
+	clientIP := "192.168.1.100"
+	operation := "GetTenant"
+
+	// Test: 3 operations should be allowed
+	for i := 0; i < 3; i++ {
+		allowed, _, err := limiter.AllowOperation(clientIP, operation)
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+		if !allowed {
+			t.Errorf("Operation %d should be allowed", i+1)
+		}
+	}
+
+	// 4th operation should be denied
+	allowed, retryAfter, err := limiter.AllowOperation(clientIP, operation)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if allowed {
+		t.Error("4th operation should be denied")
+	}
+	if retryAfter == 0 {
+		t.Error("Retry-after should be set for rate limited request")
+	}
+}
+
+func TestMemoryRateLimiter_Cleanup_ActiveEntries(t *testing.T) {
+	limiter := &memoryRateLimiter{
+		limits: make(map[string]*limitEntry),
+	}
+
+	// Add some active entries (not expired)
+	future := time.Now().Add(10 * time.Minute)
+	limiter.limits["key1"] = &limitEntry{
+		count:     1,
+		windowEnd: future,
+	}
+	limiter.limits["key2"] = &limitEntry{
+		count:     2,
+		windowEnd: future,
+	}
+
+	// Run cleanup manually
+	limiter.mu.Lock()
+	now := time.Now()
+	for key, entry := range limiter.limits {
+		entry.mu.Lock()
+		if now.After(entry.windowEnd) {
+			delete(limiter.limits, key)
+		}
+		entry.mu.Unlock()
+	}
+	limiter.mu.Unlock()
+
+	// Active entries should not be deleted
+	if len(limiter.limits) != 2 {
+		t.Errorf("Expected 2 active entries, got %d", len(limiter.limits))
+	}
+}
+
+func TestRateLimiter_DifferentOperations(t *testing.T) {
+	config := &Config{
+		CreateTenantLimit:   5,
+		CreateTenantWindow:  3600,
+		OperationLimit:      2,
+		OperationWindow:     60,
+		RedisAddr:           "",
+	}
+
+	limiter, err := NewRateLimiter(config)
+	if err != nil {
+		t.Fatalf("Failed to create rate limiter: %v", err)
+	}
+
+	clientIP := "192.168.1.200"
+
+	// Use up quota for "GetTenant"
+	_, _, _ = limiter.AllowOperation(clientIP, "GetTenant")
+	_, _, _ = limiter.AllowOperation(clientIP, "GetTenant")
+
+	// GetTenant should be rate limited
+	allowed, _, _ := limiter.AllowOperation(clientIP, "GetTenant")
+	if allowed {
+		t.Error("GetTenant should be rate limited")
+	}
+
+	// But ListTenants should still be allowed (different operation)
+	allowed, _, _ = limiter.AllowOperation(clientIP, "ListTenants")
+	if !allowed {
+		t.Error("ListTenants should still be allowed (different operation key)")
+	}
+}

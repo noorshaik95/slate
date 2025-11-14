@@ -539,3 +539,186 @@ func TestGetTenant_NotFound(t *testing.T) {
 		t.Fatal("Expected error for non-existent tenant, got nil")
 	}
 }
+
+func TestGetProvisioningStatus_Success(t *testing.T) {
+	// Setup
+	repo := newMockRepository()
+	service := NewTenantService(repo, nil, nil, metrics.NewMetricsCollectorWithRegistry(prometheus.NewRegistry()), "")
+
+	// Create a provisioning record
+	provisioning := &models.TenantProvisioning{
+		ID:                 "test-prov-001",
+		TenantID:           "test-tenant-001",
+		Status:             models.StatusCompleted.String(),
+		ProgressPercentage: 100,
+		StartedAt:          time.Now(),
+	}
+	repo.provisioning[provisioning.ID] = provisioning
+
+	// Test get provisioning status
+	result, err := service.GetProvisioningStatus(context.Background(), provisioning.ID)
+
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+
+	if result == nil {
+		t.Fatal("Expected provisioning record, got nil")
+	}
+
+	if result.ID != provisioning.ID {
+		t.Errorf("Expected ID %s, got %s", provisioning.ID, result.ID)
+	}
+
+	if result.Status != provisioning.Status {
+		t.Errorf("Expected status %s, got %s", provisioning.Status, result.Status)
+	}
+}
+
+func TestGetProvisioningStatus_NotFound(t *testing.T) {
+	// Setup
+	repo := newMockRepository()
+	service := NewTenantService(repo, nil, nil, metrics.NewMetricsCollectorWithRegistry(prometheus.NewRegistry()), "")
+
+	// Test get non-existent provisioning
+	_, err := service.GetProvisioningStatus(context.Background(), "non-existent")
+
+	if err == nil {
+		t.Fatal("Expected error for non-existent provisioning, got nil")
+	}
+}
+
+func TestCreateTenantAdmin_Success(t *testing.T) {
+	// Setup
+	repo := newMockRepository()
+	userClient := &mockUserServiceClient{}
+	service := NewTenantService(repo, userClient, nil, metrics.NewMetricsCollectorWithRegistry(prometheus.NewRegistry()), "")
+
+	// Create a tenant first
+	tenant := &models.Tenant{
+		ID:                "test-tenant-001",
+		Name:              "Test Tenant",
+		Domain:            "test-domain",
+		TierID:            "tier-free-001",
+		IsActive:          true,
+		StorageQuotaBytes: 1073741824,
+		CreatedAt:         time.Now(),
+		UpdatedAt:         time.Now(),
+	}
+	repo.tenants[tenant.ID] = tenant
+
+	// Test create admin
+	admin, err := service.CreateTenantAdmin(context.Background(), tenant.ID, "admin@test.com", "John", "Doe", "password123")
+
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+
+	if admin == nil {
+		t.Fatal("Expected admin to be created, got nil")
+	}
+
+	if admin.Email != "admin@test.com" {
+		t.Errorf("Expected email admin@test.com, got %s", admin.Email)
+	}
+
+	if admin.TenantID != tenant.ID {
+		t.Errorf("Expected tenant ID %s, got %s", tenant.ID, admin.TenantID)
+	}
+
+	// Verify admin was stored
+	if _, exists := repo.admins[admin.ID]; !exists {
+		t.Error("Admin was not stored in repository")
+	}
+}
+
+func TestCreateTenantAdmin_TenantNotFound(t *testing.T) {
+	// Setup
+	repo := newMockRepository()
+	userClient := &mockUserServiceClient{}
+	service := NewTenantService(repo, userClient, nil, metrics.NewMetricsCollectorWithRegistry(prometheus.NewRegistry()), "")
+
+	// Test create admin for non-existent tenant
+	_, err := service.CreateTenantAdmin(context.Background(), "non-existent", "admin@test.com", "John", "Doe", "password123")
+
+	if err == nil {
+		t.Fatal("Expected error for non-existent tenant, got nil")
+	}
+}
+
+func TestGetTenantAdmin_Success(t *testing.T) {
+	// Setup
+	repo := newMockRepository()
+	service := NewTenantService(repo, nil, nil, metrics.NewMetricsCollectorWithRegistry(prometheus.NewRegistry()), "")
+
+	// Create tenant and admin
+	tenant := &models.Tenant{
+		ID:                "test-tenant-001",
+		Name:              "Test Tenant",
+		Domain:            "test-domain",
+		TierID:            "tier-free-001",
+		IsActive:          true,
+		StorageQuotaBytes: 1073741824,
+		CreatedAt:         time.Now(),
+		UpdatedAt:         time.Now(),
+	}
+	repo.tenants[tenant.ID] = tenant
+
+	admin := &models.TenantAdmin{
+		ID:        "test-admin-001",
+		TenantID:  tenant.ID,
+		UserID:    "user-001",
+		Email:     "admin@test.com",
+		FirstName: sql.NullString{String: "John", Valid: true},
+		LastName:  sql.NullString{String: "Doe", Valid: true},
+		IsPrimary: true,
+		CreatedAt: time.Now(),
+	}
+	repo.admins[admin.ID] = admin
+
+	// Test get admin
+	result, err := service.GetTenantAdmin(context.Background(), tenant.ID, admin.ID)
+
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+
+	if result == nil {
+		t.Fatal("Expected admin, got nil")
+	}
+
+	if result.ID != admin.ID {
+		t.Errorf("Expected ID %s, got %s", admin.ID, result.ID)
+	}
+
+	if result.Email != admin.Email {
+		t.Errorf("Expected email %s, got %s", admin.Email, result.Email)
+	}
+}
+
+func TestGetTenantAdmin_NotFound(t *testing.T) {
+	// Setup
+	repo := newMockRepository()
+	service := NewTenantService(repo, nil, nil, metrics.NewMetricsCollectorWithRegistry(prometheus.NewRegistry()), "")
+
+	// Create tenant
+	tenant := &models.Tenant{
+		ID:                "test-tenant-001",
+		Name:              "Test Tenant",
+		Domain:            "test-domain",
+		TierID:            "tier-free-001",
+		IsActive:          true,
+		StorageQuotaBytes: 1073741824,
+		CreatedAt:         time.Now(),
+		UpdatedAt:         time.Now(),
+	}
+	repo.tenants[tenant.ID] = tenant
+
+	// Test get non-existent admin
+	_, err := service.GetTenantAdmin(context.Background(), tenant.ID, "non-existent")
+
+	if err == nil {
+		t.Fatal("Expected error for non-existent admin, got nil")
+	}
+}
+

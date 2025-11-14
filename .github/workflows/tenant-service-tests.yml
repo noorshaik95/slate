@@ -167,22 +167,27 @@ jobs:
       - name: Check test coverage threshold
         run: |
           cd services/tenant-service
-          go test -short -coverprofile=coverage.out ./...
+
+          # Test only unit-testable packages (excludes cmd, repository, migrations which require integration tests)
+          PACKAGES="slate/services/tenant-service/internal/config slate/services/tenant-service/internal/models slate/services/tenant-service/internal/service slate/services/tenant-service/pkg/circuitbreaker slate/services/tenant-service/pkg/database slate/services/tenant-service/pkg/logger slate/services/tenant-service/pkg/metrics slate/services/tenant-service/pkg/ratelimit slate/services/tenant-service/pkg/tracing"
+
+          go test -short -coverprofile=coverage.out $PACKAGES
           COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
-          echo "Test Coverage: ${COVERAGE}%"
+          echo "Unit Test Coverage (business logic): ${COVERAGE}%"
           echo ""
           echo "Coverage by package:"
           go tool cover -func=coverage.out | grep -E "^(slate/services/tenant-service/|total:)"
           echo ""
+          echo "Note: Excludes cmd/server (entrypoint), repository (requires DB), and migrations (SQL files)"
+          echo "These are covered by integration tests in the integration-tests job"
+          echo ""
 
-          # Adjusted threshold for initial implementation
-          # Note: Integration tests don't count in -short mode
-          # Infrastructure packages (cmd/server, config, logger, database, tracing) deferred for now
-          THRESHOLD=50
+          # Target: 80% coverage for unit-testable business logic
+          THRESHOLD=80
           if (( $(echo "$COVERAGE >= $THRESHOLD" | bc -l) )); then
             echo "✓ Coverage meets ${THRESHOLD}% threshold"
           else
-            echo "✗ Coverage below ${THRESHOLD}% threshold"
+            echo "✗ Coverage ${COVERAGE}% is below ${THRESHOLD}% threshold"
             exit 1
           fi
 
