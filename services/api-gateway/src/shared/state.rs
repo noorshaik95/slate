@@ -6,6 +6,7 @@ use crate::auth::AuthService;
 use crate::config::GatewayConfig;
 use crate::discovery::RouteDiscoveryService;
 use crate::grpc::client::GrpcClientPool;
+use crate::middleware::ClientIpExtractor;
 use crate::rate_limit::RateLimiter;
 use crate::router::RequestRouter;
 
@@ -16,6 +17,7 @@ pub struct AppState {
     pub auth_service: Arc<AuthService>,
     pub router_lock: Arc<RwLock<RequestRouter>>,
     pub rate_limiter: Option<Arc<RateLimiter>>,
+    pub client_ip_extractor: Arc<ClientIpExtractor>,
     pub registry: Registry,
     pub metrics: GatewayMetrics,
     // For dynamic route updates (used by admin endpoint and periodic refresh)
@@ -143,6 +145,7 @@ impl AppState {
         auth_service: AuthService,
         router_lock: Arc<RwLock<RequestRouter>>,
         rate_limiter: Option<RateLimiter>,
+        client_ip_extractor: ClientIpExtractor,
         discovery_service: Option<RouteDiscoveryService>,
     ) -> Self {
         let registry = Registry::new();
@@ -154,6 +157,7 @@ impl AppState {
             auth_service: Arc::new(auth_service),
             router_lock,
             rate_limiter: rate_limiter.map(Arc::new),
+            client_ip_extractor: Arc::new(client_ip_extractor),
             registry,
             metrics,
             discovery_service: discovery_service.map(Arc::new),

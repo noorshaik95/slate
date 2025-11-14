@@ -56,8 +56,9 @@ pub struct ErrorDetail {
     pub trace_id: Option<String>,
 }
 
-impl IntoResponse for GatewayError {
-    fn into_response(self) -> Response {
+impl GatewayError {
+    /// Convert to response with trace ID
+    pub fn into_response_with_trace_id(self, trace_id: String) -> Response {
         use super::constants::*;
         
         let status = map_grpc_error_to_status(&self);
@@ -73,15 +74,22 @@ impl IntoResponse for GatewayError {
             GatewayError::InternalError(_) => ERR_CODE_INTERNAL_ERROR,
         };
 
-        let body = ErrorResponse {
-            error: ErrorDetail {
-                code: error_code.to_string(),
-                message: self.to_string(),
-                trace_id: None, // TODO: Extract from request context
-            },
-        };
+        let error_response = super::error::ErrorResponse::new(
+            error_code,
+            self.to_string(),
+            trace_id,
+        );
 
-        (status, Json(body)).into_response()
+        error_response.into_response_with_status(status)
+    }
+}
+
+impl IntoResponse for GatewayError {
+    fn into_response(self) -> Response {
+        // Fallback implementation without trace ID (for backward compatibility)
+        // In practice, this should rarely be used as the gateway handler extracts trace ID
+        let trace_id = uuid::Uuid::new_v4().to_string();
+        self.into_response_with_trace_id(trace_id)
     }
 }
 

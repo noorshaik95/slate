@@ -1,3 +1,3 @@
-mod tracing_utils;
+pub mod tracing_utils;
 
-pub use tracing_utils::{create_request_span, SpanAttributes};
+pub use tracing_utils::{create_request_span, SpanAttributes, TraceContext};

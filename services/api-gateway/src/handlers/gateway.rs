@@ -25,11 +25,14 @@ pub async fn gateway_handler(
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
     request: Request<Body>,
-) -> Result<Response, GatewayError> {
+) -> Response {
+    // Extract trace ID from request before processing
+    let trace_id = super::error::extract_trace_id(&request);
+    
     let timeout_duration = Duration::from_millis(state.config.server.request_timeout_ms);
 
     let start = Instant::now();
-    match tokio::time::timeout(
+    let result = match tokio::time::timeout(
         timeout_duration,
         gateway_handler_inner(State(state), ConnectInfo(addr), headers, request)
     ).await {
@@ -39,10 +42,27 @@ pub async fn gateway_handler(
             error!(
                 timeout_ms = ?timeout_duration.as_millis(),
                 duration_ms = %duration_ms,
+                trace_id = %trace_id,
                 error_type = "timeout",
                 "Request timeout exceeded"
             );
             Err(GatewayError::Timeout)
+        }
+    };
+
+    // Convert result to response with trace ID
+    match result {
+        Ok(response) => {
+            // Add trace ID header to successful responses
+            let (mut parts, body) = response.into_parts();
+            if let Ok(header_value) = trace_id.parse() {
+                parts.headers.insert("x-trace-id", header_value);
+            }
+            Response::from_parts(parts, body)
+        }
+        Err(error) => {
+            // Convert error to response with trace ID
+            error.into_response_with_trace_id(trace_id)
         }
     }
 }
@@ -69,10 +89,14 @@ async fn gateway_handler_inner(
     let path = request.uri().path().to_string();
     let method = request.method().as_str().to_string();
     
+    // Extract trace ID for logging
+    let trace_id = super::error::extract_trace_id(&request);
+    
     info!(
         path = %path,
         method = %method,
         client_ip = %addr.ip(),
+        trace_id = %trace_id,
         "Processing gateway request"
     );
 
@@ -82,16 +106,21 @@ async fn gateway_handler_inner(
         return Err(GatewayError::NotFound);
     }
 
+    // Extract real client IP (handles X-Forwarded-For from trusted proxies)
+    let client_ip = state.client_ip_extractor.extract_client_ip(&request);
+
     // Apply rate limiting
     if let Some(rate_limiter) = &state.rate_limiter {
         if !RateLimiter::should_exclude_path(&path) {
-            if let Err(e) = rate_limiter.check_rate_limit(addr.ip()).await {
+            if let Err(e) = rate_limiter.check_rate_limit(client_ip).await {
                 let duration_ms = start_time.elapsed().as_millis();
                 warn!(
-                    client_ip = %addr.ip(),
+                    client_ip = %client_ip,
+                    remote_addr = %addr.ip(),
                     path = %path,
                     method = %method,
                     duration_ms = %duration_ms,
+                    trace_id = %trace_id,
                     error_type = "rate_limit",
                     error = %e,
                     "Rate limit exceeded"
@@ -115,6 +144,7 @@ async fn gateway_handler_inner(
                 path = %path,
                 method = %method,
                 duration_ms = %duration_ms,
+                trace_id = %trace_id,
                 error_type = "internal",
                 "Routing decision not found in request extensions (auth middleware may have failed)"
             );
@@ -312,6 +342,7 @@ async fn gateway_handler_inner(
         method = %method,
         service = %routing_decision.service,
         duration_ms = duration.as_millis(),
+        trace_id = %trace_id,
         "Request completed successfully"
     );
 

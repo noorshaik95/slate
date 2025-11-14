@@ -97,5 +97,7 @@ fn create_valid_config() -> GatewayConfig {
         },
         route_overrides: vec![],
         cors: None,
+        body_limit: None,
+        trusted_proxies: vec![],
     }
 }

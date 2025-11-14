@@ -23,5 +23,11 @@ func (a *TokenServiceAdapter) ValidateAccessToken(token string) (*service.TokenC
 		UserID: claims.UserID,
 		Email:  claims.Email,
 		Roles:  claims.Roles,
+		IssuedAt: service.TimeWrapper{
+			Time: claims.IssuedAt.Time,
+		},
+		ExpiresAt: service.TimeWrapper{
+			Time: claims.ExpiresAt.Time,
+		},
 	}, nil
 }

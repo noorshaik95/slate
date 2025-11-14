@@ -16,6 +16,9 @@ type Metrics struct {
 
 	// System metrics
 	dbConnections prometheus.Gauge
+
+	// Rate limiter metrics
+	rateLimiterMode prometheus.Gauge
 }
 
 // NewMetrics creates a new Metrics instance with all metrics registered
@@ -49,6 +52,12 @@ func NewMetrics(registry prometheus.Registerer) *Metrics {
 			prometheus.GaugeOpts{
 				Name: "db_connections",
 				Help: "Current number of database connections",
+			},
+		),
+		rateLimiterMode: factory.NewGauge(
+			prometheus.GaugeOpts{
+				Name: "rate_limiter_mode",
+				Help: "Rate limiter mode: 0=redis, 1=memory (fallback)",
 			},
 		),
 	}
@@ -100,4 +109,18 @@ func (m *Metrics) GetRequestDuration() *prometheus.HistogramVec {
 // GetDBConnections returns the db connections gauge (useful for testing)
 func (m *Metrics) GetDBConnections() prometheus.Gauge {
 	return m.dbConnections
+}
+
+// SetRateLimiterMode sets the rate limiter mode (0=redis, 1=memory)
+func (m *Metrics) SetRateLimiterMode(usingMemory bool) {
+	if usingMemory {
+		m.rateLimiterMode.Set(1)
+	} else {
+		m.rateLimiterMode.Set(0)
+	}
+}
+
+// GetRateLimiterMode returns the rate limiter mode gauge (useful for testing)
+func (m *Metrics) GetRateLimiterMode() prometheus.Gauge {
+	return m.rateLimiterMode
 }

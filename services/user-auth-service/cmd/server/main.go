@@ -26,6 +26,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -110,6 +111,25 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Validate JWT secret strength before initializing JWT service
+	// Detect development mode from environment
+	environment := os.Getenv("ENVIRONMENT")
+	devMode := environment == "development" || environment == "dev" || os.Getenv("DEV_MODE") == "true"
+
+	if devMode {
+		log.Warn().Msg("Running in development mode - JWT secret validation will show warnings instead of errors")
+	}
+
+	secretValidator := jwt.NewSecretValidator(devMode)
+	if err := secretValidator.ValidateSecret(cfg.JWT.SecretKey); err != nil {
+		log.Error().Err(err).Msg("JWT secret validation failed")
+		log.Error().Msg("CRITICAL: JWT secret does not meet security requirements")
+		log.Error().Msg("Please update JWT_SECRET environment variable with a strong secret (32+ characters, mixed case, numbers, special characters)")
+		os.Exit(1)
+	}
+
+	log.Info().Msg("JWT secret validation passed")
+
 	// Initialize JWT service
 	tokenService := jwt.NewTokenService(
 		cfg.JWT.SecretKey,
@@ -137,18 +157,46 @@ func main() {
 		}
 	}()
 
-	// Initialize services
-	userService := service.NewUserService(userRepo, roleRepo, tokenServiceAdapter, log, metricsCollector)
-
-	// Initialize rate limiter (Redis-based)
-	var rateLimiter *ratelimit.RedisRateLimiter
+	// Initialize Redis client for token blacklist and rate limiting
 	redisHost := os.Getenv("REDIS_HOST")
 	redisPort := os.Getenv("REDIS_PORT")
+	var redisClient *redis.Client
+	var tokenBlacklist *jwt.TokenBlacklist
+
+	if redisHost != "" && redisPort != "" {
+		redisAddr := redisHost + ":" + redisPort
+		log.Info().Str("redis_addr", redisAddr).Msg("Connecting to Redis")
+
+		redisClient = redis.NewClient(&redis.Options{
+			Addr: redisAddr,
+		})
+
+		// Test Redis connection
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := redisClient.Ping(ctx).Err(); err != nil {
+			log.Error().Err(err).Msg("Failed to connect to Redis")
+			log.Info().Msg("Continuing without Redis (token blacklist and rate limiting disabled)")
+			redisClient = nil
+		} else {
+			log.Info().Msg("Connected to Redis successfully")
+			// Initialize token blacklist
+			tokenBlacklist = jwt.NewTokenBlacklist(redisClient)
+			log.Info().Msg("Token blacklist initialized")
+		}
+	} else {
+		log.Info().Msg("Redis not configured (REDIS_HOST or REDIS_PORT not set)")
+	}
+
+	// Initialize services
+	userService := service.NewUserService(userRepo, roleRepo, tokenServiceAdapter, tokenBlacklist, log, metricsCollector)
+
+	// Initialize rate limiter with fallback support
+	var rateLimiter *ratelimit.FallbackRateLimiter
 	rateLimitEnabled := os.Getenv("RATE_LIMIT_ENABLED")
 
 	if rateLimitEnabled == "true" && redisHost != "" && redisPort != "" {
-		redisAddr := redisHost + ":" + redisPort
-		log.Info().Str("redis_addr", redisAddr).Msg("Initializing Redis rate limiter")
+		log.Info().Msg("Initializing rate limiter with fallback support")
 
 		// Configure rate limits from environment or use defaults
 		loginLimit := ratelimit.RateLimit{
@@ -160,12 +208,17 @@ func main() {
 			Window:      1 * time.Hour, // per hour
 		}
 
-		rateLimiter, err = ratelimit.NewRedisRateLimiter(redisAddr, loginLimit, registerLimit)
+		redisAddr := redisHost + ":" + redisPort
+		rateLimiter, err = ratelimit.NewFallbackRateLimiter(redisAddr, loginLimit, registerLimit, metricsCollector)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to initialize rate limiter")
 			log.Info().Msg("Continuing without rate limiting")
 		} else {
-			log.Info().Msg("Rate limiter initialized successfully")
+			if rateLimiter.IsUsingRedis() {
+				log.Info().Msg("Rate limiter initialized with Redis")
+			} else {
+				log.Warn().Msg("Rate limiter initialized with in-memory fallback (Redis unavailable)")
+			}
 			defer rateLimiter.Close()
 		}
 	} else {

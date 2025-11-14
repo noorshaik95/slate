@@ -8,6 +8,13 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+// RateLimiter is an interface for rate limiting implementations
+type RateLimiter interface {
+	AllowLogin(clientIP string) (bool, time.Duration, error)
+	AllowRegister(clientIP string) (bool, time.Duration, error)
+	Close() error
+}
+
 // RateLimit defines rate limiting configuration
 type RateLimit struct {
 	MaxAttempts int

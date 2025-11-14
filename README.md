@@ -385,6 +385,39 @@ docker-compose logs -f api-gateway
 
 ## 🔒 Security
 
+### Request Body Size Limits
+
+The API Gateway enforces request body size limits to prevent DoS attacks via memory exhaustion:
+
+**Configuration (Environment Variables)**:
+```bash
+# Default limit for most endpoints (default: 1MB)
+MAX_REQUEST_BODY_SIZE=1048576
+
+# Limit for upload endpoints (default: 10MB)
+MAX_UPLOAD_BODY_SIZE=10485760
+
+# Comma-separated paths that use upload limit
+UPLOAD_PATHS="/upload,/api/upload"
+```
+
+**Configuration (YAML)**:
+```yaml
+# config/gateway-config.yaml
+body_limit:
+  default_limit: 1048576      # 1MB in bytes
+  upload_limit: 10485760      # 10MB in bytes
+  upload_paths:
+    - "/upload"
+    - "/api/upload"
+```
+
+**Behavior**:
+- Requests exceeding the limit receive HTTP 413 Payload Too Large
+- Content-Length header is checked before reading the body
+- Different limits for upload vs regular endpoints
+- Rejections are logged with client IP and request size
+
 ### Production Checklist
 
 - [ ] Change default admin password
@@ -393,6 +426,7 @@ docker-compose logs -f api-gateway
 - [ ] Enable TLS for gRPC connections
 - [ ] Configure CORS with specific origins
 - [ ] Enable rate limiting with appropriate thresholds
+- [ ] Configure appropriate body size limits for your use case
 - [ ] Set up monitoring alerts
 - [ ] Review and restrict role permissions
 - [ ] Implement token blacklist for logout

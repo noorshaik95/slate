@@ -119,6 +119,25 @@ func (m *MockTokenService) RefreshAccessToken(refreshToken string) (string, stri
 	return args.String(0), args.String(1), args.Get(2).(int64), args.Error(3)
 }
 
+type MockTokenBlacklist struct {
+	mock.Mock
+}
+
+func (m *MockTokenBlacklist) BlacklistToken(ctx context.Context, token string, expiresAt time.Time) error {
+	args := m.Called(ctx, token, expiresAt)
+	return args.Error(0)
+}
+
+func (m *MockTokenBlacklist) BlacklistUserTokens(ctx context.Context, userID string, maxTokenLifetime time.Duration) error {
+	args := m.Called(ctx, userID, maxTokenLifetime)
+	return args.Error(0)
+}
+
+func (m *MockTokenBlacklist) IsTokenBlacklisted(ctx context.Context, token string, userID string, issuedAt time.Time) (bool, error) {
+	args := m.Called(ctx, token, userID, issuedAt)
+	return args.Bool(0), args.Error(1)
+}
+
 type MockMetrics struct {
 	mock.Mock
 }
@@ -177,8 +196,9 @@ func TestRegister_Success(t *testing.T) {
 	mockUserRepo := new(MockUserRepository)
 	mockRoleRepo := new(MockRoleRepository)
 	mockTokenSvc := new(MockTokenService)
+	mockBlacklist := new(MockTokenBlacklist)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, createTestLogger(), createTestMetrics())
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics())
 
 	email := "newuser@example.com"
 	password := "Password123!"
@@ -223,7 +243,9 @@ func TestRegister_UserAlreadyExists(t *testing.T) {
 	mockRoleRepo := new(MockRoleRepository)
 	mockTokenSvc := new(MockTokenService)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, createTestLogger(), createTestMetrics())
+	mockBlacklist := new(MockTokenBlacklist)
+
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics())
 
 	email := "existing@example.com"
 	existingUser := createTestUser()
@@ -246,7 +268,9 @@ func TestLogin_Success(t *testing.T) {
 	mockRoleRepo := new(MockRoleRepository)
 	mockTokenSvc := new(MockTokenService)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, createTestLogger(), createTestMetrics())
+	mockBlacklist := new(MockTokenBlacklist)
+
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics())
 
 	testUser := createTestUser()
 	email := testUser.Email
@@ -276,7 +300,9 @@ func TestLogin_InvalidCredentials(t *testing.T) {
 	mockRoleRepo := new(MockRoleRepository)
 	mockTokenSvc := new(MockTokenService)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, createTestLogger(), createTestMetrics())
+	mockBlacklist := new(MockTokenBlacklist)
+
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics())
 
 	mockUserRepo.On("GetByEmail", "test@example.com").Return(nil, errors.New("not found"))
 
@@ -295,7 +321,9 @@ func TestLogin_WrongPassword(t *testing.T) {
 	mockRoleRepo := new(MockRoleRepository)
 	mockTokenSvc := new(MockTokenService)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, createTestLogger(), createTestMetrics())
+	mockBlacklist := new(MockTokenBlacklist)
+
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics())
 
 	testUser := createTestUser()
 	mockUserRepo.On("GetByEmail", testUser.Email).Return(testUser, nil)
@@ -315,7 +343,9 @@ func TestLogin_InactiveUser(t *testing.T) {
 	mockRoleRepo := new(MockRoleRepository)
 	mockTokenSvc := new(MockTokenService)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, createTestLogger(), createTestMetrics())
+	mockBlacklist := new(MockTokenBlacklist)
+
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics())
 
 	testUser := createTestUser()
 	testUser.IsActive = false
@@ -336,7 +366,9 @@ func TestValidateToken_Success(t *testing.T) {
 	mockRoleRepo := new(MockRoleRepository)
 	mockTokenSvc := new(MockTokenService)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, createTestLogger(), createTestMetrics())
+	mockBlacklist := new(MockTokenBlacklist)
+
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics())
 
 	token := "valid-token"
 	claims := &TokenClaims{
@@ -345,6 +377,7 @@ func TestValidateToken_Success(t *testing.T) {
 	}
 
 	mockTokenSvc.On("ValidateAccessToken", token).Return(claims, nil)
+	mockBlacklist.On("IsTokenBlacklisted", mock.Anything, token, claims.UserID, mock.Anything).Return(false, nil)
 
 	userID, roles, err := svc.ValidateToken(context.Background(), token)
 
@@ -353,6 +386,7 @@ func TestValidateToken_Success(t *testing.T) {
 	assert.Equal(t, claims.Roles, roles)
 
 	mockTokenSvc.AssertExpectations(t)
+	mockBlacklist.AssertExpectations(t)
 }
 
 func TestValidateToken_InvalidToken(t *testing.T) {
@@ -360,7 +394,9 @@ func TestValidateToken_InvalidToken(t *testing.T) {
 	mockRoleRepo := new(MockRoleRepository)
 	mockTokenSvc := new(MockTokenService)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, createTestLogger(), createTestMetrics())
+	mockBlacklist := new(MockTokenBlacklist)
+
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics())
 
 	token := "invalid-token"
 	mockTokenSvc.On("ValidateAccessToken", token).Return(nil, errors.New("invalid token"))
@@ -379,7 +415,9 @@ func TestGetUser_Success(t *testing.T) {
 	mockRoleRepo := new(MockRoleRepository)
 	mockTokenSvc := new(MockTokenService)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, createTestLogger(), createTestMetrics())
+	mockBlacklist := new(MockTokenBlacklist)
+
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics())
 
 	testUser := createTestUser()
 	mockUserRepo.On("GetByID", testUser.ID).Return(testUser, nil)
@@ -398,7 +436,9 @@ func TestGetUser_NotFound(t *testing.T) {
 	mockRoleRepo := new(MockRoleRepository)
 	mockTokenSvc := new(MockTokenService)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, createTestLogger(), createTestMetrics())
+	mockBlacklist := new(MockTokenBlacklist)
+
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics())
 
 	mockUserRepo.On("GetByID", "nonexistent").Return(nil, errors.New("user not found"))
 
@@ -415,7 +455,9 @@ func TestUpdateUser_Success(t *testing.T) {
 	mockRoleRepo := new(MockRoleRepository)
 	mockTokenSvc := new(MockTokenService)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, createTestLogger(), createTestMetrics())
+	mockBlacklist := new(MockTokenBlacklist)
+
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics())
 
 	testUser := createTestUser()
 	newEmail := "newemail@example.com"
@@ -446,7 +488,9 @@ func TestDeleteUser_Success(t *testing.T) {
 	mockRoleRepo := new(MockRoleRepository)
 	mockTokenSvc := new(MockTokenService)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, createTestLogger(), createTestMetrics())
+	mockBlacklist := new(MockTokenBlacklist)
+
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics())
 
 	userID := "user-123"
 	mockUserRepo.On("Delete", userID).Return(nil)
@@ -462,7 +506,9 @@ func TestChangePassword_Success(t *testing.T) {
 	mockRoleRepo := new(MockRoleRepository)
 	mockTokenSvc := new(MockTokenService)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, createTestLogger(), createTestMetrics())
+	mockBlacklist := new(MockTokenBlacklist)
+
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics())
 
 	testUser := createTestUser()
 	oldPassword := "Password123!"
@@ -470,11 +516,13 @@ func TestChangePassword_Success(t *testing.T) {
 
 	mockUserRepo.On("GetByID", testUser.ID).Return(testUser, nil)
 	mockUserRepo.On("UpdatePassword", testUser.ID, mock.AnythingOfType("string")).Return(nil)
+	mockBlacklist.On("BlacklistUserTokens", mock.Anything, testUser.ID, mock.AnythingOfType("time.Duration")).Return(nil)
 
 	err := svc.ChangePassword(context.Background(), testUser.ID, oldPassword, newPassword)
 
 	require.NoError(t, err)
 	mockUserRepo.AssertExpectations(t)
+	mockBlacklist.AssertExpectations(t)
 }
 
 func TestChangePassword_WrongOldPassword(t *testing.T) {
@@ -482,7 +530,9 @@ func TestChangePassword_WrongOldPassword(t *testing.T) {
 	mockRoleRepo := new(MockRoleRepository)
 	mockTokenSvc := new(MockTokenService)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, createTestLogger(), createTestMetrics())
+	mockBlacklist := new(MockTokenBlacklist)
+
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics())
 
 	testUser := createTestUser()
 	mockUserRepo.On("GetByID", testUser.ID).Return(testUser, nil)
@@ -499,7 +549,9 @@ func TestAssignRole_Success(t *testing.T) {
 	mockRoleRepo := new(MockRoleRepository)
 	mockTokenSvc := new(MockTokenService)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, createTestLogger(), createTestMetrics())
+	mockBlacklist := new(MockTokenBlacklist)
+
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics())
 
 	userID := "user-123"
 	role := "admin"
@@ -520,7 +572,9 @@ func TestRemoveRole_Success(t *testing.T) {
 	mockRoleRepo := new(MockRoleRepository)
 	mockTokenSvc := new(MockTokenService)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, createTestLogger(), createTestMetrics())
+	mockBlacklist := new(MockTokenBlacklist)
+
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics())
 
 	userID := "user-123"
 	role := "admin"
@@ -538,7 +592,9 @@ func TestGetUserRoles_Success(t *testing.T) {
 	mockRoleRepo := new(MockRoleRepository)
 	mockTokenSvc := new(MockTokenService)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, createTestLogger(), createTestMetrics())
+	mockBlacklist := new(MockTokenBlacklist)
+
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics())
 
 	userID := "user-123"
 	expectedRoles := []string{"user", "admin"}
@@ -557,7 +613,9 @@ func TestCheckPermission_Success(t *testing.T) {
 	mockRoleRepo := new(MockRoleRepository)
 	mockTokenSvc := new(MockTokenService)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, createTestLogger(), createTestMetrics())
+	mockBlacklist := new(MockTokenBlacklist)
+
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics())
 
 	userID := "user-123"
 	permission := "users.read"

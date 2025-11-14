@@ -6,6 +6,7 @@ mod docs;
 mod grpc;
 mod handlers;
 mod health;
+mod middleware;
 mod observability;
 mod proto;
 mod rate_limit;
@@ -40,6 +41,7 @@ use crate::grpc::client::GrpcClientPool;
 use crate::handlers::gateway::gateway_handler;
 use crate::handlers::refresh_routes_handler;
 use crate::health::{health_handler, liveness_handler, readiness_handler, HealthChecker};
+use crate::middleware::{body_limit_middleware, BodyLimitConfig};
 use crate::rate_limit::RateLimiter;
 use crate::router::RequestRouter;
 use crate::shared::state::AppState;
@@ -236,6 +238,75 @@ async fn main() -> anyhow::Result<()> {
         None
     };
 
+    // Initialize body size limit configuration
+    info!("Configuring request body size limits");
+    let default_body_limit = std::env::var("MAX_REQUEST_BODY_SIZE")
+        .ok()
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(1024 * 1024); // Default: 1MB
+
+    let upload_body_limit = std::env::var("MAX_UPLOAD_BODY_SIZE")
+        .ok()
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(10 * 1024 * 1024); // Default: 10MB
+
+    let upload_paths = std::env::var("UPLOAD_PATHS")
+        .ok()
+        .map(|s| s.split(',').map(|p| p.trim().to_string()).collect())
+        .unwrap_or_else(|| vec!["/upload".to_string(), "/api/upload".to_string()]);
+
+    let body_limit_config = BodyLimitConfig::new(
+        default_body_limit,
+        upload_body_limit,
+        upload_paths.clone(),
+    );
+
+    info!(
+        default_limit_bytes = default_body_limit,
+        upload_limit_bytes = upload_body_limit,
+        upload_paths = ?upload_paths,
+        "Body size limits configured"
+    );
+
+    // Initialize client IP extractor for X-Forwarded-For handling
+    info!("Configuring client IP extraction");
+    let trusted_proxies_str = std::env::var("TRUSTED_PROXIES")
+        .unwrap_or_else(|_| config.trusted_proxies.join(","));
+    
+    let trusted_proxies: Vec<std::net::IpAddr> = if !trusted_proxies_str.is_empty() {
+        trusted_proxies_str
+            .split(',')
+            .filter_map(|s| {
+                let trimmed = s.trim();
+                match trimmed.parse() {
+                    Ok(ip) => Some(ip),
+                    Err(e) => {
+                        warn!(
+                            proxy_ip = %trimmed,
+                            error = %e,
+                            "Failed to parse trusted proxy IP, skipping"
+                        );
+                        None
+                    }
+                }
+            })
+            .collect()
+    } else {
+        Vec::new()
+    };
+
+    let client_ip_config = middleware::ClientIpConfig::new(trusted_proxies.clone());
+    let client_ip_extractor = middleware::ClientIpExtractor::new(client_ip_config);
+
+    if trusted_proxies.is_empty() {
+        info!("No trusted proxies configured, using direct connection IPs only");
+    } else {
+        info!(
+            trusted_proxies = ?trusted_proxies,
+            "Client IP extractor configured with trusted proxies"
+        );
+    }
+
     // Create application state
     info!("Creating application state");
     let shared_state = Arc::new(AppState::new(
@@ -244,6 +315,7 @@ async fn main() -> anyhow::Result<()> {
         auth_service,
         router_lock.clone(),
         rate_limiter.clone(),
+        client_ip_extractor,
         discovery_service,
     ));
 
@@ -335,7 +407,7 @@ async fn main() -> anyhow::Result<()> {
         )
         .with_state(shared_state.clone());
     
-    // Create gateway router
+    // Create gateway router with body limit and auth middleware
     let gateway_router = Router::new()
         .route(
             "/*path",
@@ -343,7 +415,10 @@ async fn main() -> anyhow::Result<()> {
                 .layer(axum::middleware::from_fn_with_state(
                     auth_middleware_state,
                     auth_middleware,
-                )),
+                ))
+                .layer(axum::middleware::from_fn(move |req, next| {
+                    body_limit_middleware(body_limit_config.clone(), req, next)
+                })),
         )
         .with_state(shared_state.clone());
     
@@ -361,63 +436,55 @@ async fn main() -> anyhow::Result<()> {
     // Add CORS middleware if enabled
     if let Some(cors_config) = &config.cors {
         if cors_config.enabled {
-            use tower_http::cors::{CorsLayer, Any};
-            use axum::http::Method;
-
             info!("Configuring CORS middleware");
 
-            let mut cors = CorsLayer::new();
+            // Determine dev mode from environment or config
+            let dev_mode = std::env::var("DEV_MODE")
+                .or_else(|_| std::env::var("ENVIRONMENT"))
+                .map(|v| {
+                    let lower = v.to_lowercase();
+                    lower == "development" || lower == "dev" || lower == "true"
+                })
+                .unwrap_or(false);
 
-            // Configure allowed origins
-            if cors_config.allowed_origins.contains(&"*".to_string()) {
-                cors = cors.allow_origin(Any);
+            // Read allowed origins from environment or use config
+            let allowed_origins = std::env::var("CORS_ALLOWED_ORIGINS")
+                .ok()
+                .map(|s| {
+                    s.split(',')
+                        .map(|origin| origin.trim().to_string())
+                        .filter(|origin| !origin.is_empty())
+                        .collect()
+                })
+                .unwrap_or_else(|| cors_config.allowed_origins.clone());
+
+            // Create CORS configuration
+            let cors_middleware_config = middleware::CorsConfig::new(allowed_origins.clone(), dev_mode);
+            
+            // Log configuration
+            if dev_mode {
+                warn!("CORS: Running in development mode - allowing all origins");
+            } else if allowed_origins.is_empty() {
+                warn!("CORS: No allowed origins configured - will reject all cross-origin requests");
+            } else if allowed_origins.contains(&"*".to_string()) {
+                warn!("CORS: Wildcard origin configured - consider restricting in production");
             } else {
-                for origin in &cors_config.allowed_origins {
-                    if let Ok(origin_header) = origin.parse::<axum::http::HeaderValue>() {
-                        cors = cors.allow_origin(origin_header);
-                    }
-                }
+                info!(
+                    allowed_origins = ?allowed_origins,
+                    "CORS: Configured with specific allowed origins"
+                );
             }
 
-            // Configure allowed methods
-            let methods: Vec<Method> = cors_config
-                .allowed_methods
-                .iter()
-                .filter_map(|m| m.parse().ok())
-                .collect();
-            cors = cors.allow_methods(methods);
-
-            // Configure allowed headers
-            if !cors_config.allowed_headers.is_empty() {
-                let headers: Vec<_> = cors_config
-                    .allowed_headers
-                    .iter()
-                    .filter_map(|h| h.parse().ok())
-                    .collect();
-                cors = cors.allow_headers(headers);
-            }
-
-            // Configure exposed headers
-            if !cors_config.expose_headers.is_empty() {
-                let headers: Vec<_> = cors_config
-                    .expose_headers
-                    .iter()
-                    .filter_map(|h| h.parse().ok())
-                    .collect();
-                cors = cors.expose_headers(headers);
-            }
-
-            // Configure max age
-            cors = cors.max_age(std::time::Duration::from_secs(cors_config.max_age_seconds));
-
-            // Configure credentials
-            if cors_config.allow_credentials {
-                cors = cors.allow_credentials(true);
-            }
-
-            app = app.layer(cors);
+            // Build and apply CORS layer
+            let cors_layer = cors_middleware_config.build_layer();
+            app = app.layer(cors_layer);
+            
             info!("CORS middleware configured successfully");
+        } else {
+            info!("CORS middleware disabled in configuration");
         }
+    } else {
+        info!("CORS configuration not found, CORS middleware not applied");
     }
 
     // Start periodic refresh background task (if discovery is enabled)

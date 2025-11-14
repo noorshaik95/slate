@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"time"
 
 	"slate/services/user-auth-service/internal/models"
 )
@@ -35,9 +36,23 @@ type TokenServiceInterface interface {
 
 // TokenClaims represents the claims in a JWT token
 type TokenClaims struct {
-	UserID string
-	Email  string
-	Roles  []string
+	UserID    string
+	Email     string
+	Roles     []string
+	IssuedAt  TimeWrapper
+	ExpiresAt TimeWrapper
+}
+
+// TimeWrapper wraps time.Time for interface compatibility
+type TimeWrapper struct {
+	Time time.Time
+}
+
+// TokenBlacklistInterface defines the interface for token blacklist operations
+type TokenBlacklistInterface interface {
+	BlacklistToken(ctx context.Context, token string, expiresAt time.Time) error
+	BlacklistUserTokens(ctx context.Context, userID string, maxTokenLifetime time.Duration) error
+	IsTokenBlacklisted(ctx context.Context, token string, userID string, issuedAt time.Time) (bool, error)
 }
 
 // MetricsInterface defines the interface for metrics operations

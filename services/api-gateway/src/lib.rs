@@ -6,6 +6,7 @@ pub mod discovery;
 pub mod grpc;
 pub mod handlers;
 pub mod health;
+pub mod middleware;
 pub mod observability;
 pub mod rate_limit;
 pub mod router;

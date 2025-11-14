@@ -15,6 +15,10 @@ pub struct GatewayConfig {
     pub route_overrides: Vec<RouteOverride>,
     #[serde(default)]
     pub cors: Option<CorsConfig>,
+    #[serde(default)]
+    pub body_limit: Option<BodyLimitConfig>,
+    #[serde(default)]
+    pub trusted_proxies: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -164,6 +168,41 @@ impl Default for CorsConfig {
             expose_headers: vec![],
             max_age_seconds: 3600,
             allow_credentials: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct BodyLimitConfig {
+    /// Default body size limit in bytes (applies to most endpoints)
+    #[serde(default = "default_body_limit")]
+    pub default_limit: usize,
+    /// Upload body size limit in bytes (applies to upload endpoints)
+    #[serde(default = "default_upload_limit")]
+    pub upload_limit: usize,
+    /// Paths that should use the upload limit
+    #[serde(default = "default_upload_paths")]
+    pub upload_paths: Vec<String>,
+}
+
+fn default_body_limit() -> usize {
+    1024 * 1024 // 1MB
+}
+
+fn default_upload_limit() -> usize {
+    10 * 1024 * 1024 // 10MB
+}
+
+fn default_upload_paths() -> Vec<String> {
+    vec!["/upload".to_string(), "/api/upload".to_string()]
+}
+
+impl Default for BodyLimitConfig {
+    fn default() -> Self {
+        Self {
+            default_limit: default_body_limit(),
+            upload_limit: default_upload_limit(),
+            upload_paths: default_upload_paths(),
         }
     }
 }

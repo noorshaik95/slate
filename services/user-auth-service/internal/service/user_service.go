@@ -13,22 +13,24 @@ import (
 )
 
 type UserService struct {
-	userRepo  UserRepositoryInterface
-	roleRepo  RoleRepositoryInterface
-	tokenSvc  TokenServiceInterface
-	validator *validation.Validator
-	logger    *logger.Logger
-	metrics   MetricsInterface
+	userRepo       UserRepositoryInterface
+	roleRepo       RoleRepositoryInterface
+	tokenSvc       TokenServiceInterface
+	tokenBlacklist TokenBlacklistInterface
+	validator      *validation.Validator
+	logger         *logger.Logger
+	metrics        MetricsInterface
 }
 
-func NewUserService(userRepo UserRepositoryInterface, roleRepo RoleRepositoryInterface, tokenSvc TokenServiceInterface, log *logger.Logger, metrics MetricsInterface) *UserService {
+func NewUserService(userRepo UserRepositoryInterface, roleRepo RoleRepositoryInterface, tokenSvc TokenServiceInterface, tokenBlacklist TokenBlacklistInterface, log *logger.Logger, metrics MetricsInterface) *UserService {
 	return &UserService{
-		userRepo:  userRepo,
-		roleRepo:  roleRepo,
-		tokenSvc:  tokenSvc,
-		validator: validation.NewValidator(),
-		logger:    log,
-		metrics:   metrics,
+		userRepo:       userRepo,
+		roleRepo:       roleRepo,
+		tokenSvc:       tokenSvc,
+		tokenBlacklist: tokenBlacklist,
+		validator:      validation.NewValidator(),
+		logger:         log,
+		metrics:        metrics,
 	}
 }
 
@@ -201,11 +203,77 @@ func (s *UserService) Login(ctx context.Context, email, password string) (*model
 	return user, tokens, nil
 }
 
+// Logout invalidates a user's access token by adding it to the blacklist
+func (s *UserService) Logout(ctx context.Context, token string) error {
+	// Validate the token to get claims (including expiration)
+	claims, err := s.tokenSvc.ValidateAccessToken(token)
+	if err != nil {
+		// Token is already invalid, no need to blacklist
+		s.logger.Warn().
+			Str("operation", "logout").
+			Str("error_type", "invalid_token").
+			Err(err).
+			Msg("logout attempt with invalid token")
+		return nil
+	}
+
+	// Add token to blacklist with TTL matching token expiration
+	if s.tokenBlacklist != nil {
+		expiresAt := claims.ExpiresAt.Time
+		err = s.tokenBlacklist.BlacklistToken(ctx, token, expiresAt)
+		if err != nil {
+			// Log error but don't fail logout (fail-open for logout)
+			s.logger.Error().
+				Str("user_id", claims.UserID).
+				Str("operation", "logout").
+				Str("error_type", "blacklist_failed").
+				Err(err).
+				Msg("failed to blacklist token, but allowing logout to proceed")
+		} else {
+			s.logger.Info().
+				Str("user_id", claims.UserID).
+				Str("operation", "logout").
+				Msg("token blacklisted successfully")
+		}
+	}
+
+	s.logger.Info().
+		Str("user_id", claims.UserID).
+		Str("operation", "logout").
+		Msg("user logged out successfully")
+
+	return nil
+}
+
 // ValidateToken validates a token and returns user info
 func (s *UserService) ValidateToken(ctx context.Context, token string) (string, []string, error) {
 	claims, err := s.tokenSvc.ValidateAccessToken(token)
 	if err != nil {
 		return "", nil, err
+	}
+
+	// Check if token is blacklisted
+	if s.tokenBlacklist != nil {
+		isBlacklisted, err := s.tokenBlacklist.IsTokenBlacklisted(ctx, token, claims.UserID, claims.IssuedAt.Time)
+		if err != nil {
+			s.logger.Error().
+				Str("user_id", claims.UserID).
+				Str("operation", "validate_token").
+				Str("error_type", "blacklist_check_failed").
+				Err(err).
+				Msg("failed to check token blacklist")
+			// Fail-secure: if we can't check blacklist, reject the token
+			return "", nil, fmt.Errorf("token revoked")
+		}
+
+		if isBlacklisted {
+			s.logger.Warn().
+				Str("user_id", claims.UserID).
+				Str("operation", "validate_token").
+				Str("error_type", "token_blacklisted").
+				Msg("attempt to use blacklisted token")
+			return "", nil, fmt.Errorf("token revoked")
+		}
 	}
 
 	return claims.UserID, claims.Roles, nil
@@ -436,7 +504,43 @@ func (s *UserService) ChangePassword(ctx context.Context, userID, oldPassword, n
 		return fmt.Errorf("failed to hash password: %w", err)
 	}
 
-	return s.userRepo.UpdatePassword(ctx, userID, string(hashedPassword))
+	// Update password in database
+	err = s.userRepo.UpdatePassword(ctx, userID, string(hashedPassword))
+	if err != nil {
+		return err
+	}
+
+	// Security: Invalidate all existing tokens for this user after password change
+	// This ensures that if the password was compromised, all sessions are terminated
+	if s.tokenBlacklist != nil {
+		// Use maximum token lifetime (refresh token duration is typically longest)
+		// This ensures all tokens are invalidated, even long-lived refresh tokens
+		maxTokenLifetime := 7 * 24 * time.Hour // 7 days (typical refresh token lifetime)
+
+		err = s.tokenBlacklist.BlacklistUserTokens(ctx, userID, maxTokenLifetime)
+		if err != nil {
+			// Log error but don't fail the password change
+			// Password change is more critical than token invalidation
+			s.logger.Error().
+				Str("user_id", userID).
+				Str("operation", "change_password").
+				Str("error_type", "token_invalidation_failed").
+				Err(err).
+				Msg("failed to invalidate user tokens after password change")
+		} else {
+			s.logger.Info().
+				Str("user_id", userID).
+				Str("operation", "change_password").
+				Msg("all user tokens invalidated after password change")
+		}
+	}
+
+	s.logger.Info().
+		Str("user_id", userID).
+		Str("operation", "change_password").
+		Msg("password changed successfully")
+
+	return nil
 }
 
 // AssignRole assigns a role to a user

@@ -21,10 +21,10 @@ import (
 type UserServiceServer struct {
 	pb.UnimplementedUserServiceServer
 	userService *service.UserService
-	rateLimiter *ratelimit.RedisRateLimiter
+	rateLimiter ratelimit.RateLimiter
 }
 
-func NewUserServiceServer(userService *service.UserService, rateLimiter *ratelimit.RedisRateLimiter) *UserServiceServer {
+func NewUserServiceServer(userService *service.UserService, rateLimiter ratelimit.RateLimiter) *UserServiceServer {
 	return &UserServiceServer{
 		userService: userService,
 		rateLimiter: rateLimiter,
@@ -114,14 +114,17 @@ func (s *UserServiceServer) Register(ctx context.Context, req *pb.RegisterReques
 		}
 	}
 
-	user, tokens, err := s.userService.Register(ctx, req.Email, req.Password, req.FirstName, req.LastName, req.Phone)
+	user, _, err := s.userService.Register(ctx, req.Email, req.Password, req.FirstName, req.LastName, req.Phone)
 	if err != nil {
 		return nil, status.Errorf(codes.AlreadyExists, "registration failed: %v", err)
 	}
 
+	// Security: Don't return tokens on registration
+	// Users must explicitly login after registration to get tokens
+	// This prevents automatic authentication and allows for email verification flows
 	return &pb.RegisterResponse{
-		AccessToken:  tokens.AccessToken,
-		RefreshToken: tokens.RefreshToken,
+		AccessToken:  "", // No token on signup
+		RefreshToken: "", // No token on signup
 		User:         userToProto(user),
 	}, nil
 }
@@ -157,9 +160,20 @@ func (s *UserServiceServer) ValidateToken(ctx context.Context, req *pb.ValidateT
 	}, nil
 }
 
-// Logout logs out a user (placeholder - implement token blacklist if needed)
+// Logout logs out a user by blacklisting their access token
 func (s *UserServiceServer) Logout(ctx context.Context, req *pb.LogoutRequest) (*emptypb.Empty, error) {
-	// TODO: Implement token blacklist or revocation
+	// Extract token from request
+	token := req.Token
+	if token == "" {
+		return nil, status.Error(codes.InvalidArgument, "token is required")
+	}
+
+	// Call service to blacklist the token
+	err := s.userService.Logout(ctx, token)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "logout failed: %v", err)
+	}
+
 	return &emptypb.Empty{}, nil
 }
 
