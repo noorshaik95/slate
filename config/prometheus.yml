@@ -22,3 +22,9 @@ scrape_configs:
       - targets: ['course-service:9090']
         labels:
           service: 'course-service'
+  - job_name: 'assignment-grading-service'
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['assignment-grading-service:9090']
+        labels:
+          service: 'assignment-grading-service'
