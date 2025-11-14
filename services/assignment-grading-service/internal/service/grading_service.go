@@ -13,7 +13,7 @@ type gradingService struct {
 	assignmentRepo repository.AssignmentRepository
 	submissionRepo repository.SubmissionRepository
 	gradeRepo      repository.GradeRepository
-	producer       *kafka.Producer
+	producer       kafka.EventPublisher
 	latePolicyCalc *LatePolicyCalculator
 }
 
