@@ -2,6 +2,7 @@ mod auth;
 mod circuit_breaker;
 mod config;
 mod discovery;
+mod docs;
 mod grpc;
 mod handlers;
 mod health;
@@ -309,16 +310,21 @@ async fn main() -> anyhow::Result<()> {
 
     // Build Axum router
     info!("Building HTTP router");
-    let mut app = Router::new()
-        // Health check endpoints
+    
+    // Create health check router
+    let health_router = Router::new()
         .route("/health", get(health_handler))
         .route("/health/live", get(liveness_handler))
         .route("/health/ready", get(readiness_handler))
-        .with_state(health_checker)
-        // Metrics endpoint
+        .with_state(health_checker);
+    
+    // Create metrics router
+    let metrics_router = Router::new()
         .route("/metrics", get(metrics))
-        .with_state(shared_state.clone())
-        // Admin endpoint for manual route refresh (requires auth)
+        .with_state(shared_state.clone());
+    
+    // Create admin router
+    let admin_router = Router::new()
         .route(
             "/admin/refresh-routes",
             post(refresh_routes_handler)
@@ -327,8 +333,10 @@ async fn main() -> anyhow::Result<()> {
                     auth_middleware,
                 )),
         )
-        .with_state(shared_state.clone())
-        // Gateway handler for all other routes with auth middleware
+        .with_state(shared_state.clone());
+    
+    // Create gateway router
+    let gateway_router = Router::new()
         .route(
             "/*path",
             any(gateway_handler)
@@ -337,7 +345,16 @@ async fn main() -> anyhow::Result<()> {
                     auth_middleware,
                 )),
         )
-        .with_state(shared_state.clone())
+        .with_state(shared_state.clone());
+    
+    // Merge all routers
+    let mut app = Router::new()
+        // API Documentation endpoints (no auth required)
+        .merge(docs::create_docs_router())
+        .merge(health_router)
+        .merge(metrics_router)
+        .merge(admin_router)
+        .merge(gateway_router)
         // Add tracing layer
         .layer(TraceLayer::new_for_http());
 
@@ -421,6 +438,7 @@ async fn main() -> anyhow::Result<()> {
     ));
     
     info!(address = %addr, "Starting HTTP server");
+    info!("API Documentation available at: http://{}/docs", addr);
     let listener = tokio::net::TcpListener::bind(addr).await?;
 
     // Set up graceful shutdown

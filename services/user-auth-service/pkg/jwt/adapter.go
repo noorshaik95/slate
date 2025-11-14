@@ -1,6 +1,6 @@
 package jwt
 
-import "github.com/noorshaik95/axum-grafana-example/services/user-auth-service/internal/service"
+import "slate/services/user-auth-service/internal/service"
 
 // TokenServiceAdapter adapts TokenService to implement service.TokenServiceInterface
 type TokenServiceAdapter struct {

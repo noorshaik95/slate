@@ -10,19 +10,12 @@ WORKDIR /app
 COPY proto ./proto
 COPY services/api-gateway/build.rs ./build.rs
 
-# Copy Cargo files for dependency caching
+# Copy Cargo files, source code, and benches
 COPY services/api-gateway/Cargo.toml services/api-gateway/Cargo.lock ./
-
-# Create a dummy main.rs to build dependencies
-RUN mkdir -p src && echo "fn main() {}" > src/main.rs
-
-# Build dependencies only (this layer will be cached unless Cargo.toml/Cargo.lock changes)
-RUN cargo build --release && rm -rf src
-
-# Copy actual source code
 COPY services/api-gateway/src ./src
+COPY services/api-gateway/benches ./benches
 
-# Build the application with actual source (this will compile protos via build.rs)
+# Build the application (this will compile protos via build.rs)
 RUN cargo build --release
 
 # Runtime Stage
@@ -32,11 +25,14 @@ WORKDIR /app
 # Copy the compiled binary
 COPY --from=builder /app/target/release/api-gateway /usr/local/bin/app
 
-# Create config directory
-RUN mkdir -p /app/config
+# Create config and openapi directories
+RUN mkdir -p /app/config /app/services/api-gateway/openapi
 
 # Copy default gateway configuration file
 COPY config/gateway-config.docker.yaml /app/config/gateway-config.yaml
+
+# Copy OpenAPI documentation
+COPY services/api-gateway/openapi/openapi.yaml /app/services/api-gateway/openapi/openapi.yaml
 
 EXPOSE 8080
 CMD ["app"]

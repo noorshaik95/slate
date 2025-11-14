@@ -125,7 +125,7 @@ This monorepo contains two main microservices:
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd axum-grafana-example
+cd slate
 
 # Copy environment variables
 cp .env.example .env
@@ -141,6 +141,7 @@ docker-compose up -d --build
 
 - **API Gateway**: http://localhost:8080
 - **User Auth Service (gRPC)**: localhost:50051
+- **User Auth Service Metrics**: http://localhost:9091/metrics
 - **Grafana**: http://localhost:3000 (admin/admin)
 - **Prometheus**: http://localhost:9090
 - **PostgreSQL**: localhost:5432

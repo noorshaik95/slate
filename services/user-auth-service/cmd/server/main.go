@@ -10,19 +10,20 @@ import (
 	"syscall"
 	"time"
 
-	pb "github.com/noorshaik95/axum-grafana-example/services/user-auth-service/api/proto"
-	"github.com/noorshaik95/axum-grafana-example/services/user-auth-service/internal/config"
-	grpcHandler "github.com/noorshaik95/axum-grafana-example/services/user-auth-service/internal/grpc"
-	"github.com/noorshaik95/axum-grafana-example/services/user-auth-service/internal/health"
-	"github.com/noorshaik95/axum-grafana-example/services/user-auth-service/internal/repository"
-	"github.com/noorshaik95/axum-grafana-example/services/user-auth-service/internal/service"
-	"github.com/noorshaik95/axum-grafana-example/services/user-auth-service/migrations"
-	"github.com/noorshaik95/axum-grafana-example/services/user-auth-service/pkg/database"
-	"github.com/noorshaik95/axum-grafana-example/services/user-auth-service/pkg/jwt"
-	"github.com/noorshaik95/axum-grafana-example/services/user-auth-service/pkg/logger"
-	"github.com/noorshaik95/axum-grafana-example/services/user-auth-service/pkg/metrics"
-	"github.com/noorshaik95/axum-grafana-example/services/user-auth-service/pkg/ratelimit"
-	"github.com/noorshaik95/axum-grafana-example/services/user-auth-service/pkg/tracing"
+	pb "slate/services/user-auth-service/api/proto"
+	"slate/services/user-auth-service/internal/config"
+	grpcHandler "slate/services/user-auth-service/internal/grpc"
+	"slate/services/user-auth-service/internal/health"
+	"slate/services/user-auth-service/internal/repository"
+	"slate/services/user-auth-service/internal/service"
+	"slate/services/user-auth-service/migrations"
+	"slate/services/user-auth-service/pkg/database"
+	"slate/services/user-auth-service/pkg/jwt"
+	"slate/services/user-auth-service/pkg/logger"
+	"slate/services/user-auth-service/pkg/metrics"
+	"slate/services/user-auth-service/pkg/ratelimit"
+	"slate/services/user-auth-service/pkg/tracing"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
@@ -123,7 +124,7 @@ func main() {
 	log.Info().Msg("Prometheus metrics initialized")
 
 	// Start metrics HTTP server
-	metricsAddr := ":9090"
+	metricsAddr := ":9090" // Internal container port
 	metricsServer := &http.Server{
 		Addr:    metricsAddr,
 		Handler: promhttp.HandlerFor(registry, promhttp.HandlerOpts{Registry: registry}),

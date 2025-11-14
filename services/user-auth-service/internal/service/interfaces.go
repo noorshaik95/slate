@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 
-	"github.com/noorshaik95/axum-grafana-example/services/user-auth-service/internal/models"
+	"slate/services/user-auth-service/internal/models"
 )
 
 // UserRepositoryInterface defines the interface for user repository operations

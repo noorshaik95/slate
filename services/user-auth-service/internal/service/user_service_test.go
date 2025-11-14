@@ -1,14 +1,15 @@
 package service
 
 import (
-	"context"
 	"bytes"
+	"context"
 	"errors"
 	"testing"
 	"time"
 
-	"github.com/noorshaik95/axum-grafana-example/services/user-auth-service/internal/models"
-	"github.com/noorshaik95/axum-grafana-example/services/user-auth-service/pkg/logger"
+	"slate/services/user-auth-service/internal/models"
+	"slate/services/user-auth-service/pkg/logger"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"

@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/noorshaik95/axum-grafana-example/services/user-auth-service/internal/models"
+	"slate/services/user-auth-service/internal/models"
+
 	"github.com/lib/pq"
 )
 

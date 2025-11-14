@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/noorshaik95/axum-grafana-example/services/user-auth-service/internal/models"
-	"github.com/noorshaik95/axum-grafana-example/services/user-auth-service/pkg/logger"
-	"github.com/noorshaik95/axum-grafana-example/services/user-auth-service/pkg/validation"
+	"slate/services/user-auth-service/internal/models"
+	"slate/services/user-auth-service/pkg/logger"
+	"slate/services/user-auth-service/pkg/validation"
+
 	"golang.org/x/crypto/bcrypt"
 )
 

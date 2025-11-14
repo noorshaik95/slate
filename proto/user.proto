@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package user;
 
-option go_package = "github.com/noorshaik95/axum-grafana-example/services/user-auth-service/api/proto";
+option go_package = "slate/services/user-auth-service/api/proto";
 
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/empty.proto";

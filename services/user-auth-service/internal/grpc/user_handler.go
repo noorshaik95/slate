@@ -3,11 +3,13 @@ package grpc
 import (
 	"context"
 	"fmt"
+	"net"
 
-	pb "github.com/noorshaik95/axum-grafana-example/services/user-auth-service/api/proto"
-	"github.com/noorshaik95/axum-grafana-example/services/user-auth-service/internal/models"
-	"github.com/noorshaik95/axum-grafana-example/services/user-auth-service/internal/service"
-	"github.com/noorshaik95/axum-grafana-example/services/user-auth-service/pkg/ratelimit"
+	pb "slate/services/user-auth-service/api/proto"
+	"slate/services/user-auth-service/internal/models"
+	"slate/services/user-auth-service/internal/service"
+	"slate/services/user-auth-service/pkg/ratelimit"
+
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
@@ -44,7 +46,13 @@ func getClientIP(ctx context.Context) string {
 
 	// Fallback to peer address
 	if p, ok := peer.FromContext(ctx); ok {
-		return p.Addr.String()
+		addr := p.Addr.String()
+		// Strip port number to get just the IP address
+		// Format is typically "IP:port" or "[IPv6]:port"
+		if host, _, err := net.SplitHostPort(addr); err == nil {
+			return host
+		}
+		return addr
 	}
 
 	return "unknown"

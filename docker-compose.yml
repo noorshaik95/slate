@@ -86,7 +86,7 @@ services:
     ports:
       - "50051:50051"
       - "8081:8081"
-      - "9090:9090"  # Prometheus metrics endpoint
+      - "9091:9090"  # Prometheus metrics endpoint
     depends_on:
       postgres:
         condition: service_healthy

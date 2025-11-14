@@ -20,6 +20,7 @@ The main API Gateway service built from the Rust application.
 
 ### Observability Stack
 - **Prometheus** (Port 9090) - Metrics collection
+- **User Auth Service Metrics** (Port 9091) - Service metrics endpoint
 - **Tempo** (Port 4317) - Distributed tracing
 - **Loki** (Port 3100) - Log aggregation
 - **Grafana** (Port 3000) - Visualization dashboard
@@ -94,6 +95,7 @@ The Dockerfile uses a multi-stage build:
 
 - Gateway: http://localhost:8080
 - Prometheus: http://localhost:9090
+- User Auth Service Metrics: http://localhost:9091/metrics
 - Grafana: http://localhost:3000 (admin/admin)
 - Tempo: http://localhost:3200
 
