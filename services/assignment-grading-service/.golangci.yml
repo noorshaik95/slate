@@ -49,8 +49,7 @@ linters:
     - gosimple        # Simplify code
     - govet           # Vet examines Go source code
     - ineffassign     # Detect ineffectual assignments
-    # - staticcheck   # Disabled due to Go 1.23.x stdlib typecheck issues
-    # - typecheck     # Disabled due to Go 1.23.x stdlib issues
+    - staticcheck     # Static analysis
     - unused          # Check for unused constants, variables, functions and types
     - gofmt           # Check if code is gofmt-ed
     - goimports       # Check if imports are formatted
