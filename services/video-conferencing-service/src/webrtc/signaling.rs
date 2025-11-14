@@ -517,3 +517,6 @@ impl Default for SignalingServer {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests;

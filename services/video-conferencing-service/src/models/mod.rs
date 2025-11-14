@@ -105,3 +105,6 @@ impl VideoQualityHelper {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;
