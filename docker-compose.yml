@@ -238,8 +238,8 @@ services:
       GATEWAY_OBSERVABILITY_TEMPO_ENDPOINT: "http://tempo:4317"
       # Request body size limits (DoS prevention)
       MAX_REQUEST_BODY_SIZE: "1048576"      # 1MB default limit
-      MAX_UPLOAD_BODY_SIZE: "10485760"      # 10MB for upload endpoints
-      UPLOAD_PATHS: "/upload,/api/upload"   # Comma-separated paths for upload limit
+      MAX_UPLOAD_BODY_SIZE: "26214400"      # 25MB for upload endpoints (assignment submissions)
+      UPLOAD_PATHS: "/upload,/api/upload,/api/assignments/*/submissions"   # Comma-separated paths for upload limit
       # Trusted proxies for X-Forwarded-For header (comma-separated IPs)
       # TRUSTED_PROXIES: "10.0.0.1,172.17.0.1"  # Uncomment and set for production
     ports:
@@ -252,6 +252,7 @@ services:
       - loki
       - grafana
       - user-auth-service
+      - assignment-grading-service
     deploy:
       resources:
         limits:

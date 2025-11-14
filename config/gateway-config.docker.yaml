@@ -11,6 +11,14 @@ services:
     auto_discover: true
     tls_enabled: false
 
+  assignment-grading-service:
+    name: "assignment-grading-service"
+    endpoint: "http://assignment-grading-service:50053"
+    timeout_ms: 10000
+    connection_pool_size: 10
+    auto_discover: true
+    tls_enabled: false
+
 discovery:
   enabled: true
   refresh_interval_seconds: 300
@@ -41,6 +49,95 @@ route_overrides:
     http_path: "/api/auth/logout"
     http_method: "POST"
     service: "user-auth-service"
+
+  # Assignment Service Routes
+  - grpc_method: "assignment.AssignmentService/CreateAssignment"
+    http_path: "/api/assignments"
+    http_method: "POST"
+    service: "assignment-grading-service"
+
+  - grpc_method: "assignment.AssignmentService/GetAssignment"
+    http_path: "/api/assignments/:id"
+    http_method: "GET"
+    service: "assignment-grading-service"
+
+  - grpc_method: "assignment.AssignmentService/UpdateAssignment"
+    http_path: "/api/assignments/:id"
+    http_method: "PUT"
+    service: "assignment-grading-service"
+
+  - grpc_method: "assignment.AssignmentService/DeleteAssignment"
+    http_path: "/api/assignments/:id"
+    http_method: "DELETE"
+    service: "assignment-grading-service"
+
+  - grpc_method: "assignment.AssignmentService/ListAssignments"
+    http_path: "/api/courses/:course_id/assignments"
+    http_method: "GET"
+    service: "assignment-grading-service"
+
+  # Submission Service Routes
+  - grpc_method: "assignment.SubmissionService/SubmitAssignment"
+    http_path: "/api/assignments/:assignment_id/submissions"
+    http_method: "POST"
+    service: "assignment-grading-service"
+
+  - grpc_method: "assignment.SubmissionService/GetSubmission"
+    http_path: "/api/submissions/:id"
+    http_method: "GET"
+    service: "assignment-grading-service"
+
+  - grpc_method: "assignment.SubmissionService/ListSubmissions"
+    http_path: "/api/assignments/:assignment_id/submissions"
+    http_method: "GET"
+    service: "assignment-grading-service"
+
+  - grpc_method: "assignment.SubmissionService/ListStudentSubmissions"
+    http_path: "/api/students/:student_id/submissions"
+    http_method: "GET"
+    service: "assignment-grading-service"
+
+  # Grading Service Routes
+  - grpc_method: "assignment.GradingService/CreateGrade"
+    http_path: "/api/submissions/:submission_id/grades"
+    http_method: "POST"
+    service: "assignment-grading-service"
+
+  - grpc_method: "assignment.GradingService/UpdateGrade"
+    http_path: "/api/grades/:id"
+    http_method: "PUT"
+    service: "assignment-grading-service"
+
+  - grpc_method: "assignment.GradingService/PublishGrade"
+    http_path: "/api/grades/:id/publish"
+    http_method: "POST"
+    service: "assignment-grading-service"
+
+  - grpc_method: "assignment.GradingService/GetGrade"
+    http_path: "/api/grades/:id"
+    http_method: "GET"
+    service: "assignment-grading-service"
+
+  # Gradebook Service Routes
+  - grpc_method: "assignment.GradebookService/GetStudentGradebook"
+    http_path: "/api/students/:student_id/gradebook"
+    http_method: "GET"
+    service: "assignment-grading-service"
+
+  - grpc_method: "assignment.GradebookService/GetCourseGradebook"
+    http_path: "/api/courses/:course_id/gradebook"
+    http_method: "GET"
+    service: "assignment-grading-service"
+
+  - grpc_method: "assignment.GradingService/GetGradeStatistics"
+    http_path: "/api/assignments/:assignment_id/statistics"
+    http_method: "GET"
+    service: "assignment-grading-service"
+
+  - grpc_method: "assignment.GradebookService/ExportGrades"
+    http_path: "/api/courses/:course_id/gradebook/export"
+    http_method: "GET"
+    service: "assignment-grading-service"
 
 auth:
   service_endpoint: "http://user-auth-service:50051"
