@@ -25,7 +25,7 @@ func NewSubmissionService(
 	assignmentRepo repository.AssignmentRepository,
 	submissionRepo repository.SubmissionRepository,
 	storage storage.FileStorage,
-	producer *kafka.Producer,
+	producer kafka.EventPublisher,
 ) SubmissionService {
 	return &submissionService{
 		assignmentRepo: assignmentRepo,

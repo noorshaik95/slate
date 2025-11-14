@@ -9,6 +9,12 @@ import (
 	"github.com/segmentio/kafka-go"
 )
 
+// EventPublisher defines the interface for publishing events
+type EventPublisher interface {
+	PublishEvent(ctx context.Context, event Event) error
+	Close() error
+}
+
 // Producer wraps the Kafka writer
 type Producer struct {
 	writer  *kafka.Writer

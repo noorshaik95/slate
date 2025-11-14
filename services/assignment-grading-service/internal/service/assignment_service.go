@@ -12,11 +12,11 @@ import (
 
 type assignmentService struct {
 	repo     repository.AssignmentRepository
-	producer *kafka.Producer
+	producer kafka.EventPublisher
 }
 
 // NewAssignmentService creates a new assignment service
-func NewAssignmentService(repo repository.AssignmentRepository, producer *kafka.Producer) AssignmentService {
+func NewAssignmentService(repo repository.AssignmentRepository, producer kafka.EventPublisher) AssignmentService {
 	return &assignmentService{
 		repo:     repo,
 		producer: producer,

@@ -22,7 +22,7 @@ func NewGradingService(
 	assignmentRepo repository.AssignmentRepository,
 	submissionRepo repository.SubmissionRepository,
 	gradeRepo repository.GradeRepository,
-	producer *kafka.Producer,
+	producer kafka.EventPublisher,
 ) GradingService {
 	return &gradingService{
 		assignmentRepo: assignmentRepo,
