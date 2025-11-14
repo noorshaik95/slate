@@ -274,15 +274,38 @@ services:
         condition: service_healthy
       kafka:
         condition: service_started
+  # Course Management Service (NestJS/MongoDB)
+  course-service:
+    build:
+      context: .
+      dockerfile: services/course-service/Dockerfile
+    environment:
+      NODE_ENV: "production"
+      PORT: "3001"
+      GRPC_HOST: "0.0.0.0"
+      GRPC_PORT: "50052"
+      MONGO_URI: "mongodb://mongodb:27017/courses"
+      MONGO_DB_NAME: "courses"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://tempo:4317"
+      LOG_LEVEL: "info"
+      METRICS_PORT: "9090"
+      SERVICE_VERSION: "1.0.0"
+    ports:
+      - "50052:50052"  # gRPC
+      - "3001:3001"    # HTTP (health/metrics)
+      - "9092:9090"    # Prometheus metrics endpoint
+    depends_on:
+      mongodb:
+        condition: service_healthy
       tempo:
         condition: service_started
     deploy:
       resources:
         limits:
-          cpus: '0.5'
+          cpus: '1.0'
           memory: 512M
         reservations:
-          cpus: '0.25'
+          cpus: '0.5'
           memory: 256M
     restart: unless-stopped
 

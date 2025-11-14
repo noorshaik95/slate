@@ -3,6 +3,7 @@ import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentation
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-grpc';
 import { Resource } from '@opentelemetry/resources';
 import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
+import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
 
 export function initializeTracing() {
   const serviceName = 'course-service';
@@ -22,6 +23,7 @@ export function initializeTracing() {
   const sdk = new NodeSDK({
     resource,
     traceExporter,
+    spanProcessor: new BatchSpanProcessor(traceExporter),
     instrumentations: [
       getNodeAutoInstrumentations({
         '@opentelemetry/instrumentation-fs': {
