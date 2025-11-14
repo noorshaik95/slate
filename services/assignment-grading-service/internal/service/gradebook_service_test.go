@@ -315,7 +315,7 @@ func TestGradebookService_GetGradeStatistics(t *testing.T) {
 			GradedCount:      8,
 			Mean:             82.5,
 			Median:           84.0,
-			StdDev:           7.2,
+			StdDeviation:     7.2,
 			MinScore:         65.0,
 			MaxScore:         98.0,
 		}
