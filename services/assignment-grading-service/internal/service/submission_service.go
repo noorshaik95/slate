@@ -16,7 +16,7 @@ type submissionService struct {
 	assignmentRepo repository.AssignmentRepository
 	submissionRepo repository.SubmissionRepository
 	storage        storage.FileStorage
-	producer       *kafka.Producer
+	producer       kafka.EventPublisher
 	latePolicyCalc *LatePolicyCalculator
 }
 
