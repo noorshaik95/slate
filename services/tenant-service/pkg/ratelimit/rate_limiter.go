@@ -35,7 +35,6 @@ type rateLimiter struct {
 	config      *Config
 	redisClient *redis.Client
 	fallback    *memoryRateLimiter
-	mu          sync.RWMutex
 }
 
 // memoryRateLimiter is a fallback in-memory rate limiter

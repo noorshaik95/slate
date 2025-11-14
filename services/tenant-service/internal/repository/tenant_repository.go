@@ -285,7 +285,9 @@ func (r *tenantRepository) GetTierByID(ctx context.Context, tierID string) (*mod
 	}
 
 	if len(featuresJSON) > 0 {
-		json.Unmarshal(featuresJSON, &tier.Features)
+		if err := json.Unmarshal(featuresJSON, &tier.Features); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal tier features: %w", err)
+		}
 	}
 
 	return tier, nil
@@ -319,7 +321,9 @@ func (r *tenantRepository) GetTierByName(ctx context.Context, name string) (*mod
 	}
 
 	if len(featuresJSON) > 0 {
-		json.Unmarshal(featuresJSON, &tier.Features)
+		if err := json.Unmarshal(featuresJSON, &tier.Features); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal tier features: %w", err)
+		}
 	}
 
 	return tier, nil
@@ -357,7 +361,9 @@ func (r *tenantRepository) ListTiers(ctx context.Context) ([]*models.Subscriptio
 		}
 
 		if len(featuresJSON) > 0 {
-			json.Unmarshal(featuresJSON, &tier.Features)
+			if err := json.Unmarshal(featuresJSON, &tier.Features); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal tier features: %w", err)
+			}
 		}
 
 		tiers = append(tiers, tier)

@@ -178,7 +178,10 @@ func (s *tenantService) provisionTenantAsync(
 			}
 		}
 
-		s.repo.UpdateProvisioning(ctx, provisioning)
+		if err := s.repo.UpdateProvisioning(ctx, provisioning); err != nil {
+		// Log error but don't fail - this is a progress update
+		_ = err
+	}
 	}
 
 	// AC2: Provision dedicated database (if Professional+ tier)

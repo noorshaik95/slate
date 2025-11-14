@@ -52,7 +52,7 @@ func TestCircuitBreaker_OpensAfterMaxFailures(t *testing.T) {
 
 	// Execute 3 failing operations
 	for i := 0; i < 3; i++ {
-		cb.Execute(func() error {
+		_ = cb.Execute(func() error {
 			return testError
 		})
 	}
@@ -85,7 +85,7 @@ func TestCircuitBreaker_HalfOpenAfterTimeout(t *testing.T) {
 
 	// Open the circuit
 	for i := 0; i < 2; i++ {
-		cb.Execute(func() error {
+		_ = cb.Execute(func() error {
 			return testError
 		})
 	}
@@ -99,7 +99,7 @@ func TestCircuitBreaker_HalfOpenAfterTimeout(t *testing.T) {
 
 	// Next attempt should be allowed (half-open state)
 	executed := false
-	cb.Execute(func() error {
+	_ = cb.Execute(func() error {
 		executed = true
 		return nil // Success
 	})
@@ -121,7 +121,7 @@ func TestCircuitBreaker_ClosesAfterSuccessInHalfOpen(t *testing.T) {
 
 	// Open the circuit
 	for i := 0; i < 2; i++ {
-		cb.Execute(func() error {
+		_ = cb.Execute(func() error {
 			return testError
 		})
 	}
@@ -131,7 +131,7 @@ func TestCircuitBreaker_ClosesAfterSuccessInHalfOpen(t *testing.T) {
 
 	// Execute 3 successful operations in half-open
 	for i := 0; i < 3; i++ {
-		cb.Execute(func() error {
+		_ = cb.Execute(func() error {
 			return nil
 		})
 	}
@@ -154,7 +154,7 @@ func TestCircuitBreaker_ReopensOnFailureInHalfOpen(t *testing.T) {
 
 	// Open the circuit
 	for i := 0; i < 2; i++ {
-		cb.Execute(func() error {
+		_ = cb.Execute(func() error {
 			return testError
 		})
 	}
@@ -163,7 +163,7 @@ func TestCircuitBreaker_ReopensOnFailureInHalfOpen(t *testing.T) {
 	time.Sleep(1100 * time.Millisecond)
 
 	// Fail in half-open state
-	cb.Execute(func() error {
+	_ = cb.Execute(func() error {
 		return testError
 	})
 
@@ -203,7 +203,7 @@ func TestCircuitBreaker_Reset(t *testing.T) {
 
 	// Open the circuit
 	for i := 0; i < 2; i++ {
-		cb.Execute(func() error {
+		_ = cb.Execute(func() error {
 			return testError
 		})
 	}
@@ -221,7 +221,7 @@ func TestCircuitBreaker_Reset(t *testing.T) {
 
 	// Should allow execution
 	executed := false
-	cb.Execute(func() error {
+	_ = cb.Execute(func() error {
 		executed = true
 		return nil
 	})
@@ -242,10 +242,10 @@ func TestCircuitBreaker_PartialFailures(t *testing.T) {
 	testError := errors.New("test error")
 
 	// Mix of success and failure (not reaching threshold)
-	cb.Execute(func() error { return testError })
-	cb.Execute(func() error { return nil })       // Success resets count
-	cb.Execute(func() error { return testError })
-	cb.Execute(func() error { return testError })
+	_ = cb.Execute(func() error { return testError })
+	_ = cb.Execute(func() error { return nil })       // Success resets count
+	_ = cb.Execute(func() error { return testError })
+	_ = cb.Execute(func() error { return testError })
 
 	// Should still be closed (failures reset after success)
 	if cb.GetState() != StateClosed {
@@ -301,7 +301,7 @@ func TestCircuitBreaker_GetStateName(t *testing.T) {
 	}
 
 	// Open circuit
-	cb.Execute(func() error { return errors.New("error") })
+	_ = cb.Execute(func() error { return errors.New("error") })
 
 	if cb.GetStateName() != "open" {
 		t.Errorf("Expected 'open', got '%s'", cb.GetStateName())
@@ -309,7 +309,7 @@ func TestCircuitBreaker_GetStateName(t *testing.T) {
 
 	// Wait for half-open
 	time.Sleep(1100 * time.Millisecond)
-	cb.Execute(func() error { return nil })
+	_ = cb.Execute(func() error { return nil })
 
 	// Should transition through half-open
 	// (might be closed if successful operations completed)

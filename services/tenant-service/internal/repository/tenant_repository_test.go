@@ -159,7 +159,9 @@ func TestTenantRepository_GetByDomain(t *testing.T) {
 		UpdatedAt:         time.Now(),
 	}
 
-	repo.Create(context.Background(), tenant)
+	if err := repo.Create(context.Background(), tenant); err != nil {
+		t.Fatalf("Failed to create tenant: %v", err)
+	}
 
 	// Retrieve by domain
 	retrieved, err := repo.GetByDomain(context.Background(), tenant.Domain)
@@ -193,7 +195,9 @@ func TestTenantRepository_Update(t *testing.T) {
 		UpdatedAt:         time.Now(),
 	}
 
-	repo.Create(context.Background(), tenant)
+	if err := repo.Create(context.Background(), tenant); err != nil {
+		t.Fatalf("Failed to create tenant: %v", err)
+	}
 
 	// Update tenant
 	tenant.Name = "Updated Name"
@@ -242,7 +246,9 @@ func TestTenantRepository_List(t *testing.T) {
 			CreatedAt:         time.Now(),
 			UpdatedAt:         time.Now(),
 		}
-		repo.Create(context.Background(), tenant)
+		if err := repo.Create(context.Background(), tenant); err != nil {
+			t.Fatalf("Failed to create tenant: %v", err)
+		}
 	}
 
 	// List all
@@ -296,7 +302,9 @@ func TestTenantRepository_StorageQuota(t *testing.T) {
 		UpdatedAt:         time.Now(),
 	}
 
-	repo.Create(context.Background(), tenant)
+	if err := repo.Create(context.Background(), tenant); err != nil {
+		t.Fatalf("Failed to create tenant: %v", err)
+	}
 
 	// AC6: Update storage usage
 	err := repo.UpdateStorageUsage(context.Background(), tenant.ID, 104857600, 10) // +100MB, +10 files
@@ -342,7 +350,9 @@ func TestTenantRepository_CreateAdmin(t *testing.T) {
 		UpdatedAt:         time.Now(),
 	}
 
-	repo.Create(context.Background(), tenant)
+	if err := repo.Create(context.Background(), tenant); err != nil {
+		t.Fatalf("Failed to create tenant: %v", err)
+	}
 
 	// AC3: Create admin
 	admin := &models.TenantAdmin{
@@ -395,7 +405,9 @@ func TestTenantRepository_Provisioning(t *testing.T) {
 		UpdatedAt:         time.Now(),
 	}
 
-	repo.Create(context.Background(), tenant)
+	if err := repo.Create(context.Background(), tenant); err != nil {
+		t.Fatalf("Failed to create tenant: %v", err)
+	}
 
 	// AC7: Create provisioning record
 	provisioning := &models.TenantProvisioning{
