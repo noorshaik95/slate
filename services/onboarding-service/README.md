@@ -358,27 +358,75 @@ kafka_messages_consumed_total
 cd services/onboarding-service
 go mod download
 
+# Set up development tools
+make dev-setup
+
 # Run migrations
-go run cmd/migrate/main.go
+make db-migrate
 
 # Run server
-go run cmd/server/main.go
+make run-server
 
 # Run worker
-go run cmd/worker/main.go
+make run-worker
 ```
 
 ### Testing
+
+**Quick Start**:
 ```bash
-# Unit tests
-go test ./...
+# Run all tests
+make test
 
-# Integration tests
-go test -tags=integration ./...
+# Run with coverage report
+make test-coverage
 
-# Load testing
-./scripts/load_test_onboarding.sh
+# Run linter
+make lint
 ```
+
+**Detailed Guide**: See [TESTING.md](TESTING.md) for comprehensive testing documentation.
+
+**Test Coverage**: 80%+ enforced in CI
+
+#### Test Types
+
+1. **Unit Tests** (~95% coverage for critical components)
+   ```bash
+   make test-unit
+   ```
+   - Models and validators
+   - CSV parsing and validation
+   - Configuration management
+   - Business logic
+
+2. **Integration Tests** (database, full lifecycle)
+   ```bash
+   make test-integration
+   ```
+   - Job lifecycle (create, update, complete)
+   - Task processing
+   - Batch operations (100+ users)
+   - Audit log immutability
+   - Progress tracking
+
+3. **Lint & Format**
+   ```bash
+   make lint    # Run golangci-lint
+   make fmt     # Auto-format code
+   ```
+
+#### CI/CD Pipeline
+
+GitHub Actions runs on every push:
+- ✅ Linting (30+ linters via golangci-lint)
+- ✅ Unit tests with race detector
+- ✅ Integration tests with PostgreSQL
+- ✅ Coverage check (80% minimum)
+- ✅ Security scan (gosec)
+- ✅ Docker image build
+
+**Status**: ![CI Status](https://github.com/yourusername/slate/workflows/Onboarding%20Service%20CI/badge.svg)
 
 ## Roadmap
 
