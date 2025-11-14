@@ -11,6 +11,14 @@ services:
     auto_discover: true
     tls_enabled: false
 
+  tenant-service:
+    name: "tenant-service"
+    endpoint: "http://tenant-service:50052"
+    timeout_ms: 10000  # Longer timeout for provisioning operations
+    connection_pool_size: 10
+    auto_discover: true
+    tls_enabled: false
+
 discovery:
   enabled: true
   refresh_interval_seconds: 300
@@ -41,6 +49,32 @@ route_overrides:
     http_path: "/api/auth/logout"
     http_method: "POST"
     service: "user-auth-service"
+
+  # Tenant service overrides (for methods that don't follow standard naming conventions)
+  - grpc_method: "tenant.TenantService/GetProvisioningStatus"
+    http_path: "/api/provisioning/:id"
+    http_method: "GET"
+    service: "tenant-service"
+
+  - grpc_method: "tenant.TenantService/GetStorageQuota"
+    http_path: "/api/tenants/:tenant_id/storage"
+    http_method: "GET"
+    service: "tenant-service"
+
+  - grpc_method: "tenant.TenantService/UpdateStorageUsage"
+    http_path: "/api/tenants/:tenant_id/storage"
+    http_method: "PUT"
+    service: "tenant-service"
+
+  - grpc_method: "tenant.TenantService/CreateTenantAdmin"
+    http_path: "/api/tenants/:tenant_id/admins"
+    http_method: "POST"
+    service: "tenant-service"
+
+  - grpc_method: "tenant.TenantService/GetTenantAdmin"
+    http_path: "/api/tenants/:tenant_id/admins/:admin_id"
+    http_method: "GET"
+    service: "tenant-service"
 
 auth:
   service_endpoint: "http://user-auth-service:50051"

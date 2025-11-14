@@ -15,15 +15,54 @@ services:
       success_threshold: 2
       timeout_seconds: 30  # Fast service - recover quickly
 
+  tenant-service:
+    name: "tenant-service"
+    endpoint: "http://tenant-service:50052"
+    timeout_ms: 10000  # Longer timeout for provisioning operations
+    connection_pool_size: 10
+    auto_discover: true
+    tls_enabled: false
+    circuit_breaker:
+      failure_threshold: 5
+      success_threshold: 2
+      timeout_seconds: 60  # Longer timeout for async provisioning
+
 discovery:
   enabled: true
   refresh_interval_seconds: 300
 
 # Optional: Override specific routes when convention doesn't fit
 route_overrides:
+  # User service overrides
   - grpc_method: "user.UserService/GetPublicStatus"
     http_path: "/api/public/status"
     http_method: "GET"
+
+  # Tenant service overrides (for methods that don't follow standard naming conventions)
+  - grpc_method: "tenant.TenantService/GetProvisioningStatus"
+    http_path: "/api/provisioning/:id"
+    http_method: "GET"
+    service: "tenant-service"
+
+  - grpc_method: "tenant.TenantService/GetStorageQuota"
+    http_path: "/api/tenants/:tenant_id/storage"
+    http_method: "GET"
+    service: "tenant-service"
+
+  - grpc_method: "tenant.TenantService/UpdateStorageUsage"
+    http_path: "/api/tenants/:tenant_id/storage"
+    http_method: "PUT"
+    service: "tenant-service"
+
+  - grpc_method: "tenant.TenantService/CreateTenantAdmin"
+    http_path: "/api/tenants/:tenant_id/admins"
+    http_method: "POST"
+    service: "tenant-service"
+
+  - grpc_method: "tenant.TenantService/GetTenantAdmin"
+    http_path: "/api/tenants/:tenant_id/admins/:admin_id"
+    http_method: "GET"
+    service: "tenant-service"
 
 auth:
   service_endpoint: "http://user-auth-service:50051"
