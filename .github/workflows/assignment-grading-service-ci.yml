@@ -116,19 +116,11 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: services/assignment-grading-service/Dockerfile
-          push: false
-          tags: assignment-grading-service:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          build-args: |
-            VERSION=${{ github.sha }}
-            BUILD_TIME=${{ github.event.head_commit.timestamp }}
-
-      - name: Test Docker image
+        working-directory: .
         run: |
-          docker build -t assignment-grading-service:test -f Dockerfile ../..
+          docker build -t assignment-grading-service:${{ github.sha }} \
+            -f services/assignment-grading-service/Dockerfile \
+            --build-arg VERSION=${{ github.sha }} \
+            --build-arg BUILD_TIME=${{ github.event.head_commit.timestamp }} \
+            .
           echo "Docker image built successfully"
