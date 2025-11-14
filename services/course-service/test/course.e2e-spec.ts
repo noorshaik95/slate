@@ -181,10 +181,12 @@ describe('Course Service Integration Tests', () => {
       // Check if the course matches (handle both populated and unpopulated courseId)
       expect(
         enrollments.some((e) => {
+          if (!e.enrollment.courseId) return false;
+
           const enrollmentCourseId =
-            typeof e.enrollment.courseId === 'object' && e.enrollment.courseId._id
+            typeof e.enrollment.courseId === 'object' && e.enrollment.courseId?._id
               ? e.enrollment.courseId._id.toString()
-              : e.enrollment.courseId.toString();
+              : e.enrollment.courseId?.toString() || '';
           return enrollmentCourseId === courseId || e.course?._id?.toString() === courseId;
         }),
       ).toBe(true);
