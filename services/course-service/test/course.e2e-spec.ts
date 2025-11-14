@@ -184,9 +184,9 @@ describe('Course Service Integration Tests', () => {
           if (!e.enrollment.courseId) return false;
 
           const enrollmentCourseId =
-            typeof e.enrollment.courseId === 'object' && e.enrollment.courseId?._id
-              ? e.enrollment.courseId._id.toString()
-              : e.enrollment.courseId?.toString() || '';
+            typeof e.enrollment.courseId === 'object' && (e.enrollment.courseId as any)?._id
+              ? (e.enrollment.courseId as any)._id.toString()
+              : e.enrollment.courseId.toString();
           return enrollmentCourseId === courseId || e.course?._id?.toString() === courseId;
         }),
       ).toBe(true);
