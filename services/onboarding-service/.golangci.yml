@@ -42,6 +42,8 @@ linters-settings:
     require-specific: true
 
 linters:
+  disable:
+    - typecheck
   disable-all: true
   enable:
     - bodyclose
@@ -69,7 +71,6 @@ linters:
     - revive
     - staticcheck
     - stylecheck
-    # typecheck disabled - redundant with go build step and causes module cache issues
     - unconvert
     - unparam
     - unused
