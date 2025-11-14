@@ -203,22 +203,62 @@ Prometheus metrics are exposed at `http://localhost:9090/metrics`
 ## Development
 
 ### Running Tests
+
+**Unit Tests**:
 ```bash
-npm test
-npm run test:watch
-npm run test:cov
+npm test                 # Run all unit tests
+npm run test:watch       # Run tests in watch mode
+npm run test:cov         # Run with coverage report
 ```
 
-### Linting
+**Integration Tests**:
 ```bash
-npm run lint
-npm run format
+# Ensure MongoDB is running
+docker run -d -p 27017:27017 mongo:7-jammy
+
+# Run integration tests
+npm run test:e2e
+```
+
+**Coverage**: The project maintains **80%+ test coverage** across:
+- 199 unit test cases
+- 26 integration test cases
+- Services, repositories, controllers, and interceptors
+
+See [TESTING.md](./TESTING.md) for detailed testing documentation.
+
+### Linting & Formatting
+```bash
+npm run lint             # Check for linting errors
+npm run lint:fix         # Auto-fix linting issues
+npm run format           # Format code with Prettier
+npm run format:check     # Check formatting without changes
 ```
 
 ### Building
 ```bash
-npm run build
+npm run build            # Compile TypeScript to dist/
 ```
+
+### CI/CD Pipeline
+
+The service includes a comprehensive GitHub Actions pipeline that runs on every push/PR:
+
+**Pipeline Jobs**:
+1. **Test** - Runs unit and integration tests on Node.js 18.x & 20.x
+2. **Lint** - Validates code quality and formatting
+3. **Build** - Compiles TypeScript and verifies build
+4. **Docker** - Builds and tests Docker image
+5. **Security** - Scans for vulnerabilities
+
+**Quality Gates**:
+- ✅ All tests must pass
+- ✅ 80% minimum code coverage
+- ✅ No linting errors
+- ✅ Successful build
+- ✅ Security scan passes
+
+See [CI-CD.md](./CI-CD.md) for complete pipeline documentation.
 
 ## Integration with API Gateway
 
