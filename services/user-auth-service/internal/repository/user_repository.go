@@ -22,11 +22,11 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 // Create creates a new user
 func (r *UserRepository) Create(ctx context.Context, user *models.User) error {
 	query := `
-		INSERT INTO users (id, email, password_hash, first_name, last_name, phone, is_active, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		INSERT INTO users (id, email, password_hash, first_name, last_name, phone, timezone, avatar_url, bio, organization_id, is_active, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 	`
 	_, err := r.db.ExecContext(ctx, query, user.ID, user.Email, user.PasswordHash, user.FirstName,
-		user.LastName, user.Phone, user.IsActive, user.CreatedAt, user.UpdatedAt)
+		user.LastName, user.Phone, user.Timezone, user.AvatarURL, user.Bio, user.OrganizationID, user.IsActive, user.CreatedAt, user.UpdatedAt)
 
 	if err != nil {
 		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
@@ -42,6 +42,8 @@ func (r *UserRepository) GetByID(ctx context.Context, id string) (*models.User, 
 	user := &models.User{}
 	query := `
 		SELECT u.id, u.email, u.password_hash, u.first_name, u.last_name, u.phone,
+		       COALESCE(u.timezone, 'UTC') as timezone, COALESCE(u.avatar_url, '') as avatar_url,
+		       COALESCE(u.bio, '') as bio, COALESCE(u.organization_id, '') as organization_id,
 		       u.is_active, u.created_at, u.updated_at,
 		       COALESCE(array_agg(ro.name) FILTER (WHERE ro.name IS NOT NULL), '{}') as roles
 		FROM users u
@@ -54,7 +56,8 @@ func (r *UserRepository) GetByID(ctx context.Context, id string) (*models.User, 
 	var roles []string
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&user.ID, &user.Email, &user.PasswordHash, &user.FirstName, &user.LastName,
-		&user.Phone, &user.IsActive, &user.CreatedAt, &user.UpdatedAt,
+		&user.Phone, &user.Timezone, &user.AvatarURL, &user.Bio, &user.OrganizationID,
+		&user.IsActive, &user.CreatedAt, &user.UpdatedAt,
 		pq.Array(&roles),
 	)
 
@@ -74,6 +77,8 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*models.
 	user := &models.User{}
 	query := `
 		SELECT u.id, u.email, u.password_hash, u.first_name, u.last_name, u.phone,
+		       COALESCE(u.timezone, 'UTC') as timezone, COALESCE(u.avatar_url, '') as avatar_url,
+		       COALESCE(u.bio, '') as bio, COALESCE(u.organization_id, '') as organization_id,
 		       u.is_active, u.created_at, u.updated_at,
 		       COALESCE(array_agg(ro.name) FILTER (WHERE ro.name IS NOT NULL), '{}') as roles
 		FROM users u
@@ -86,7 +91,8 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*models.
 	var roles []string
 	err := r.db.QueryRowContext(ctx, query, email).Scan(
 		&user.ID, &user.Email, &user.PasswordHash, &user.FirstName, &user.LastName,
-		&user.Phone, &user.IsActive, &user.CreatedAt, &user.UpdatedAt,
+		&user.Phone, &user.Timezone, &user.AvatarURL, &user.Bio, &user.OrganizationID,
+		&user.IsActive, &user.CreatedAt, &user.UpdatedAt,
 		pq.Array(&roles),
 	)
 
@@ -106,11 +112,13 @@ func (r *UserRepository) Update(ctx context.Context, user *models.User) error {
 	query := `
 		UPDATE users
 		SET email = $1, first_name = $2, last_name = $3, phone = $4,
-		    is_active = $5, updated_at = $6
-		WHERE id = $7
+		    timezone = $5, avatar_url = $6, bio = $7, organization_id = $8,
+		    is_active = $9, updated_at = $10
+		WHERE id = $11
 	`
 	result, err := r.db.ExecContext(ctx, query, user.Email, user.FirstName, user.LastName,
-		user.Phone, user.IsActive, user.UpdatedAt, user.ID)
+		user.Phone, user.Timezone, user.AvatarURL, user.Bio, user.OrganizationID,
+		user.IsActive, user.UpdatedAt, user.ID)
 
 	if err != nil {
 		return fmt.Errorf("failed to update user: %w", err)
@@ -204,6 +212,8 @@ func (r *UserRepository) List(ctx context.Context, page, pageSize int, search, r
 
 	dataQuery := fmt.Sprintf(`
 		SELECT u.id, u.email, u.password_hash, u.first_name, u.last_name, u.phone,
+		       COALESCE(u.timezone, 'UTC') as timezone, COALESCE(u.avatar_url, '') as avatar_url,
+		       COALESCE(u.bio, '') as bio, COALESCE(u.organization_id, '') as organization_id,
 		       u.is_active, u.created_at, u.updated_at,
 		       COALESCE(array_agg(ro.name) FILTER (WHERE ro.name IS NOT NULL), '{}') as roles
 		FROM users u
@@ -227,7 +237,8 @@ func (r *UserRepository) List(ctx context.Context, page, pageSize int, search, r
 		var roles []string
 		err := rows.Scan(
 			&user.ID, &user.Email, &user.PasswordHash, &user.FirstName, &user.LastName,
-			&user.Phone, &user.IsActive, &user.CreatedAt, &user.UpdatedAt,
+			&user.Phone, &user.Timezone, &user.AvatarURL, &user.Bio, &user.OrganizationID,
+			&user.IsActive, &user.CreatedAt, &user.UpdatedAt,
 			pq.Array(&roles),
 		)
 		if err != nil {
