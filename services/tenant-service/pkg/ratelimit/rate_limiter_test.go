@@ -1,0 +1,287 @@
+package ratelimit
+
+import (
+	"sync"
+	"testing"
+	"time"
+)
+
+func TestMemoryRateLimiter_AllowWithinLimit(t *testing.T) {
+	limiter := &memoryRateLimiter{
+		limits: make(map[string]*limitEntry),
+	}
+
+	// Test: 5 requests within limit
+	key := "test-key"
+	limit := 5
+	window := 60
+
+	for i := 0; i < 5; i++ {
+		allowed := limiter.checkLimit(key, limit, window)
+		if !allowed {
+			t.Errorf("Request %d should be allowed", i+1)
+		}
+	}
+}
+
+func TestMemoryRateLimiter_ExceedsLimit(t *testing.T) {
+	limiter := &memoryRateLimiter{
+		limits: make(map[string]*limitEntry),
+	}
+
+	key := "test-key"
+	limit := 5
+	window := 60
+
+	// Make 5 requests (at limit)
+	for i := 0; i < 5; i++ {
+		limiter.checkLimit(key, limit, window)
+	}
+
+	// 6th request should be denied
+	allowed := limiter.checkLimit(key, limit, window)
+	if allowed {
+		t.Error("Request should be denied after exceeding limit")
+	}
+}
+
+func TestMemoryRateLimiter_WindowReset(t *testing.T) {
+	limiter := &memoryRateLimiter{
+		limits: make(map[string]*limitEntry),
+	}
+
+	key := "test-key"
+	limit := 3
+	window := 1 // 1 second window
+
+	// Make 3 requests (at limit)
+	for i := 0; i < 3; i++ {
+		limiter.checkLimit(key, limit, window)
+	}
+
+	// Should be denied
+	if limiter.checkLimit(key, limit, window) {
+		t.Error("Request should be denied")
+	}
+
+	// Wait for window to expire
+	time.Sleep(1100 * time.Millisecond)
+
+	// Should be allowed after window reset
+	if !limiter.checkLimit(key, limit, window) {
+		t.Error("Request should be allowed after window reset")
+	}
+}
+
+func TestMemoryRateLimiter_MultipleKeys(t *testing.T) {
+	limiter := &memoryRateLimiter{
+		limits: make(map[string]*limitEntry),
+	}
+
+	limit := 3
+	window := 60
+
+	// Different keys should have independent limits
+	for i := 0; i < 3; i++ {
+		if !limiter.checkLimit("key1", limit, window) {
+			t.Error("key1 should be allowed")
+		}
+		if !limiter.checkLimit("key2", limit, window) {
+			t.Error("key2 should be allowed")
+		}
+	}
+
+	// Both keys should now be at limit
+	if limiter.checkLimit("key1", limit, window) {
+		t.Error("key1 should be denied")
+	}
+	if limiter.checkLimit("key2", limit, window) {
+		t.Error("key2 should be denied")
+	}
+}
+
+func TestMemoryRateLimiter_Concurrent(t *testing.T) {
+	limiter := &memoryRateLimiter{
+		limits: make(map[string]*limitEntry),
+	}
+
+	key := "concurrent-key"
+	limit := 100
+	window := 60
+	numGoroutines := 10
+	requestsPerGoroutine := 10
+
+	var wg sync.WaitGroup
+	allowed := make([]bool, numGoroutines*requestsPerGoroutine)
+	var mu sync.Mutex
+
+	for i := 0; i < numGoroutines; i++ {
+		wg.Add(1)
+		go func(goroutineID int) {
+			defer wg.Done()
+			for j := 0; j < requestsPerGoroutine; j++ {
+				result := limiter.checkLimit(key, limit, window)
+				mu.Lock()
+				allowed[goroutineID*requestsPerGoroutine+j] = result
+				mu.Unlock()
+			}
+		}(i)
+	}
+
+	wg.Wait()
+
+	// Count allowed requests
+	allowedCount := 0
+	for _, a := range allowed {
+		if a {
+			allowedCount++
+		}
+	}
+
+	// Should allow exactly the limit (100)
+	if allowedCount != limit {
+		t.Errorf("Expected %d allowed requests, got %d", limit, allowedCount)
+	}
+}
+
+func TestRateLimiter_AllowCreateTenant(t *testing.T) {
+	config := &Config{
+		CreateTenantLimit:  5,
+		CreateTenantWindow: 3600,
+		OperationLimit:     100,
+		OperationWindow:    60,
+	}
+
+	limiter, err := NewRateLimiter(config)
+	if err != nil {
+		t.Fatalf("Failed to create rate limiter: %v", err)
+	}
+
+	clientIP := "192.168.1.1"
+
+	// Test: 5 tenant creations should be allowed
+	for i := 0; i < 5; i++ {
+		allowed, _, err := limiter.AllowCreateTenant(clientIP)
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+		if !allowed {
+			t.Errorf("Tenant creation %d should be allowed", i+1)
+		}
+	}
+
+	// 6th creation should be denied
+	allowed, retryAfter, err := limiter.AllowCreateTenant(clientIP)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if allowed {
+		t.Error("6th tenant creation should be denied")
+	}
+	if retryAfter == 0 {
+		t.Error("Retry-after should be set")
+	}
+}
+
+func TestRateLimiter_AllowOperation(t *testing.T) {
+	config := &Config{
+		CreateTenantLimit:  5,
+		CreateTenantWindow: 3600,
+		OperationLimit:     10,
+		OperationWindow:    60,
+	}
+
+	limiter, err := NewRateLimiter(config)
+	if err != nil {
+		t.Fatalf("Failed to create rate limiter: %v", err)
+	}
+
+	clientIP := "192.168.1.2"
+	operation := "get_tenant"
+
+	// Test: 10 operations should be allowed
+	for i := 0; i < 10; i++ {
+		allowed, _, err := limiter.AllowOperation(clientIP, operation)
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+		if !allowed {
+			t.Errorf("Operation %d should be allowed", i+1)
+		}
+	}
+
+	// 11th operation should be denied
+	allowed, _, err := limiter.AllowOperation(clientIP, operation)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if allowed {
+		t.Error("11th operation should be denied")
+	}
+}
+
+func TestRateLimiter_DifferentIPsIndependent(t *testing.T) {
+	config := &Config{
+		CreateTenantLimit:  3,
+		CreateTenantWindow: 3600,
+		OperationLimit:     100,
+		OperationWindow:    60,
+	}
+
+	limiter, err := NewRateLimiter(config)
+	if err != nil {
+		t.Fatalf("Failed to create rate limiter: %v", err)
+	}
+
+	// Different IPs should have independent limits
+	for i := 0; i < 3; i++ {
+		allowed1, _, _ := limiter.AllowCreateTenant("192.168.1.1")
+		allowed2, _, _ := limiter.AllowCreateTenant("192.168.1.2")
+
+		if !allowed1 || !allowed2 {
+			t.Error("Both IPs should be allowed")
+		}
+	}
+
+	// Both should be at limit now
+	allowed1, _, _ := limiter.AllowCreateTenant("192.168.1.1")
+	allowed2, _, _ := limiter.AllowCreateTenant("192.168.1.2")
+
+	if allowed1 || allowed2 {
+		t.Error("Both IPs should be denied")
+	}
+}
+
+func TestMemoryRateLimiter_Cleanup(t *testing.T) {
+	limiter := &memoryRateLimiter{
+		limits: make(map[string]*limitEntry),
+	}
+
+	// Add some entries
+	limiter.checkLimit("key1", 5, 1) // 1 second window
+	limiter.checkLimit("key2", 5, 1)
+	limiter.checkLimit("key3", 5, 1)
+
+	if len(limiter.limits) != 3 {
+		t.Errorf("Expected 3 entries, got %d", len(limiter.limits))
+	}
+
+	// Wait for expiry
+	time.Sleep(1100 * time.Millisecond)
+
+	// Trigger cleanup manually (in production, this runs in background)
+	limiter.mu.Lock()
+	now := time.Now()
+	for key, entry := range limiter.limits {
+		entry.mu.Lock()
+		if now.After(entry.windowEnd) {
+			delete(limiter.limits, key)
+		}
+		entry.mu.Unlock()
+	}
+	limiter.mu.Unlock()
+
+	if len(limiter.limits) != 0 {
+		t.Errorf("Expected 0 entries after cleanup, got %d", len(limiter.limits))
+	}
+}
