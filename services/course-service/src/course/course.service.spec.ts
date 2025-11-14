@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException, BadRequestException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import { CourseService } from './course.service';
 import { CourseRepository } from './repositories/course.repository';
 import { CourseTemplateRepository } from './repositories/course-template.repository';
