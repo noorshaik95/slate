@@ -297,7 +297,7 @@ func (s *UserServiceServer) GetProfile(ctx context.Context, req *pb.GetProfileRe
 
 // UpdateProfile updates a user's profile
 func (s *UserServiceServer) UpdateProfile(ctx context.Context, req *pb.UpdateProfileRequest) (*pb.ProfileResponse, error) {
-	var firstName, lastName, phone, avatarURL, bio *string
+	var firstName, lastName, phone, avatarURL, bio, timezone *string
 
 	if req.FirstName != nil {
 		firstName = req.FirstName
@@ -314,8 +314,11 @@ func (s *UserServiceServer) UpdateProfile(ctx context.Context, req *pb.UpdatePro
 	if req.Bio != nil {
 		bio = req.Bio
 	}
+	if req.Timezone != nil {
+		timezone = req.Timezone
+	}
 
-	profile, err := s.userService.UpdateProfile(ctx, req.UserId, firstName, lastName, phone, avatarURL, bio)
+	profile, err := s.userService.UpdateProfile(ctx, req.UserId, firstName, lastName, phone, avatarURL, bio, timezone)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to update profile: %v", err)
 	}
