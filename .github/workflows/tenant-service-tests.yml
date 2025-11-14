@@ -100,14 +100,11 @@ jobs:
       - name: Run migrations
         working-directory: services/tenant-service
         env:
-          DB_HOST: localhost
-          DB_PORT: 5432
-          DB_USER: postgres
-          DB_PASSWORD: postgres
-          DB_NAME: tenantdb_test
+          PGPASSWORD: postgres
         run: |
-          # Run migrations here if migration tool is available
-          echo "Migrations would run here"
+          echo "Running database migrations..."
+          psql -h localhost -U postgres -d tenantdb_test -f migrations/001_init.sql
+          echo "✓ Migrations completed successfully"
 
       - name: Run integration tests
         working-directory: services/tenant-service
