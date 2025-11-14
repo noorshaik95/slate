@@ -90,6 +90,53 @@ route_overrides:
     http_method: "POST"
     service: "user-auth-service"
 
+  # User Groups (member management - CRUD methods auto-discover)
+  - grpc_method: "user.UserService/AddGroupMember"
+    http_path: "/api/groups/:id/members"
+    http_method: "POST"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/RemoveGroupMember"
+    http_path: "/api/groups/:id/members/:user_id"
+    http_method: "DELETE"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/GetGroupMembers"
+    http_path: "/api/groups/:id/members"
+    http_method: "GET"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/GetUserGroups"
+    http_path: "/api/users/:id/groups"
+    http_method: "GET"
+    service: "user-auth-service"
+
+  # Parent-Child Account Management
+  - grpc_method: "user.UserService/CreateParentChildLink"
+    http_path: "/api/parent-child/link"
+    http_method: "POST"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/RemoveParentChildLink"
+    http_path: "/api/parent-child/link"
+    http_method: "DELETE"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/GetChildAccounts"
+    http_path: "/api/users/:id/children"
+    http_method: "GET"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/GetParentAccounts"
+    http_path: "/api/users/:id/parents"
+    http_method: "GET"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/UpdateParentChildPermissions"
+    http_path: "/api/parent-child/permissions"
+    http_method: "PUT"
+    service: "user-auth-service"
+
 auth:
   service_endpoint: "http://user-auth-service:50051"
   timeout_ms: 3000
