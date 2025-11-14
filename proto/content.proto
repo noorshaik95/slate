@@ -1,0 +1,424 @@
+syntax = "proto3";
+
+package content;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+// ============================================================================
+// ContentService - Manages modules, lessons, and resources
+// ============================================================================
+
+service ContentService {
+  // Module management (auto-discovered routes)
+  rpc CreateModule(CreateModuleRequest) returns (Module);
+  rpc UpdateModule(UpdateModuleRequest) returns (Module);
+  rpc DeleteModule(DeleteModuleRequest) returns (google.protobuf.Empty);
+  rpc ListModules(ListModulesRequest) returns (ListModulesResponse);
+  rpc GetModule(GetModuleRequest) returns (Module);
+  
+  // Lesson management (auto-discovered routes)
+  rpc CreateLesson(CreateLessonRequest) returns (Lesson);
+  rpc UpdateLesson(UpdateLessonRequest) returns (Lesson);
+  rpc DeleteLesson(DeleteLessonRequest) returns (google.protobuf.Empty);
+  rpc ListLessons(ListLessonsRequest) returns (ListLessonsResponse);
+  rpc GetLesson(GetLessonRequest) returns (Lesson);
+  
+  // Resource management (auto-discovered routes)
+  rpc CreateResource(CreateResourceRequest) returns (Resource);
+  rpc UpdateResource(UpdateResourceRequest) returns (Resource);
+  rpc DeleteResource(DeleteResourceRequest) returns (google.protobuf.Empty);
+  rpc ListResources(ListResourcesRequest) returns (ListResourcesResponse);
+  rpc GetResource(GetResourceRequest) returns (Resource);
+  
+  // Custom routes (require route overrides in gateway config)
+  rpc GetContentStructure(GetContentStructureRequest) returns (ContentStructure);
+  rpc ReorderContent(ReorderContentRequest) returns (google.protobuf.Empty);
+  rpc PublishContent(PublishContentRequest) returns (google.protobuf.Empty);
+  rpc UnpublishContent(UnpublishContentRequest) returns (google.protobuf.Empty);
+}
+
+// Module messages
+message Module {
+  string id = 1;
+  string course_id = 2;
+  string name = 3;
+  string description = 4;
+  int32 display_order = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+  string created_by = 8;
+}
+
+message CreateModuleRequest {
+  string course_id = 1;
+  string name = 2;
+  string description = 3;
+  int32 display_order = 4;
+}
+
+message UpdateModuleRequest {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  int32 display_order = 4;
+}
+
+message DeleteModuleRequest {
+  string id = 1;
+}
+
+message ListModulesRequest {
+  string course_id = 1;
+}
+
+message ListModulesResponse {
+  repeated Module modules = 1;
+}
+
+message GetModuleRequest {
+  string id = 1;
+}
+
+// Lesson messages
+message Lesson {
+  string id = 1;
+  string module_id = 2;
+  string name = 3;
+  string description = 4;
+  int32 display_order = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+message CreateLessonRequest {
+  string module_id = 1;
+  string name = 2;
+  string description = 3;
+  int32 display_order = 4;
+}
+
+message UpdateLessonRequest {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  int32 display_order = 4;
+}
+
+message DeleteLessonRequest {
+  string id = 1;
+}
+
+message ListLessonsRequest {
+  string module_id = 1;
+}
+
+message ListLessonsResponse {
+  repeated Lesson lessons = 1;
+}
+
+message GetLessonRequest {
+  string id = 1;
+}
+
+// Resource messages
+message Resource {
+  string id = 1;
+  string lesson_id = 2;
+  string name = 3;
+  string description = 4;
+  string content_type = 5;
+  int64 file_size = 6;
+  string storage_key = 7;
+  string manifest_url = 8;
+  int32 duration_seconds = 9;
+  bool published = 10;
+  bool downloadable = 11;
+  string copyright_setting = 12;
+  int32 display_order = 13;
+  google.protobuf.Timestamp created_at = 14;
+  google.protobuf.Timestamp updated_at = 15;
+}
+
+message CreateResourceRequest {
+  string lesson_id = 1;
+  string name = 2;
+  string description = 3;
+  string content_type = 4;
+  int64 file_size = 5;
+  string storage_key = 6;
+  int32 display_order = 7;
+}
+
+message UpdateResourceRequest {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  bool downloadable = 4;
+  string copyright_setting = 5;
+  int32 display_order = 6;
+}
+
+message DeleteResourceRequest {
+  string id = 1;
+}
+
+message ListResourcesRequest {
+  string lesson_id = 1;
+}
+
+message ListResourcesResponse {
+  repeated Resource resources = 1;
+}
+
+message GetResourceRequest {
+  string id = 1;
+}
+
+// Content structure messages
+message ContentStructure {
+  repeated ModuleWithContent modules = 1;
+}
+
+message ModuleWithContent {
+  Module module = 1;
+  repeated LessonWithContent lessons = 2;
+}
+
+message LessonWithContent {
+  Lesson lesson = 1;
+  repeated Resource resources = 2;
+}
+
+message GetContentStructureRequest {
+  string course_id = 1;
+}
+
+message ReorderContentRequest {
+  string content_type = 1; // "module", "lesson", or "resource"
+  repeated ReorderItem items = 2;
+}
+
+message ReorderItem {
+  string id = 1;
+  int32 new_position = 2;
+}
+
+message PublishContentRequest {
+  string resource_id = 1;
+}
+
+message UnpublishContentRequest {
+  string resource_id = 1;
+}
+
+// ============================================================================
+// UploadService - Manages file uploads with chunked upload support
+// ============================================================================
+
+service UploadService {
+  rpc InitiateUpload(InitiateUploadRequest) returns (UploadSession);
+  rpc UploadChunk(stream UploadChunkRequest) returns (UploadChunkResponse);
+  rpc CompleteUpload(CompleteUploadRequest) returns (Resource);
+  rpc CancelUpload(CancelUploadRequest) returns (google.protobuf.Empty);
+}
+
+message UploadSession {
+  string session_id = 1;
+  string storage_key = 2;
+  int32 chunk_size = 3;
+  int32 total_chunks = 4;
+  int32 uploaded_chunks = 5;
+  google.protobuf.Timestamp expires_at = 6;
+}
+
+message InitiateUploadRequest {
+  string lesson_id = 1;
+  string filename = 2;
+  string content_type = 3;
+  int64 total_size = 4;
+}
+
+message UploadChunkRequest {
+  string session_id = 1;
+  int32 chunk_index = 2;
+  bytes chunk_data = 3;
+}
+
+message UploadChunkResponse {
+  int32 uploaded_chunks = 1;
+  int32 total_chunks = 2;
+  float progress_percentage = 3;
+}
+
+message CompleteUploadRequest {
+  string session_id = 1;
+  string name = 2;
+  string description = 3;
+}
+
+message CancelUploadRequest {
+  string session_id = 1;
+}
+
+// ============================================================================
+// StreamingService - Manages video streaming and playback
+// ============================================================================
+
+service StreamingService {
+  rpc GetVideoManifest(GetVideoManifestRequest) returns (VideoManifest);
+  rpc UpdatePlaybackPosition(UpdatePlaybackPositionRequest) returns (google.protobuf.Empty);
+  rpc GetPlaybackState(GetPlaybackStateRequest) returns (PlaybackState);
+}
+
+message VideoManifest {
+  string hls_url = 1;
+  string dash_url = 2;
+  repeated QualityLevel quality_levels = 3;
+}
+
+message QualityLevel {
+  int32 height = 1;
+  int32 bitrate = 2;
+}
+
+message GetVideoManifestRequest {
+  string video_id = 1;
+}
+
+message UpdatePlaybackPositionRequest {
+  string video_id = 1;
+  int32 position_seconds = 2;
+}
+
+message GetPlaybackStateRequest {
+  string video_id = 1;
+}
+
+message PlaybackState {
+  int32 duration_seconds = 1;
+  int32 current_position_seconds = 2;
+  repeated float playback_speeds = 3;
+  repeated QualityLevel available_qualities = 4;
+}
+
+// ============================================================================
+// ProgressService - Manages student progress tracking
+// ============================================================================
+
+service ProgressService {
+  rpc MarkComplete(MarkCompleteRequest) returns (google.protobuf.Empty);
+  rpc GetProgress(GetProgressRequest) returns (ProgressResponse);
+  rpc GetProgressReport(GetProgressReportRequest) returns (ProgressReport);
+}
+
+message MarkCompleteRequest {
+  string resource_id = 1;
+  bool completed = 2;
+}
+
+message GetProgressRequest {
+  string course_id = 1;
+}
+
+message ProgressResponse {
+  int32 overall_percentage = 1;
+  repeated ModuleProgress modules = 2;
+}
+
+message ModuleProgress {
+  string module_id = 1;
+  string module_name = 2;
+  int32 percentage = 3;
+  repeated LessonProgress lessons = 4;
+}
+
+message LessonProgress {
+  string lesson_id = 1;
+  string lesson_name = 2;
+  int32 percentage = 3;
+  repeated ResourceProgress resources = 4;
+}
+
+message ResourceProgress {
+  string resource_id = 1;
+  string resource_name = 2;
+  bool completed = 3;
+  google.protobuf.Timestamp completed_at = 4;
+}
+
+message GetProgressReportRequest {
+  string course_id = 1;
+  string start_date = 2;
+  string end_date = 3;
+  string module_id = 4;
+  string completion_status = 5; // "all", "completed", "incomplete"
+}
+
+message ProgressReport {
+  int32 total_students = 1;
+  float average_completion_percentage = 2;
+  repeated StudentProgress students = 3;
+}
+
+message StudentProgress {
+  string student_id = 1;
+  int32 completion_percentage = 2;
+  repeated ResourceCompletion resources = 3;
+}
+
+message ResourceCompletion {
+  string resource_id = 1;
+  string resource_name = 2;
+  bool completed = 3;
+  google.protobuf.Timestamp completed_at = 4;
+  int32 time_spent_seconds = 5;
+}
+
+// ============================================================================
+// SearchService - Manages content search
+// ============================================================================
+
+service SearchService {
+  rpc SearchContent(SearchContentRequest) returns (SearchContentResponse);
+}
+
+message SearchContentRequest {
+  string query = 1;
+  string course_id = 2;
+  int32 limit = 3;
+}
+
+message SearchContentResponse {
+  repeated SearchResult results = 1;
+}
+
+message SearchResult {
+  string resource_id = 1;
+  string resource_name = 2;
+  string resource_type = 3;
+  string description = 4;
+  string module_name = 5;
+  string lesson_name = 6;
+  string hierarchical_path = 7;
+  float relevance_score = 8;
+  repeated string highlighted_snippets = 9;
+}
+
+// ============================================================================
+// DownloadService - Manages content downloads
+// ============================================================================
+
+service DownloadService {
+  rpc GenerateDownloadUrl(GenerateDownloadUrlRequest) returns (DownloadUrlResponse);
+}
+
+message GenerateDownloadUrlRequest {
+  string resource_id = 1;
+}
+
+message DownloadUrlResponse {
+  string download_url = 1;
+  google.protobuf.Timestamp expires_at = 2;
+  string copyright_notice = 3;
+}
