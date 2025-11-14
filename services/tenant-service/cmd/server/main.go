@@ -24,9 +24,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health"
-	"google.golang.org/grpc/health/grpc_health_v1"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 )
 
@@ -133,6 +132,10 @@ func main() {
 		os.Getenv("BASE_SETUP_URL"),
 	)
 
+	// TODO: Register gRPC handlers once protobuf code is generated
+	_ = tenantService // Temporary: prevent unused variable error
+	_ = rateLimiter   // Temporary: prevent unused variable error
+
 	// Start metrics server
 	go func() {
 		http.Handle("/metrics", promhttp.Handler())
@@ -152,8 +155,8 @@ func main() {
 
 	// Register health check
 	healthServer := health.NewServer()
-	grpc_health_v1.RegisterHealthServiceServer(grpcServer, healthServer)
-	healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
+	healthpb.RegisterHealthServer(grpcServer, healthServer)
+	healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
 
 	// Register reflection for debugging
 	reflection.Register(grpcServer)

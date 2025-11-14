@@ -366,7 +366,7 @@ func TestUpdateStorageUsage_WithinQuota(t *testing.T) {
 	}
 
 	// Verify update
-	quota, used, files, _ := service.GetStorageQuota(context.Background(), tenant.ID)
+	_, used, files, _ := service.GetStorageQuota(context.Background(), tenant.ID)
 	if used != 641728512 { // 512MB + 100MB
 		t.Errorf("Expected used 641728512, got %d", used)
 	}

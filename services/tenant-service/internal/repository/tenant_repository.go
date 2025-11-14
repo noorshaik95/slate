@@ -8,8 +8,6 @@ import (
 	"time"
 
 	"slate/services/tenant-service/internal/models"
-
-	"github.com/google/uuid"
 )
 
 type TenantRepository interface {
