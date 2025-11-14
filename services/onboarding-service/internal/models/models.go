@@ -46,7 +46,7 @@ type Task struct {
 	Status           string         `json:"status"`
 	UserID           sql.NullString `json:"user_id,omitempty"`
 	RetryCount       int            `json:"retry_count"`
-	ErrorMessage     string         `json:"error_message,omitempty"`
+	ErrorMessage     sql.NullString `json:"error_message,omitempty"`
 	ErrorDetails     sql.NullString `json:"error_details,omitempty"`
 	CreatedAt        time.Time      `json:"created_at"`
 	UpdatedAt        time.Time      `json:"updated_at"`
