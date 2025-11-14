@@ -35,3 +35,6 @@ postgres-data
 # OS
 .DS_Store
 .kiro
+
+/node_modules
+/frontend/student/.next
