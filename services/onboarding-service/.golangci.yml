@@ -42,8 +42,6 @@ linters-settings:
     require-specific: true
 
 linters:
-  disable:
-    - typecheck
   disable-all: true
   enable:
     - bodyclose
