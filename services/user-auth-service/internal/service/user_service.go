@@ -437,7 +437,7 @@ func (s *UserService) GetProfile(ctx context.Context, userID string) (*models.Pr
 }
 
 // UpdateProfile updates a user's profile
-func (s *UserService) UpdateProfile(ctx context.Context, userID string, firstName, lastName, phone, avatarURL, bio *string) (*models.Profile, error) {
+func (s *UserService) UpdateProfile(ctx context.Context, userID string, firstName, lastName, phone, avatarURL, bio, timezone *string) (*models.Profile, error) {
 	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -463,7 +463,15 @@ func (s *UserService) UpdateProfile(ctx context.Context, userID string, firstNam
 		}
 		user.Phone = *phone
 	}
-	// Note: avatarURL and bio would need additional fields in the User model/table
+	if avatarURL != nil {
+		user.AvatarURL = *avatarURL
+	}
+	if bio != nil {
+		user.Bio = *bio
+	}
+	if timezone != nil {
+		user.Timezone = *timezone
+	}
 
 	user.UpdatedAt = time.Now()
 

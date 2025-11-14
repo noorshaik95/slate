@@ -7,16 +7,20 @@ import (
 )
 
 type User struct {
-	ID           string    `json:"id"`
-	Email        string    `json:"email"`
-	PasswordHash string    `json:"-"` // Never expose password hash in JSON
-	FirstName    string    `json:"first_name"`
-	LastName     string    `json:"last_name"`
-	Phone        string    `json:"phone"`
-	IsActive     bool      `json:"is_active"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
-	Roles        []string  `json:"roles,omitempty"`
+	ID             string    `json:"id"`
+	Email          string    `json:"email"`
+	PasswordHash   string    `json:"-"` // Never expose password hash in JSON
+	FirstName      string    `json:"first_name"`
+	LastName       string    `json:"last_name"`
+	Phone          string    `json:"phone"`
+	Timezone       string    `json:"timezone"`
+	AvatarURL      string    `json:"avatar_url,omitempty"`
+	Bio            string    `json:"bio,omitempty"`
+	OrganizationID string    `json:"organization_id,omitempty"`
+	IsActive       bool      `json:"is_active"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+	Roles          []string  `json:"roles,omitempty"`
 }
 
 type Profile struct {
@@ -27,6 +31,7 @@ type Profile struct {
 	Phone     string    `json:"phone"`
 	AvatarURL string    `json:"avatar_url"`
 	Bio       string    `json:"bio"`
+	Timezone  string    `json:"timezone"`
 	Roles     []string  `json:"roles"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
@@ -63,6 +68,7 @@ func NewUser(email, passwordHash, firstName, lastName, phone string) *User {
 		FirstName:    firstName,
 		LastName:     lastName,
 		Phone:        phone,
+		Timezone:     "UTC", // Default timezone
 		IsActive:     true,
 		CreatedAt:    now,
 		UpdatedAt:    now,
@@ -97,6 +103,9 @@ func (u *User) ToProfile() *Profile {
 		LastName:  u.LastName,
 		Email:     u.Email,
 		Phone:     u.Phone,
+		AvatarURL: u.AvatarURL,
+		Bio:       u.Bio,
+		Timezone:  u.Timezone,
 		Roles:     u.Roles,
 		CreatedAt: u.CreatedAt,
 		UpdatedAt: u.UpdatedAt,
