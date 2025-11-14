@@ -1,5 +1,7 @@
 version: '3.8'
 
+name: slate
+
 # Development override - allows running services individually while connecting to shared infrastructure
 services:
   # PostgreSQL for local development

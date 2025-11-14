@@ -1,5 +1,7 @@
 version: '3.8'
 
+name: slate
+
 services:
   # PostgreSQL Database for User Auth Service
   postgres:
