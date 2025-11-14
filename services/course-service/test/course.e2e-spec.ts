@@ -178,7 +178,16 @@ describe('Course Service Integration Tests', () => {
 
       expect(enrollments).toBeDefined();
       expect(enrollments.length).toBeGreaterThan(0);
-      expect(enrollments.some((e) => e.enrollment.courseId.toString() === courseId)).toBe(true);
+      // Check if the course matches (handle both populated and unpopulated courseId)
+      expect(
+        enrollments.some((e) => {
+          const enrollmentCourseId =
+            typeof e.enrollment.courseId === 'object' && e.enrollment.courseId._id
+              ? e.enrollment.courseId._id.toString()
+              : e.enrollment.courseId.toString();
+          return enrollmentCourseId === courseId || e.course?._id?.toString() === courseId;
+        }),
+      ).toBe(true);
     });
 
     it('should allow instructor to add student', async () => {
