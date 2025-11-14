@@ -21,7 +21,6 @@ use super::constants::{
 /// Authorization service client with policy caching
 pub struct AuthService {
     auth_client_channel: Channel,
-    config: AuthConfig,
     policy_cache: Arc<RwLock<HashMap<PolicyCacheKey, AuthPolicy>>>,
 }
 
@@ -54,7 +53,6 @@ impl AuthService {
         
         Ok(Self {
             auth_client_channel: channel,
-            config,
             policy_cache: Arc::new(RwLock::new(HashMap::new())),
         })
     }

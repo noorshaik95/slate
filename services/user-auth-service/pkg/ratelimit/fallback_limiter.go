@@ -2,9 +2,10 @@ package ratelimit
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 // MetricsRecorder is an interface for recording rate limiter metrics
@@ -47,7 +48,7 @@ func NewFallbackRateLimiter(redisAddr string, loginLimit, registerLimit RateLimi
 	}
 
 	if err != nil {
-		fmt.Printf("WARNING: Redis unavailable, using in-memory rate limiter: %v\n", err)
+		log.Warn().Err(err).Msg("Redis unavailable, using in-memory rate limiter")
 	}
 
 	return fallback, nil
@@ -107,7 +108,7 @@ func (f *FallbackRateLimiter) switchToMemory() {
 	defer f.mu.Unlock()
 
 	if f.usingRedis {
-		fmt.Println("WARNING: Switching to in-memory rate limiter due to Redis failure")
+		log.Warn().Msg("Switching to in-memory rate limiter due to Redis failure")
 		f.usingRedis = false
 		f.lastCheck = time.Now()
 
@@ -132,7 +133,7 @@ func (f *FallbackRateLimiter) checkRedisHealth() {
 		defer cancel()
 
 		if err := f.redis.client.Ping(ctx).Err(); err == nil {
-			fmt.Println("INFO: Redis is back online, switching from in-memory rate limiter")
+			log.Info().Msg("Redis is back online, switching from in-memory rate limiter")
 			f.usingRedis = true
 
 			// Update metrics

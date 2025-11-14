@@ -132,11 +132,13 @@ impl RequestRouter {
     }
     
     /// Get current route count
+    #[allow(dead_code)]
     pub fn route_count(&self) -> usize {
         self.routes.len() + self.dynamic_routes.len()
     }
     
     /// Get all routes (for admin endpoint)
+    #[allow(dead_code)]
     pub fn get_all_routes(&self) -> Vec<RouteConfig> {
         let mut all_routes = Vec::new();
         

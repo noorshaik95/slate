@@ -5,4 +5,4 @@ mod types;
 mod tests;
 
 pub use breaker::CircuitBreaker;
-pub use types::{CircuitBreakerConfig, CircuitBreakerError, CircuitState};
+pub use types::{CircuitBreakerConfig, CircuitBreakerError};

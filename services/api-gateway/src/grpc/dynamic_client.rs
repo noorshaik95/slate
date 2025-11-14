@@ -1,8 +1,7 @@
-use prost::Message;
 use prost_types::Any;
 use std::collections::HashMap;
 use tonic::transport::Channel;
-use tonic::{codec::ProstCodec, metadata::MetadataMap, Request, Response, Status};
+use tonic::{codec::ProstCodec, Request, Response, Status};
 use tracing::{debug, error, warn};
 
 use super::types::GrpcError;

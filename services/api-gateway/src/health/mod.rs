@@ -7,7 +7,6 @@ mod handler;
 mod tests;
 
 // Re-export public types
-pub use types::{HealthState, HealthStatus, ServiceHealth};
 
 // Re-export public components
 pub use checker::HealthChecker;

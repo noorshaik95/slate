@@ -19,18 +19,27 @@ scrape_configs:
       - source_labels: ['__meta_docker_container_name']
         regex: '/(.*)-user-auth-service-(.*)'
         action: keep
+      # Set job label (required by Loki)
+      - source_labels: ['__meta_docker_container_name']
+        target_label: '__tmp_job'
+        replacement: 'user-auth-service'
       # Set service_name label
       - source_labels: ['__meta_docker_container_name']
-        regex: '/(.*)-user-auth-service-(.*)'
-        target_label: 'service_name'
+        target_label: '__tmp_service_name'
         replacement: 'user-auth-service'
+      # Set environment label
+      - source_labels: ['__meta_docker_container_name']
+        target_label: '__tmp_environment'
+        replacement: 'dev'
       # Set container_name label
       - source_labels: ['__meta_docker_container_name']
-        target_label: 'container_name'
-      # Set environment label
-      - target_label: 'environment'
-        replacement: 'dev'
+        target_label: '__tmp_container_name'
     pipeline_stages:
+      # Set static labels first
+      - static_labels:
+          job: user-auth-service
+          service_name: user-auth-service
+          environment: dev
       # Parse JSON logs
       - json:
           expressions:
@@ -41,12 +50,9 @@ scrape_configs:
             operation: operation
             error_type: error_type
             email: email
-      # Extract labels from JSON fields
+      # Extract level label from JSON if it exists
       - labels:
           level:
-          trace_id:
-          operation:
-          error_type:
       # Add timestamp from log entry
       - timestamp:
           source: time
@@ -62,14 +68,38 @@ scrape_configs:
       - source_labels: ['__meta_docker_container_name']
         regex: '/(.*)-api-gateway-(.*)'
         action: keep
+      # Set job label (required by Loki)
+      - source_labels: ['__meta_docker_container_name']
+        target_label: '__tmp_job'
+        replacement: 'api-gateway'
       # Set service_name label
       - source_labels: ['__meta_docker_container_name']
-        regex: '/(.*)-api-gateway-(.*)'
-        target_label: 'service_name'
+        target_label: '__tmp_service_name'
         replacement: 'api-gateway'
+      # Set environment label
+      - source_labels: ['__meta_docker_container_name']
+        target_label: '__tmp_environment'
+        replacement: 'dev'
       # Set container_name label
       - source_labels: ['__meta_docker_container_name']
-        target_label: 'container_name'
-      # Set environment label
-      - target_label: 'environment'
-        replacement: 'dev'
+        target_label: '__tmp_container_name'
+    pipeline_stages:
+      # Set static labels first
+      - static_labels:
+          job: api-gateway
+          service_name: api-gateway
+          environment: dev
+      # Parse JSON logs (Rust tracing format)
+      - json:
+          expressions:
+            level: level
+            trace_id: trace_id
+            message: message
+            target: target
+      # Extract level label from JSON if it exists
+      - labels:
+          level:
+      # Add timestamp from log entry if available
+      - timestamp:
+          source: timestamp
+          format: RFC3339Nano

@@ -1,3 +1,3 @@
 mod validator;
 
-pub use validator::{PathValidator, SecurityError};
+pub use validator::PathValidator;

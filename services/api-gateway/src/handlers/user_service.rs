@@ -7,7 +7,6 @@ use tracing::{debug, error};
 /// Inject trace context into gRPC request metadata
 fn inject_trace_context<T>(mut request: tonic::Request<T>) -> tonic::Request<T> {
     use opentelemetry::propagation::Injector;
-    use opentelemetry::trace::TraceContextExt;
     use tracing_opentelemetry::OpenTelemetrySpanExt;
     
     struct MetadataInjector<'a>(&'a mut tonic::metadata::MetadataMap);

@@ -22,10 +22,7 @@ mod tests;
 // Re-export public types
 pub use types::{
     AuthError,
-    AuthToken,
-    TokenClaims,
     AuthResult,
-    AuthPolicy,
 };
 
 // Re-export public service

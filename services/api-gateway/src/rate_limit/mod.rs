@@ -7,7 +7,7 @@ mod limiter;
 mod tests;
 
 // Re-export public types
-pub use types::{ClientRateState, RateLimitError};
+pub use types::RateLimitError;
 
 // Re-export public functions/structs from limiter
 pub use limiter::RateLimiter;

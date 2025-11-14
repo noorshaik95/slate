@@ -117,6 +117,7 @@ impl PathValidator {
     }
 
     /// Validate a single path parameter
+    #[allow(dead_code)]
     pub fn validate_param(key: &str, value: &str) -> Result<String, SecurityError> {
         let mut params = HashMap::new();
         params.insert(key.to_string(), value.to_string());

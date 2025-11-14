@@ -20,16 +20,6 @@ pub const METADATA_AUTH_USER_ID: &str = "_auth_user_id";
 pub const METADATA_AUTH_ROLES: &str = "_auth_roles";
 pub const METADATA_TRACE: &str = "_trace_metadata";
 
-/// Trace header names for propagation
-pub const TRACE_HEADERS: &[&str] = &[
-    "traceparent",
-    "tracestate",
-    "x-trace-id",
-    "x-request-id",
-    "x-b3-traceid",
-    "x-b3-spanid",
-];
-
 /// Error messages
 pub const ERR_MSG_READ_BODY: &str = "Failed to read request body";
 pub const ERR_MSG_INVALID_JSON: &str = "Invalid JSON body";

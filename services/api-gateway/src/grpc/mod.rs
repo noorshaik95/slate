@@ -13,4 +13,3 @@ pub use types::{GrpcError, GrpcRequest, GrpcResponse};
 // Re-export public client
 pub use client::GrpcClientPool;
 pub use dynamic_client::DynamicGrpcClient;
-pub use pool::{ConnectionPool, PoolStats};

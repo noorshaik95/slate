@@ -361,7 +361,7 @@ pub(crate) async fn convert_http_to_grpc(
     request: Request<Body>,
     grpc_method: &str,
     path_params: &std::collections::HashMap<String, String>,
-    headers: &HeaderMap,
+    _headers: &HeaderMap,
     auth_context: Option<&AuthContext>,
 ) -> Result<Vec<u8>, GatewayError> {
     use axum::body::to_bytes;

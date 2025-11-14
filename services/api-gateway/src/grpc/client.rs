@@ -55,6 +55,7 @@ impl GrpcClientPool {
     }
     
     /// Create a channel with connection pooling and timeout configuration
+    #[allow(dead_code)]
     async fn create_channel(config: &ServiceConfig) -> Result<Channel, GrpcError> {
         let endpoint = config.endpoint.parse::<Endpoint>()
             .map_err(|e| GrpcError::InvalidConfig(format!("Invalid endpoint {}: {}", config.endpoint, e)))?;

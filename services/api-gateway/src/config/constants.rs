@@ -2,13 +2,6 @@
 pub const ERR_EMPTY_HOST: &str = "Server host cannot be empty";
 pub const ERR_ZERO_PORT: &str = "Server port must be greater than 0";
 
-// Route validation error messages
-pub const ERR_NO_ROUTES: &str = "At least one route must be configured";
-pub const ERR_EMPTY_ROUTE_PATH: &str = "Route path cannot be empty";
-pub const ERR_EMPTY_ROUTE_METHOD: &str = "Route method cannot be empty";
-pub const ERR_EMPTY_ROUTE_SERVICE: &str = "Route service cannot be empty";
-pub const ERR_EMPTY_ROUTE_GRPC_METHOD: &str = "Route grpc_method cannot be empty";
-
 // Service validation error messages
 pub const ERR_NO_SERVICES: &str = "At least one service must be configured";
 pub const ERR_EMPTY_SERVICE_NAME: &str = "Service name cannot be empty for service";

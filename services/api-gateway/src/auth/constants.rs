@@ -12,9 +12,6 @@ pub const FALLBACK_CACHE_TTL_SECS: u64 = 60;
 /// Fallback cache TTL as Duration
 pub const FALLBACK_CACHE_TTL: Duration = Duration::from_secs(FALLBACK_CACHE_TTL_SECS);
 
-/// Error message for missing token
-pub const ERR_MISSING_TOKEN: &str = "Missing authentication token";
-
 /// Error message for invalid token
 pub const ERR_INVALID_TOKEN: &str = "Token validation failed";
 

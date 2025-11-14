@@ -9,29 +9,17 @@ pub const INITIAL_BACKOFF_MS: u64 = 100;
 /// Backoff multiplier for exponential backoff (base for power calculation)
 pub const BACKOFF_MULTIPLIER: u64 = 2;
 
-/// Default connection timeout in seconds
-pub const DEFAULT_CONNECT_TIMEOUT_SECS: u64 = 10;
-
-/// TCP keepalive interval in seconds
-pub const TCP_KEEPALIVE_SECS: u64 = 60;
-
-/// HTTP/2 keepalive interval in seconds
-pub const HTTP2_KEEPALIVE_INTERVAL_SECS: u64 = 30;
-
-/// Keepalive timeout in seconds
-pub const KEEPALIVE_TIMEOUT_SECS: u64 = 20;
-
 /// Default connection timeout duration
-pub const DEFAULT_CONNECT_TIMEOUT: Duration = Duration::from_secs(DEFAULT_CONNECT_TIMEOUT_SECS);
+pub const DEFAULT_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// TCP keepalive duration
-pub const TCP_KEEPALIVE: Duration = Duration::from_secs(TCP_KEEPALIVE_SECS);
+pub const TCP_KEEPALIVE: Duration = Duration::from_secs(60);
 
 /// HTTP/2 keepalive interval duration
-pub const HTTP2_KEEPALIVE_INTERVAL: Duration = Duration::from_secs(HTTP2_KEEPALIVE_INTERVAL_SECS);
+pub const HTTP2_KEEPALIVE_INTERVAL: Duration = Duration::from_secs(30);
 
 /// Keepalive timeout duration
-pub const KEEPALIVE_TIMEOUT: Duration = Duration::from_secs(KEEPALIVE_TIMEOUT_SECS);
+pub const KEEPALIVE_TIMEOUT: Duration = Duration::from_secs(20);
 
 /// Error message for generic gRPC calls not implemented
 pub const ERR_GENERIC_CALLS_NOT_IMPLEMENTED: &str = 

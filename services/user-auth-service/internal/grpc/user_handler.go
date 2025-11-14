@@ -10,6 +10,7 @@ import (
 	"slate/services/user-auth-service/internal/service"
 	"slate/services/user-auth-service/pkg/ratelimit"
 
+	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
@@ -70,7 +71,7 @@ func (s *UserServiceServer) Login(ctx context.Context, req *pb.LoginRequest) (*p
 		allowed, retryAfter, err := s.rateLimiter.AllowLogin(clientIP)
 		if err != nil {
 			// Log error but don't fail the request (fail-open design for availability)
-			fmt.Printf("Rate limiter error: %v\n", err)
+			log.Error().Err(err).Str("client_ip", clientIP).Msg("Rate limiter error during login")
 		} else if !allowed {
 			// Security: Return RESOURCE_EXHAUSTED status to indicate rate limit exceeded.
 			// Retry-after duration is included in the error message to inform clients when they can retry.
@@ -105,7 +106,7 @@ func (s *UserServiceServer) Register(ctx context.Context, req *pb.RegisterReques
 		allowed, retryAfter, err := s.rateLimiter.AllowRegister(clientIP)
 		if err != nil {
 			// Log error but don't fail the request (fail-open design for availability)
-			fmt.Printf("Rate limiter error: %v\n", err)
+			log.Error().Err(err).Str("client_ip", clientIP).Msg("Rate limiter error during registration")
 		} else if !allowed {
 			// Security: Return RESOURCE_EXHAUSTED status to indicate rate limit exceeded.
 			// Retry-after duration is included in the error message to inform clients when they can retry.

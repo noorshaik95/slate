@@ -15,7 +15,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Compile user service proto
     tonic_build::configure()
         .build_server(false)  // Gateway is client only
-        .compile(
+        .compile_protos(
             &[&format!("{}/user.proto", proto_path)],
             &[proto_path],
         )?;

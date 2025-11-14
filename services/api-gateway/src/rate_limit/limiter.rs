@@ -146,6 +146,7 @@ impl RateLimiter {
     }
 
     /// Get the current request count for a specific client (for monitoring/debugging)
+    #[allow(dead_code)]
     pub async fn get_client_request_count(&self, client_ip: IpAddr) -> Option<usize> {
         let mut store = self.store.write().await;
         store.get(&client_ip).map(|state| state.requests.len())
