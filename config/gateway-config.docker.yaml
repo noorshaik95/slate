@@ -11,6 +11,14 @@ services:
     auto_discover: true
     tls_enabled: false
 
+  onboarding-service:
+    name: "onboarding-service"
+    endpoint: "http://onboarding-service:50052"
+    timeout_ms: 30000  # Longer timeout for bulk operations
+    connection_pool_size: 20
+    auto_discover: true
+    tls_enabled: false
+
 discovery:
   enabled: true
   refresh_interval_seconds: 300
@@ -41,6 +49,37 @@ route_overrides:
     http_path: "/api/auth/logout"
     http_method: "POST"
     service: "user-auth-service"
+
+  # Onboarding Service Routes
+  - grpc_method: "onboarding.OnboardingService/CreateJob"
+    http_path: "/api/onboarding/jobs"
+    http_method: "POST"
+    service: "onboarding-service"
+
+  - grpc_method: "onboarding.OnboardingService/GetJob"
+    http_path: "/api/onboarding/jobs/{job_id}"
+    http_method: "GET"
+    service: "onboarding-service"
+
+  - grpc_method: "onboarding.OnboardingService/ListJobs"
+    http_path: "/api/onboarding/jobs"
+    http_method: "GET"
+    service: "onboarding-service"
+
+  - grpc_method: "onboarding.OnboardingService/UploadCSV"
+    http_path: "/api/onboarding/upload/csv"
+    http_method: "POST"
+    service: "onboarding-service"
+
+  - grpc_method: "onboarding.OnboardingService/GetAuditLogs"
+    http_path: "/api/onboarding/audit"
+    http_method: "GET"
+    service: "onboarding-service"
+
+  - grpc_method: "onboarding.OnboardingService/Health"
+    http_path: "/api/onboarding/health"
+    http_method: "GET"
+    service: "onboarding-service"
 
 auth:
   service_endpoint: "http://user-auth-service:50051"

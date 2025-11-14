@@ -51,6 +51,70 @@ services:
           memory: 128M
     restart: unless-stopped
 
+  # Zookeeper for Kafka
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+      - zookeeper-logs:/var/lib/zookeeper/log
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    restart: unless-stopped
+
+  # Kafka for Async Processing
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_NUM_PARTITIONS: 3
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    restart: unless-stopped
+
   # User Auth Service (Go)
   user-auth-service:
     build:
@@ -106,6 +170,124 @@ services:
         reservations:
           cpus: '0.25'
           memory: 128M
+    restart: unless-stopped
+
+  # Onboarding Service (Go)
+  onboarding-service:
+    build:
+      context: .
+      dockerfile: services/onboarding-service/Dockerfile
+    environment:
+      SERVER_HOST: "0.0.0.0"
+      SERVER_PORT: "8082"
+      DB_HOST: "postgres"
+      DB_PORT: "5432"
+      DB_USER: "postgres"
+      DB_PASSWORD: "postgres"
+      DB_NAME: "onboarding"
+      DB_SSLMODE: "disable"
+      GRPC_HOST: "0.0.0.0"
+      GRPC_PORT: "50052"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "tempo:4317"
+      REDIS_HOST: "redis"
+      REDIS_PORT: "6379"
+      KAFKA_BROKERS: "kafka:9092"
+      KAFKA_CONSUMER_GROUP: "onboarding-service"
+      # Database Connection Pool Configuration
+      DB_MAX_OPEN_CONNS: "50"
+      DB_MAX_IDLE_CONNS: "10"
+      DB_CONN_MAX_LIFETIME: "5m"
+      DB_CONN_MAX_IDLE_TIME: "1m"
+      # User Auth Service Integration
+      USER_AUTH_SERVICE_ENDPOINT: "user-auth-service:50051"
+      # Logging Configuration
+      LOG_LEVEL: "info"
+      # WebSocket Configuration
+      WEBSOCKET_HOST: "0.0.0.0"
+      WEBSOCKET_PORT: "8083"
+      # File Upload Configuration
+      MAX_FILE_SIZE: "104857600"  # 100MB
+      UPLOAD_DIR: "/tmp/uploads"
+      # JWT Configuration (for validating tokens from API Gateway)
+      JWT_SECRET: "your-super-secret-jwt-key-change-in-production"
+    ports:
+      - "50052:50052"  # gRPC
+      - "8082:8082"    # HTTP
+      - "8083:8083"    # WebSocket
+      - "9092:9090"    # Prometheus metrics
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      user-auth-service:
+        condition: service_started
+      tempo:
+        condition: service_started
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    restart: unless-stopped
+
+  # Onboarding Worker (Go) - Scalable Kafka Consumer
+  onboarding-worker:
+    build:
+      context: .
+      dockerfile: services/onboarding-service/Dockerfile.worker
+    environment:
+      DB_HOST: "postgres"
+      DB_PORT: "5432"
+      DB_USER: "postgres"
+      DB_PASSWORD: "postgres"
+      DB_NAME: "onboarding"
+      DB_SSLMODE: "disable"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "tempo:4317"
+      REDIS_HOST: "redis"
+      REDIS_PORT: "6379"
+      KAFKA_BROKERS: "kafka:9092"
+      KAFKA_CONSUMER_GROUP: "onboarding-workers"
+      # Database Connection Pool Configuration
+      DB_MAX_OPEN_CONNS: "50"
+      DB_MAX_IDLE_CONNS: "10"
+      DB_CONN_MAX_LIFETIME: "5m"
+      DB_CONN_MAX_IDLE_TIME: "1m"
+      # User Auth Service Integration
+      USER_AUTH_SERVICE_ENDPOINT: "user-auth-service:50051"
+      # Worker Configuration
+      WORKER_CONCURRENCY: "10"  # Number of concurrent workers
+      BATCH_SIZE: "100"         # Batch size for processing
+      # Logging Configuration
+      LOG_LEVEL: "info"
+      # Retry Configuration
+      MAX_RETRIES: "3"
+      RETRY_BACKOFF_MS: "1000"
+    ports:
+      - "9093:9090"    # Prometheus metrics
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      user-auth-service:
+        condition: service_started
+      tempo:
+        condition: service_started
+    deploy:
+      replicas: 3  # Scale to 3 workers for parallel processing
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
     restart: unless-stopped
 
   # API Gateway (Rust/Axum)
@@ -264,4 +446,10 @@ volumes:
   redis-data:
     driver: local
   loki-data:
+    driver: local
+  zookeeper-data:
+    driver: local
+  zookeeper-logs:
+    driver: local
+  kafka-data:
     driver: local
