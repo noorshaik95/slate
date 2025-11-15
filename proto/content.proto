@@ -284,11 +284,15 @@ message QualityLevel {
 
 message GetVideoManifestRequest {
   string video_id = 1;
+  string session_id = 2; // Optional session ID for analytics tracking
 }
 
 message UpdatePlaybackPositionRequest {
   string video_id = 1;
   int32 position_seconds = 2;
+  string event_type = 3; // "pause", "seek", "update"
+  int32 old_position_seconds = 4; // For seek events
+  string session_id = 5; // Optional session ID for analytics tracking
 }
 
 message GetPlaybackStateRequest {

@@ -11,12 +11,25 @@ services:
     auto_discover: true
     tls_enabled: false
 
+  content-management-service:
+    name: "content-management-service"
+    endpoint: "http://content-management-service:50052"
+    timeout_ms: 30000  # Longer timeout for uploads and transcoding
+    connection_pool_size: 10
+    auto_discover: true
+    tls_enabled: false
+    circuit_breaker:
+      failure_threshold: 5
+      success_threshold: 2
+      timeout_seconds: 60
+
 discovery:
   enabled: true
   refresh_interval_seconds: 300
 
 # Optional: Override specific routes when convention doesn't fit
 route_overrides:
+  # User Auth Service
   - grpc_method: "user.UserService/Login"
     http_path: "/api/auth/login"
     http_method: "POST"
@@ -42,6 +55,92 @@ route_overrides:
     http_method: "POST"
     service: "user-auth-service"
 
+  # Content Management Service - Custom Content Routes
+  - grpc_method: "content.ContentService/GetContentStructure"
+    http_path: "/api/content/structure"
+    http_method: "GET"
+    service: "content-management-service"
+
+  - grpc_method: "content.ContentService/ReorderContent"
+    http_path: "/api/content/reorder"
+    http_method: "POST"
+    service: "content-management-service"
+
+  - grpc_method: "content.ContentService/PublishContent"
+    http_path: "/api/content/publish"
+    http_method: "POST"
+    service: "content-management-service"
+
+  - grpc_method: "content.ContentService/UnpublishContent"
+    http_path: "/api/content/unpublish"
+    http_method: "POST"
+    service: "content-management-service"
+
+  # Upload Service Routes
+  - grpc_method: "content.UploadService/InitiateUpload"
+    http_path: "/api/content/upload/initiate"
+    http_method: "POST"
+    service: "content-management-service"
+
+  - grpc_method: "content.UploadService/UploadChunk"
+    http_path: "/api/content/upload/chunk"
+    http_method: "POST"
+    service: "content-management-service"
+
+  - grpc_method: "content.UploadService/CompleteUpload"
+    http_path: "/api/content/upload/complete"
+    http_method: "POST"
+    service: "content-management-service"
+
+  - grpc_method: "content.UploadService/CancelUpload"
+    http_path: "/api/content/upload/cancel"
+    http_method: "POST"
+    service: "content-management-service"
+
+  # Streaming Service Routes
+  - grpc_method: "content.StreamingService/GetVideoManifest"
+    http_path: "/api/content/videos/:id/manifest"
+    http_method: "GET"
+    service: "content-management-service"
+
+  - grpc_method: "content.StreamingService/UpdatePlaybackPosition"
+    http_path: "/api/content/videos/:id/position"
+    http_method: "POST"
+    service: "content-management-service"
+
+  - grpc_method: "content.StreamingService/GetPlaybackState"
+    http_path: "/api/content/videos/:id/playback"
+    http_method: "GET"
+    service: "content-management-service"
+
+  # Progress Service Routes
+  - grpc_method: "content.ProgressService/MarkComplete"
+    http_path: "/api/content/progress/complete"
+    http_method: "POST"
+    service: "content-management-service"
+
+  - grpc_method: "content.ProgressService/GetProgress"
+    http_path: "/api/content/progress"
+    http_method: "GET"
+    service: "content-management-service"
+
+  - grpc_method: "content.ProgressService/GetProgressReport"
+    http_path: "/api/content/progress/report"
+    http_method: "GET"
+    service: "content-management-service"
+
+  # Search Service Route
+  - grpc_method: "content.SearchService/SearchContent"
+    http_path: "/api/content/search"
+    http_method: "GET"
+    service: "content-management-service"
+
+  # Download Service Route
+  - grpc_method: "content.DownloadService/GenerateDownloadUrl"
+    http_path: "/api/content/download"
+    http_method: "POST"
+    service: "content-management-service"
+
 auth:
   service_endpoint: "http://user-auth-service:50051"
   timeout_ms: 3000
@@ -55,6 +154,14 @@ rate_limit:
   enabled: true
   requests_per_minute: 100
   window_seconds: 60
+
+body_limit:
+  default_limit: 1048576      # 1MB for regular requests
+  upload_limit: 10485760      # 10MB for chunk uploads (5MB chunks + overhead)
+  upload_paths:
+    - "/upload"
+    - "/api/upload"
+    - "/api/content/upload/chunk"
 
 observability:
   tempo_endpoint: "http://tempo:4317"

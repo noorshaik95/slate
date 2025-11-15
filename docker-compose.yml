@@ -28,7 +28,32 @@ services:
           cpus: '0.5'
           memory: 512M
 
-  # Redis for Rate Limiting
+  # PostgreSQL Database for Content Management Service
+  postgres-cms:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: cms
+      POSTGRES_PASSWORD: cms_password
+      POSTGRES_DB: cms
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-cms-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cms"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # Redis for Rate Limiting and Job Queue
   redis:
     image: redis:7-alpine
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
@@ -49,6 +74,59 @@ services:
         reservations:
           cpus: '0.25'
           memory: 128M
+    restart: unless-stopped
+
+  # MinIO for S3-compatible object storage
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    restart: unless-stopped
+
+  # ElasticSearch for content search
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
     restart: unless-stopped
 
   # User Auth Service (Go)
@@ -108,6 +186,64 @@ services:
           memory: 128M
     restart: unless-stopped
 
+  # Content Management Service (Rust)
+  content-management-service:
+    build:
+      context: .
+      dockerfile: services/content-management-service/Dockerfile
+    environment:
+      # Server Configuration
+      SERVER__HOST: "0.0.0.0"
+      SERVER__PORT: "8082"
+      SERVER__GRPC_PORT: "50052"
+      SERVER__METRICS_PORT: "9092"
+      # Database Configuration
+      DATABASE__URL: "postgresql://cms:cms_password@postgres-cms:5432/cms"
+      DATABASE__MAX_CONNECTIONS: "20"
+      DATABASE__MIN_CONNECTIONS: "5"
+      # S3/MinIO Configuration
+      S3__ENDPOINT: "http://minio:9000"
+      S3__ACCESS_KEY: "minioadmin"
+      S3__SECRET_KEY: "minioadmin"
+      S3__BUCKET: "content-storage"
+      S3__REGION: "us-east-1"
+      # ElasticSearch Configuration
+      ELASTICSEARCH__URL: "http://elasticsearch:9200"
+      ELASTICSEARCH__INDEX: "content"
+      # Redis Configuration
+      REDIS__URL: "redis://redis:6379"
+      REDIS__QUEUE_NAME: "transcoding_jobs"
+      # Observability Configuration
+      OBSERVABILITY__OTLP_ENDPOINT: "http://tempo:4317"
+      OBSERVABILITY__SERVICE_NAME: "content-management-service"
+      RUST_LOG: "info"
+      # Analytics Service (placeholder - will be implemented later)
+      # ANALYTICS_SERVICE_URL: "http://analytics-service:50053"
+    ports:
+      - "50052:50052"
+      - "8082:8082"
+      - "9092:9092"
+    depends_on:
+      postgres-cms:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      tempo:
+        condition: service_started
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    restart: unless-stopped
+
   # API Gateway (Rust/Axum)
   api-gateway:
     build:
@@ -124,7 +260,7 @@ services:
       # Request body size limits (DoS prevention)
       MAX_REQUEST_BODY_SIZE: "1048576"      # 1MB default limit
       MAX_UPLOAD_BODY_SIZE: "10485760"      # 10MB for upload endpoints
-      UPLOAD_PATHS: "/upload,/api/upload"   # Comma-separated paths for upload limit
+      UPLOAD_PATHS: "/upload,/api/upload,/api/content/upload/chunk"   # Comma-separated paths for upload limit
       # Trusted proxies for X-Forwarded-For header (comma-separated IPs)
       # TRUSTED_PROXIES: "10.0.0.1,172.17.0.1"  # Uncomment and set for production
     ports:
@@ -137,6 +273,7 @@ services:
       - loki
       - grafana
       - user-auth-service
+      - content-management-service
     deploy:
       resources:
         limits:
@@ -261,7 +398,13 @@ services:
 volumes:
   postgres-data:
     driver: local
+  postgres-cms-data:
+    driver: local
   redis-data:
+    driver: local
+  minio-data:
+    driver: local
+  elasticsearch-data:
     driver: local
   loki-data:
     driver: local

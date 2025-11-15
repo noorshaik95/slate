@@ -1,11 +1,10 @@
-use opentelemetry::trace::TracerProvider;
 use opentelemetry::{global, KeyValue};
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::trace::{self, RandomIdGenerator, Sampler};
 use opentelemetry_sdk::Resource;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::{EnvFilter, Layer};
+use tracing_subscriber::EnvFilter;
 
 /// Initialize distributed tracing with OpenTelemetry and structured logging
 pub fn init_tracing(service_name: &str, otlp_endpoint: &str) -> anyhow::Result<()> {
@@ -27,8 +26,6 @@ pub fn init_tracing(service_name: &str, otlp_endpoint: &str) -> anyhow::Result<(
                 )])),
         )
         .install_batch(opentelemetry_sdk::runtime::Tokio)?;
-
-    let tracer = tracer.tracer(service_name);
 
     // Create OpenTelemetry tracing layer
     let telemetry_layer = tracing_opentelemetry::layer().with_tracer(tracer);
