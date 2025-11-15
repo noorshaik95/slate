@@ -15,6 +15,10 @@ COPY proto /build/proto
 
 # Copy go mod files
 COPY services/assignment-grading-service/go.mod ./
+
+# Copy source code first (needed for go mod tidy to detect all imports)
+COPY services/assignment-grading-service/ .
+
 # Generate go.sum and download dependencies
 RUN go mod tidy && go mod download && go mod verify
 
@@ -25,9 +29,6 @@ RUN mkdir -p api/proto && \
     -I /build/proto \
     /build/proto/assignment.proto && \
     mv -f assignment.pb.go assignment_grpc.pb.go api/proto/ 2>/dev/null || true
-
-# Copy source code
-COPY services/assignment-grading-service/ .
 
 # Build the application
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o server cmd/server/main.go
