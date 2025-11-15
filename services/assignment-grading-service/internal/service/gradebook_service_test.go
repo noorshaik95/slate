@@ -11,7 +11,6 @@ import (
 	"slate/services/assignment-grading-service/internal/repository"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 )
 
 func TestGradebookService_GetStudentGradebook(t *testing.T) {
