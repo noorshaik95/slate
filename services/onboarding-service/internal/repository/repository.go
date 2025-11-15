@@ -376,9 +376,9 @@ func (r *Repository) CreateTasksBatch(ctx context.Context, tasks []*models.Task)
 		return err
 	}
 	defer func() {
-		if rbErr := tx.Rollback(); rbErr != nil {
-			// Rollback error is expected after successful commit
-		}
+		// Rollback returns error if already committed, which is expected
+		//nolint:errcheck // rollback error expected after commit
+		tx.Rollback()
 	}()
 
 	stmt, err := tx.PrepareContext(ctx, `
