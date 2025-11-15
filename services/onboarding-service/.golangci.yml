@@ -30,7 +30,7 @@ linters-settings:
           - operation
           - return
   govet:
-    check-shadowing: true
+    enable-all: true
   lll:
     line-length: 140
   misspell:
@@ -67,6 +67,7 @@ linters:
     - noctx
     - nolintlint
     - revive
+    - shadow
     - staticcheck
     - stylecheck
     - unconvert
