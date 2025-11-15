@@ -84,5 +84,22 @@ issues:
       linters:
         - all
 
+    # Exclude main.go from complexity and exitAfterDefer checks
+    - path: cmd/server/main\.go
+      linters:
+        - gocyclo
+      text: "cyclomatic complexity.*of func `main`"
+
+    - path: cmd/server/main\.go
+      linters:
+        - gocritic
+      text: "exitAfterDefer"
+
+    # Disable micro-optimizations
+    - linters:
+        - prealloc
+        - govet
+      text: "fieldalignment"
+
   max-issues-per-linter: 50
   max-same-issues: 3
