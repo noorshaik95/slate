@@ -43,13 +43,13 @@ type GradebookService interface {
 
 // StudentGradebook represents a student's gradebook
 type StudentGradebook struct {
-	StudentID     string
-	CourseID      string
-	Entries       []GradebookEntry
-	TotalPoints   float64
-	EarnedPoints  float64
-	Percentage    float64
-	LetterGrade   string
+	StudentID    string
+	CourseID     string
+	Entries      []GradebookEntry
+	TotalPoints  float64
+	EarnedPoints float64
+	Percentage   float64
+	LetterGrade  string
 }
 
 // GradebookEntry represents a single gradebook entry
