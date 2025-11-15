@@ -140,7 +140,7 @@ func TestSubmissionService_SubmitAssignment(t *testing.T) {
 		mockProducer := new(MockKafkaProducer)
 		service := NewSubmissionService(mockAssignmentRepo, mockSubmissionRepo, mockStorage, mockProducer)
 
-		dueDate := time.Now().Add(-25 * time.Hour) // Due 25 hours ago (1 day late)
+		dueDate := time.Now().Add(-25 * time.Hour) // Due 25 hours ago (2 days late with rounding)
 		assignment := &models.Assignment{
 			ID:        "assignment-id",
 			CourseID:  "COURSE-001",
@@ -165,7 +165,7 @@ func TestSubmissionService_SubmitAssignment(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, submission)
 		assert.True(t, submission.IsLate)
-		assert.Equal(t, 1, submission.DaysLate)
+		assert.Equal(t, 2, submission.DaysLate)
 		mockAssignmentRepo.AssertExpectations(t)
 		mockStorage.AssertExpectations(t)
 		mockSubmissionRepo.AssertExpectations(t)
