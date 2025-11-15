@@ -3,7 +3,6 @@
 package internal
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"fmt"
