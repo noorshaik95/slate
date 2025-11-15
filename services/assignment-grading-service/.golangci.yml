@@ -1,5 +1,6 @@
 version: "2"
 
+# Linter configuration for assignment grading service
 run:
   timeout: 5m
   tests: false
