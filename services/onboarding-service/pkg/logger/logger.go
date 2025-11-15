@@ -101,11 +101,21 @@ func (l *Logger) WithTraceID(traceID string) *zerolog.Event {
 	return l.logger.Info().Str("trace_id", traceID)
 }
 
+// ContextKey is a custom type for context keys to avoid collisions
+type ContextKey string
+
+// TraceIDKey is the context key for trace IDs
+const TraceIDKey ContextKey = "trace_id"
+
 // extractTraceID extracts trace ID from context
 // This will be enhanced when we integrate with OpenTelemetry
 func extractTraceID(ctx context.Context) string {
 	// TODO: Extract from OpenTelemetry span context
 	// For now, check for trace_id in context values
+	// Support both typed key (preferred) and string key (legacy)
+	if traceID, ok := ctx.Value(TraceIDKey).(string); ok {
+		return traceID
+	}
 	if traceID, ok := ctx.Value("trace_id").(string); ok {
 		return traceID
 	}

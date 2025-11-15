@@ -91,17 +91,13 @@ func TestLoggerMethods(t *testing.T) {
 	})
 }
 
-type contextKey string
-
-const traceIDKey contextKey = "trace_id"
-
 func TestWithContext(t *testing.T) {
 	var buf bytes.Buffer
 	logger := NewLoggerWithWriter("info", &buf)
 
 	t.Run("context with trace ID", func(t *testing.T) {
 		buf.Reset()
-		ctx := context.WithValue(context.Background(), traceIDKey, "test-trace-123")
+		ctx := context.WithValue(context.Background(), TraceIDKey, "test-trace-123")
 		logger.WithContext(ctx).Msg("test message with trace")
 
 		var logEntry map[string]interface{}

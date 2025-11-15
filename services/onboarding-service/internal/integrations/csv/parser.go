@@ -191,22 +191,23 @@ func (p *Parser) parseRow(record []string, headerMap map[string]int, jobID, tena
 	// Parse graduation year
 	var graduationYear int
 	if graduationYearStr != "" {
-		year, err := strconv.Atoi(graduationYearStr)
-		if err != nil {
+		year, parseErr := strconv.Atoi(graduationYearStr)
+		switch {
+		case parseErr != nil:
 			errors = append(errors, ValidationError{
 				Row:   rowNum,
 				Field: "graduation_year",
 				Value: graduationYearStr,
 				Error: "invalid graduation year format",
 			})
-		} else if year < 1900 || year > 2200 {
+		case year < 1900 || year > 2200:
 			errors = append(errors, ValidationError{
 				Row:   rowNum,
 				Field: "graduation_year",
 				Value: graduationYearStr,
 				Error: "graduation year must be between 1900 and 2200",
 			})
-		} else {
+		default:
 			graduationYear = year
 		}
 	}
@@ -233,6 +234,7 @@ func (p *Parser) parseRow(record []string, headerMap map[string]int, jobID, tena
 
 	if graduationYear > 0 {
 		task.GraduationYear.Valid = true
+		// #nosec G115 -- graduationYear is validated to be between 1900-2200, safe for int32
 		task.GraduationYear.Int32 = int32(graduationYear)
 	}
 

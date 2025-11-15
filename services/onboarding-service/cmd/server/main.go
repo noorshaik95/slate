@@ -165,7 +165,9 @@ func startHTTPServer(cfg *config.Config, hub *ws.Hub) {
 	// Health check endpoint
 	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"healthy"}`))
+		if _, err := w.Write([]byte(`{"status":"healthy"}`)); err != nil {
+			log.Error().Err(err).Msg("Failed to write health check response")
+		}
 	})
 
 	// WebSocket endpoint for real-time progress updates
