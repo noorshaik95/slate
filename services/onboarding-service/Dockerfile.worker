@@ -9,8 +9,8 @@ RUN apk add --no-cache git make protobuf-dev
 # Set working directory
 WORKDIR /build
 
-# Copy go mod files
-COPY go.mod go.sum ./
+# Copy go mod files from service directory
+COPY services/onboarding-service/go.mod services/onboarding-service/go.sum ./
 COPY proto/ ../proto/
 
 # Download dependencies
