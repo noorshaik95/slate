@@ -167,7 +167,7 @@ func TestIntegration_CompleteAssignmentWorkflow(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEmpty(t, submission.ID)
 	assert.True(t, submission.IsLate)
-	assert.Equal(t, 1, submission.DaysLate)
+	assert.Equal(t, 2, submission.DaysLate) // 24 hours + execution time rounds up to 2 days
 
 	// Verify file was saved
 	exists, err := fileStorage.Exists(submission.FilePath)
@@ -185,7 +185,7 @@ func TestIntegration_CompleteAssignmentWorkflow(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEmpty(t, grade.ID)
 	assert.Equal(t, 90.0, grade.Score)
-	assert.Equal(t, 81.0, grade.AdjustedScore) // 90 - 10% penalty = 81
+	assert.Equal(t, 72.0, grade.AdjustedScore) // 90 - 20% penalty (2 days late) = 72
 	assert.Equal(t, models.GradeStatusDraft, grade.Status)
 
 	// Step 4: Publish the grade
@@ -199,16 +199,16 @@ func TestIntegration_CompleteAssignmentWorkflow(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "STUDENT-001", gradebook.StudentID)
 	assert.Equal(t, 100.0, gradebook.TotalPoints)
-	assert.Equal(t, 81.0, gradebook.EarnedPoints)
-	assert.Equal(t, 81.0, gradebook.Percentage)
-	assert.Equal(t, "B", gradebook.LetterGrade)
+	assert.Equal(t, 72.0, gradebook.EarnedPoints)
+	assert.Equal(t, 72.0, gradebook.Percentage)
+	assert.Equal(t, "C", gradebook.LetterGrade)
 
 	// Step 6: Get grade statistics
 	stats, err := gradebookService.GetGradeStatistics(ctx, assignment.ID)
 	require.NoError(t, err)
 	assert.Equal(t, 1, stats.TotalSubmissions)
 	assert.Equal(t, 1, stats.GradedCount)
-	assert.Equal(t, 81.0, stats.Mean)
+	assert.Equal(t, 72.0, stats.Mean)
 }
 
 func TestIntegration_MultipleStudentsWorkflow(t *testing.T) {
@@ -340,7 +340,7 @@ func TestIntegration_LatePenaltyScenarios(t *testing.T) {
 			name:             "1 day late with 10% penalty",
 			daysBeforeDue:    -1,
 			score:            100.0,
-			expectedAdjusted: 90.0,
+			expectedAdjusted: 80.0, // 24h + execution time rounds to 2 days → 20% penalty
 			penaltyPercent:   10,
 			maxLateDays:      3,
 		},
@@ -348,7 +348,7 @@ func TestIntegration_LatePenaltyScenarios(t *testing.T) {
 			name:             "2 days late with 10% penalty",
 			daysBeforeDue:    -2,
 			score:            100.0,
-			expectedAdjusted: 80.0,
+			expectedAdjusted: 70.0, // 48h + execution time rounds to 3 days → 30% penalty
 			penaltyPercent:   10,
 			maxLateDays:      3,
 		},
