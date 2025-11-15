@@ -30,6 +30,12 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: services/onboarding-service/go.sum
 
+      - name: Ensure clean module cache
+        working-directory: ./services/onboarding-service
+        run: |
+          # Clear any corrupted cache from failed restore
+          go clean -modcache || true
+
       - name: Install dependencies
         working-directory: ./services/onboarding-service
         run: go mod download
@@ -40,7 +46,11 @@ jobs:
 
       - name: Install golangci-lint
         run: |
-          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.55.2
+          # Build golangci-lint with runner's Go toolchain to ensure export data compatibility
+          GOBIN="$(go env GOPATH)/bin"
+          export GOBIN
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.55.2
+          echo "$GOBIN" >> $GITHUB_PATH
 
       - name: Run golangci-lint
         working-directory: ./services/onboarding-service
