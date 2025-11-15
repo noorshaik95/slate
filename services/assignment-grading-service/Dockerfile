@@ -14,8 +14,9 @@ WORKDIR /build
 COPY proto /build/proto
 
 # Copy go mod files
-COPY services/assignment-grading-service/go.mod services/assignment-grading-service/go.sum* ./
-RUN go mod download
+COPY services/assignment-grading-service/go.mod ./
+# Generate go.sum and download dependencies
+RUN go mod tidy && go mod download && go mod verify
 
 # Generate protobuf code
 RUN mkdir -p api/proto && \
