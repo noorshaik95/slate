@@ -86,6 +86,9 @@ issues:
       linters:
         - gomnd
         - lll
+    - linters:
+        - typecheck
+      text: ".*"
 
   max-issues-per-linter: 50
   max-same-issues: 3

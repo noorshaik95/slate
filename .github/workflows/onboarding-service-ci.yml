@@ -47,9 +47,10 @@ jobs:
       - name: Install golangci-lint
         run: |
           # Build golangci-lint with runner's Go toolchain to ensure export data compatibility
+          # Use latest version to support Go 1.23.0 export data format
           GOBIN="$(go env GOPATH)/bin"
           export GOBIN
-          go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.55.2
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
           echo "$GOBIN" >> $GITHUB_PATH
 
       - name: Run golangci-lint
