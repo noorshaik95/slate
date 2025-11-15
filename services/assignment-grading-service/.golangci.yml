@@ -62,6 +62,8 @@ linters:
     - gocritic        # Comprehensive Go linter
     - prealloc        # Find slice declarations that could potentially be pre-allocated
     - revive          # Fast, configurable, extensible, flexible linter
+  disable:
+    - typecheck       # Explicitly disable typecheck to avoid Go 1.22.x compatibility issues
 
 issues:
   exclude-rules:
