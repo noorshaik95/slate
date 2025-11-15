@@ -101,5 +101,10 @@ issues:
         - govet
       text: "fieldalignment"
 
+    # Allow naming patterns that are clearer even if they "stutter"
+    - linters:
+        - revive
+      text: "stutters"
+
   max-issues-per-linter: 50
   max-same-issues: 3

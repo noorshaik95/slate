@@ -62,7 +62,7 @@ func (s *gradebookService) GetStudentGradebook(ctx context.Context, studentID, c
 	}
 
 	// Build gradebook entries
-	var entries []GradebookEntry
+	entries := make([]GradebookEntry, 0, len(assignments))
 	var totalPoints, earnedPoints float64
 
 	for _, assignment := range assignments {
@@ -140,7 +140,7 @@ func (s *gradebookService) GetCourseGradebook(ctx context.Context, courseID stri
 	}
 
 	// Build student summaries
-	var students []StudentSummary
+	students := make([]StudentSummary, 0, len(studentGrades))
 	for studentID, studentGradeList := range studentGrades {
 		var earnedPoints float64
 		gradeMap := make(map[string]*models.Grade)
