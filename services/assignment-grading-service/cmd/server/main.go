@@ -78,7 +78,9 @@ func main() {
 		log.Error().Err(err).Msg("Failed to connect to database")
 		if tp != nil {
 			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			_ = tracing.Shutdown(shutdownCtx, tp)
+			if shutdownErr := tracing.Shutdown(shutdownCtx, tp); shutdownErr != nil {
+				log.Error().Err(shutdownErr).Msg("Failed to shutdown tracer")
+			}
 			cancel()
 		}
 		os.Exit(1)

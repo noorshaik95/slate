@@ -24,13 +24,13 @@ type submissionService struct {
 func NewSubmissionService(
 	assignmentRepo repository.AssignmentRepository,
 	submissionRepo repository.SubmissionRepository,
-	storage storage.FileStorage,
+	fileStorage storage.FileStorage,
 	producer kafka.EventPublisher,
 ) SubmissionService {
 	return &submissionService{
 		assignmentRepo: assignmentRepo,
 		submissionRepo: submissionRepo,
-		storage:        storage,
+		storage:        fileStorage,
 		producer:       producer,
 		latePolicyCalc: NewLatePolicyCalculator(),
 	}

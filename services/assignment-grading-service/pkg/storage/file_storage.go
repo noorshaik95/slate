@@ -28,7 +28,7 @@ type LocalFileStorage struct {
 // NewLocalFileStorage creates a new local file storage instance
 func NewLocalFileStorage(basePath string, maxFileSize int64) (*LocalFileStorage, error) {
 	// Create base directory if it doesn't exist
-	if err := os.MkdirAll(basePath, 0755); err != nil {
+	if err := os.MkdirAll(basePath, 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create storage directory: %w", err)
 	}
 
