@@ -20,15 +20,13 @@ linters-settings:
     local-prefixes: github.com/noorshaik95/slate
   golint:
     min-confidence: 0
-  gomnd:
-    settings:
-      mnd:
-        checks:
-          - argument
-          - case
-          - condition
-          - operation
-          - return
+  mnd:
+    checks:
+      - argument
+      - case
+      - condition
+      - operation
+      - return
   govet:
     enable-all: true
   lll:
@@ -45,20 +43,20 @@ linters:
   disable-all: true
   enable:
     - bodyclose
+    - copyloopvar
     - dogsled
     - dupl
     - errcheck
-    - exportloopref
     - exhaustive
     - gocritic
     - gofmt
     - goimports
-    - gomnd
     - goprintffuncname
     - gosec
     - gosimple
     - ineffassign
     - lll
+    - mnd
     - nakedret
     - noctx
     - nolintlint
@@ -74,13 +72,13 @@ issues:
   exclude-rules:
     - path: _test\.go
       linters:
-        - gomnd
+        - mnd
         - goconst
         - dupl
         - lll
     - path: migrations/
       linters:
-        - gomnd
+        - mnd
         - lll
     - linters:
         - typecheck
