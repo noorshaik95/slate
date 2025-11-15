@@ -164,6 +164,14 @@ func (l *Logger) GetLevel() string {
 		return "warn"
 	case zerolog.ErrorLevel:
 		return "error"
+	case zerolog.FatalLevel:
+		return "fatal"
+	case zerolog.PanicLevel:
+		return "panic"
+	case zerolog.TraceLevel:
+		return "trace"
+	case zerolog.NoLevel, zerolog.Disabled:
+		return "disabled"
 	default:
 		return "info"
 	}

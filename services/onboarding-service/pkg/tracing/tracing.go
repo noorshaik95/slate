@@ -35,8 +35,10 @@ func InitTracer(cfg Config) (*sdktrace.TracerProvider, error) {
 	}
 
 	if cfg.OTLPInsecure {
-		opts = append(opts, otlptracegrpc.WithTLSCredentials(insecure.NewCredentials()))
-		opts = append(opts, otlptracegrpc.WithDialOption(grpc.WithTransportCredentials(insecure.NewCredentials())))
+		opts = append(opts,
+			otlptracegrpc.WithTLSCredentials(insecure.NewCredentials()),
+			otlptracegrpc.WithDialOption(grpc.WithTransportCredentials(insecure.NewCredentials())),
+		)
 	}
 
 	exporter, err := otlptracegrpc.New(ctx, opts...)

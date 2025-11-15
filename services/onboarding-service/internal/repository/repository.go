@@ -271,7 +271,10 @@ func (r *Repository) CreateAuditLog(ctx context.Context, log *models.AuditLog) e
 // ===== Progress Operations =====
 
 func (r *Repository) UpdateJobProgress(ctx context.Context, progress *models.JobProgress) error {
-	metricsJSON, _ := json.Marshal(progress.Metrics)
+	metricsJSON, err := json.Marshal(progress.Metrics)
+	if err != nil {
+		return fmt.Errorf("failed to marshal metrics: %w", err)
+	}
 
 	query := `
 		INSERT INTO job_progress (
@@ -287,13 +290,13 @@ func (r *Repository) UpdateJobProgress(ctx context.Context, progress *models.Job
 			updated_at = EXCLUDED.updated_at
 	`
 
-	_, err := r.db.ExecContext(ctx, query,
+	_, execErr := r.db.ExecContext(ctx, query,
 		progress.JobID, progress.CurrentStage, progress.ProgressPercentage,
 		progress.EstimatedCompletionTime, progress.CurrentTaskID,
 		string(metricsJSON), time.Now(),
 	)
 
-	return err
+	return execErr
 }
 
 func (r *Repository) GetJobProgress(ctx context.Context, jobID string) (*models.JobProgress, error) {
@@ -372,7 +375,9 @@ func (r *Repository) CreateTasksBatch(ctx context.Context, tasks []*models.Task)
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() {
+		_ = tx.Rollback() // Rollback is safe to call after commit
+	}()
 
 	stmt, err := tx.PrepareContext(ctx, `
 		INSERT INTO onboarding_tasks (

@@ -139,7 +139,7 @@ type Worker struct {
 }
 
 // HandleTask processes a single onboarding task from Kafka
-func (w *Worker) HandleTask(ctx context.Context, key, value []byte) error {
+func (w *Worker) HandleTask(ctx context.Context, _, value []byte) error {
 	var taskMsg models.OnboardingTaskMessage
 	if err := json.Unmarshal(value, &taskMsg); err != nil {
 		log.Error().Err(err).Msg("Failed to unmarshal task message")
@@ -175,13 +175,17 @@ func (w *Worker) HandleTask(ctx context.Context, key, value []byte) error {
 			Msg("Failed to process user")
 
 		// Update task as failed
-		w.repo.UpdateTaskStatus(ctx, task.ID, models.TaskStatusFailed, "", err.Error())
+		if updateErr := w.repo.UpdateTaskStatus(ctx, task.ID, models.TaskStatusFailed, "", err.Error()); updateErr != nil {
+			log.Error().Err(updateErr).Msg("Failed to update task status to failed")
+		}
 
 		// Retry if attempts remaining
 		if taskMsg.Attempt < w.cfg.Worker.MaxRetries {
 			time.Sleep(time.Duration(w.cfg.Worker.RetryBackoffMS) * time.Millisecond)
 			taskMsg.Attempt++
-			w.producer.PublishTask(ctx, task.ID, &taskMsg)
+			if publishErr := w.producer.PublishTask(ctx, task.ID, &taskMsg); publishErr != nil {
+				log.Error().Err(publishErr).Msg("Failed to publish retry task")
+			}
 		}
 
 		return err
@@ -227,7 +231,7 @@ func (w *Worker) processUser(ctx context.Context, task *models.Task) (string, er
 	}
 }
 
-func (w *Worker) onboardStudent(ctx context.Context, task *models.Task) (string, error) {
+func (w *Worker) onboardStudent(_ context.Context, task *models.Task) (string, error) {
 	// Simplified student onboarding
 	// TODO: Integrate with user-auth-service gRPC
 	// TODO: Enroll in courses
@@ -243,7 +247,7 @@ func (w *Worker) onboardStudent(ctx context.Context, task *models.Task) (string,
 	return "user-" + task.ID, nil
 }
 
-func (w *Worker) onboardInstructor(ctx context.Context, task *models.Task) (string, error) {
+func (w *Worker) onboardInstructor(_ context.Context, task *models.Task) (string, error) {
 	// Simplified instructor onboarding
 	// TODO: Integrate with user-auth-service gRPC
 	// TODO: Assign to courses
@@ -260,7 +264,7 @@ func (w *Worker) onboardInstructor(ctx context.Context, task *models.Task) (stri
 	return "user-" + task.ID, nil
 }
 
-func (w *Worker) onboardGenericUser(ctx context.Context, task *models.Task) (string, error) {
+func (w *Worker) onboardGenericUser(_ context.Context, task *models.Task) (string, error) {
 	log.Info().
 		Str("email", task.Email).
 		Str("role", task.Role).
@@ -271,12 +275,16 @@ func (w *Worker) onboardGenericUser(ctx context.Context, task *models.Task) (str
 }
 
 func (w *Worker) createAuditLog(ctx context.Context, task *models.Task, userID string) {
-	eventData, _ := json.Marshal(map[string]interface{}{
+	eventData, err := json.Marshal(map[string]interface{}{
 		"task_id": task.ID,
 		"email":   task.Email,
 		"role":    task.Role,
 		"user_id": userID,
 	})
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to marshal audit log event data")
+		return
+	}
 
 	auditLog := &models.AuditLog{
 		TenantID:    task.TenantID,

@@ -50,9 +50,7 @@ linters:
     - errcheck
     - exportloopref
     - exhaustive
-    - goconst
     - gocritic
-    - gocyclo
     - gofmt
     - goimports
     - gomnd

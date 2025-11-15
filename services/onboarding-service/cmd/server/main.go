@@ -30,7 +30,7 @@ import (
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
+	CheckOrigin: func(_ *http.Request) bool {
 		return true // TODO: Implement proper CORS checking in production
 	},
 }
@@ -127,8 +127,8 @@ func run() error {
 
 func startGRPCServer(
 	cfg *config.Config,
-	repo *repository.Repository,
-	producer *kafka.Producer,
+	_ *repository.Repository,
+	_ *kafka.Producer,
 ) {
 	listener, err := net.Listen(
 		"tcp",
@@ -163,7 +163,7 @@ func startHTTPServer(cfg *config.Config, hub *ws.Hub) {
 	mux := http.NewServeMux()
 
 	// Health check endpoint
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status":"healthy"}`))
 	})
@@ -196,8 +196,9 @@ func startMetricsServer() {
 	mux.Handle("/metrics", promhttp.Handler())
 
 	server := &http.Server{
-		Addr:    ":9090",
-		Handler: mux,
+		Addr:              ":9090",
+		Handler:           mux,
+		ReadHeaderTimeout: 15 * time.Second,
 	}
 
 	log.Info().Str("port", "9090").Msg("Starting metrics server")

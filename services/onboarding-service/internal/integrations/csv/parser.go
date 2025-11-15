@@ -199,6 +199,13 @@ func (p *Parser) parseRow(record []string, headerMap map[string]int, jobID, tena
 				Value: graduationYearStr,
 				Error: "invalid graduation year format",
 			})
+		} else if year < 1900 || year > 2200 {
+			errors = append(errors, ValidationError{
+				Row:   rowNum,
+				Field: "graduation_year",
+				Value: graduationYearStr,
+				Error: "graduation year must be between 1900 and 2200",
+			})
 		} else {
 			graduationYear = year
 		}
