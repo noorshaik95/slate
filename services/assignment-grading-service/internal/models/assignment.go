@@ -8,7 +8,7 @@ import (
 // LatePolicy defines the late submission policy for an assignment
 type LatePolicy struct {
 	PenaltyPercentPerDay int `json:"penalty_percent_per_day"` // Percentage deduction per day late (0-100)
-	MaxLateDays          int `json:"max_late_days"`            // Maximum days late before zero (0 = no late submissions)
+	MaxLateDays          int `json:"max_late_days"`           // Maximum days late before zero (0 = no late submissions)
 }
 
 // Assignment represents a course assignment

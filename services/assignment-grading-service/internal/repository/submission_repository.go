@@ -177,6 +177,7 @@ func (r *submissionRepository) ListByAssignment(ctx context.Context, assignmentI
 		order = "DESC"
 	}
 
+	// #nosec G201 - sortBy and order are validated against allowlists above
 	query := fmt.Sprintf(`
 		SELECT id, assignment_id, student_id, file_path, submitted_at,
 			   status, is_late, days_late, created_at, updated_at

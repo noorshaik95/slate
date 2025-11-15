@@ -4,11 +4,11 @@ import "time"
 
 // Event types
 const (
-	EventTypeAssignmentCreated   = "assignment.created"
-	EventTypeAssignmentUpdated   = "assignment.updated"
-	EventTypeAssignmentDeleted   = "assignment.deleted"
-	EventTypeSubmissionCreated   = "assignment.submitted"
-	EventTypeGradePublished      = "grade.published"
+	EventTypeAssignmentCreated = "assignment.created"
+	EventTypeAssignmentUpdated = "assignment.updated"
+	EventTypeAssignmentDeleted = "assignment.deleted"
+	EventTypeSubmissionCreated = "assignment.submitted"
+	EventTypeGradePublished    = "grade.published"
 )
 
 // Event represents a domain event

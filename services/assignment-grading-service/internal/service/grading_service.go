@@ -157,7 +157,9 @@ func (s *gradingService) PublishGrade(ctx context.Context, id string) (*models.G
 	submission, err := s.submissionRepo.GetByID(ctx, grade.SubmissionID)
 	if err == nil {
 		submission.Status = models.StatusReturned
-		s.submissionRepo.Update(ctx, submission)
+		if err := s.submissionRepo.Update(ctx, submission); err != nil {
+			fmt.Printf("Failed to update submission status: %v\n", err)
+		}
 	}
 
 	// Publish event

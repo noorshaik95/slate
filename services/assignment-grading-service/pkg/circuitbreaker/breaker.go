@@ -42,8 +42,8 @@ func NewCircuitBreaker(settings Settings) *CircuitBreaker {
 func NewDefaultCircuitBreaker(name string) *CircuitBreaker {
 	return NewCircuitBreaker(Settings{
 		Name:        name,
-		MaxRequests: 3,               // Allow 3 requests in half-open state
-		Interval:    2 * time.Minute, // Clear counts every 2 minutes
+		MaxRequests: 3,                // Allow 3 requests in half-open state
+		Interval:    2 * time.Minute,  // Clear counts every 2 minutes
 		Timeout:     60 * time.Second, // Wait 60s before trying half-open
 		ReadyToTrip: func(counts gobreaker.Counts) bool {
 			failureRatio := float64(counts.TotalFailures) / float64(counts.Requests)
