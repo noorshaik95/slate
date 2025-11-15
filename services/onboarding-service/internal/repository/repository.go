@@ -23,6 +23,12 @@ func NewRepository(db *sql.DB) *Repository {
 	return &Repository{db: db}
 }
 
+// Pagination parameter indices
+const (
+	limitArgIndex  = 1 // Index offset for LIMIT parameter in dynamic queries
+	offsetArgIndex = 2 // Index offset for OFFSET parameter in dynamic queries
+)
+
 // ===== Job Operations =====
 
 func (r *Repository) CreateJob(ctx context.Context, job *models.Job) error {
@@ -113,8 +119,8 @@ func (r *Repository) ListJobs(ctx context.Context, tenantID, status string, page
 	}
 
 	// Get paginated results
-	query += " ORDER BY created_at DESC LIMIT $" + fmt.Sprintf("%d", len(args)+1) +
-		" OFFSET $" + fmt.Sprintf("%d", len(args)+2)
+	query += " ORDER BY created_at DESC LIMIT $" + fmt.Sprintf("%d", len(args)+limitArgIndex) +
+		" OFFSET $" + fmt.Sprintf("%d", len(args)+offsetArgIndex)
 	args = append(args, pageSize, offset)
 
 	rows, err := r.db.QueryContext(ctx, query, args...)

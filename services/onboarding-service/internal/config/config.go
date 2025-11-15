@@ -81,6 +81,28 @@ type TelemetryConfig struct {
 	OTLPEndpoint string
 }
 
+// Default configuration values
+const (
+	// Database defaults
+	defaultMaxOpenConns       = 50
+	defaultMaxIdleConns       = 10
+	defaultConnMaxLifetimeMin = 5
+	defaultConnMaxIdleTimeMin = 1
+
+	// Upload defaults
+	defaultMaxFileSize = 104857600 // 100MB in bytes
+
+	// Worker defaults
+	defaultWorkerConcurrency = 10
+	defaultBatchSize         = 100
+	defaultMaxRetries        = 3
+	defaultRetryBackoffMS    = 1000
+
+	// ParseInt parameters
+	decimalBase  = 10
+	int64BitSize = 64
+)
+
 // Load loads configuration from environment variables
 func Load() (*Config, error) {
 	cfg := &Config{
@@ -97,10 +119,10 @@ func Load() (*Config, error) {
 			Password:        getEnv("DB_PASSWORD", "postgres"),
 			DBName:          getEnv("DB_NAME", "onboarding"),
 			SSLMode:         getEnv("DB_SSLMODE", "disable"),
-			MaxOpenConns:    getEnvAsInt("DB_MAX_OPEN_CONNS", 50),
-			MaxIdleConns:    getEnvAsInt("DB_MAX_IDLE_CONNS", 10),
-			ConnMaxLifetime: getEnvAsDuration("DB_CONN_MAX_LIFETIME", 5*time.Minute),
-			ConnMaxIdleTime: getEnvAsDuration("DB_CONN_MAX_IDLE_TIME", 1*time.Minute),
+			MaxOpenConns:    getEnvAsInt("DB_MAX_OPEN_CONNS", defaultMaxOpenConns),
+			MaxIdleConns:    getEnvAsInt("DB_MAX_IDLE_CONNS", defaultMaxIdleConns),
+			ConnMaxLifetime: getEnvAsDuration("DB_CONN_MAX_LIFETIME", defaultConnMaxLifetimeMin*time.Minute),
+			ConnMaxIdleTime: getEnvAsDuration("DB_CONN_MAX_IDLE_TIME", defaultConnMaxIdleTimeMin*time.Minute),
 		},
 		Kafka: KafkaConfig{
 			Brokers:       []string{getEnv("KAFKA_BROKERS", "localhost:9092")},
@@ -118,14 +140,14 @@ func Load() (*Config, error) {
 			Port: getEnv("WEBSOCKET_PORT", "8083"),
 		},
 		Upload: UploadConfig{
-			MaxFileSize: getEnvAsInt64("MAX_FILE_SIZE", 104857600), // 100MB
+			MaxFileSize: getEnvAsInt64("MAX_FILE_SIZE", defaultMaxFileSize),
 			UploadDir:   getEnv("UPLOAD_DIR", "/tmp/uploads"),
 		},
 		Worker: WorkerConfig{
-			Concurrency:    getEnvAsInt("WORKER_CONCURRENCY", 10),
-			BatchSize:      getEnvAsInt("BATCH_SIZE", 100),
-			MaxRetries:     getEnvAsInt("MAX_RETRIES", 3),
-			RetryBackoffMS: getEnvAsInt("RETRY_BACKOFF_MS", 1000),
+			Concurrency:    getEnvAsInt("WORKER_CONCURRENCY", defaultWorkerConcurrency),
+			BatchSize:      getEnvAsInt("BATCH_SIZE", defaultBatchSize),
+			MaxRetries:     getEnvAsInt("MAX_RETRIES", defaultMaxRetries),
+			RetryBackoffMS: getEnvAsInt("RETRY_BACKOFF_MS", defaultRetryBackoffMS),
 		},
 		JWT: JWTConfig{
 			Secret: getEnv("JWT_SECRET", "your-super-secret-jwt-key-change-in-production"),
@@ -168,7 +190,7 @@ func getEnvAsInt64(key string, defaultValue int64) int64 {
 	if valueStr == "" {
 		return defaultValue
 	}
-	value, err := strconv.ParseInt(valueStr, 10, 64)
+	value, err := strconv.ParseInt(valueStr, decimalBase, int64BitSize)
 	if err != nil {
 		return defaultValue
 	}

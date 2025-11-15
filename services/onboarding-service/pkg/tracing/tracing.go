@@ -15,6 +15,11 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+const (
+	// defaultInitTimeout is the default timeout for initializing the tracer
+	defaultInitTimeout = 10 * time.Second
+)
+
 // Config holds the configuration for OpenTelemetry tracing
 type Config struct {
 	ServiceName    string
@@ -26,7 +31,7 @@ type Config struct {
 
 // InitTracer initializes the OpenTelemetry tracer provider
 func InitTracer(cfg Config) (*sdktrace.TracerProvider, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), defaultInitTimeout)
 	defer cancel()
 
 	// Create OTLP exporter

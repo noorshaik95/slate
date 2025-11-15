@@ -10,6 +10,15 @@ import (
 	"github.com/rs/zerolog"
 )
 
+const (
+	// tokenPrefixLength is the number of characters to show from the beginning of a token
+	tokenPrefixLength = 8
+	// expectedEmailParts is the expected number of parts when splitting an email by @
+	expectedEmailParts = 2
+	// emailLocalPartPrefixLength is the number of characters to show from the local part of an email
+	emailLocalPartPrefixLength = 2
+)
+
 // Logger wraps zerolog for structured logging
 type Logger struct {
 	logger zerolog.Logger
@@ -135,9 +144,9 @@ func (l *Logger) RedactToken(token string) string {
 	if token == "" {
 		return ""
 	}
-	// Show first 8 characters for debugging, redact the rest
-	if len(token) > 8 {
-		return token[:8] + "***REDACTED***"
+	// Show first tokenPrefixLength characters for debugging, redact the rest
+	if len(token) > tokenPrefixLength {
+		return token[:tokenPrefixLength] + "***REDACTED***"
 	}
 	return "***REDACTED***"
 }
@@ -150,14 +159,14 @@ func (l *Logger) RedactEmail(email string) string {
 
 	// Split email at @
 	parts := strings.Split(email, "@")
-	if len(parts) != 2 {
+	if len(parts) != expectedEmailParts {
 		return "***REDACTED***"
 	}
 
-	// Show first 2 characters of local part, keep domain
+	// Show first emailLocalPartPrefixLength characters of local part, keep domain
 	localPart := parts[0]
-	if len(localPart) > 2 {
-		return localPart[:2] + "***@" + parts[1]
+	if len(localPart) > emailLocalPartPrefixLength {
+		return localPart[:emailLocalPartPrefixLength] + "***@" + parts[1]
 	}
 	return "***@" + parts[1]
 }

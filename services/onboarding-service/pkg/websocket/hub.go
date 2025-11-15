@@ -8,6 +8,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+const (
+	// defaultBroadcastBufferSize is the default buffer size for the broadcast channel
+	defaultBroadcastBufferSize = 256
+)
+
 // Hub manages WebSocket connections and broadcasts
 type Hub struct {
 	// Registered clients per job ID
@@ -48,7 +53,7 @@ func NewHub() *Hub {
 		clients:    make(map[string]map[*Client]bool),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
-		broadcast:  make(chan *Message, 256),
+		broadcast:  make(chan *Message, defaultBroadcastBufferSize),
 	}
 }
 

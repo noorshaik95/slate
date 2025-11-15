@@ -14,11 +14,19 @@ const (
 	// Time allowed to read the next pong message from the peer
 	pongWait = 60 * time.Second
 
+	// pingPeriodNumerator is the multiplier for calculating ping period
+	pingPeriodNumerator = 9
+	// pingPeriodDenominator is the divisor for calculating ping period
+	pingPeriodDenominator = 10
+
 	// Send pings to peer with this period. Must be less than pongWait
-	pingPeriod = (pongWait * 9) / 10
+	pingPeriod = (pongWait * pingPeriodNumerator) / pingPeriodDenominator
 
 	// Maximum message size allowed from peer
 	maxMessageSize = 512
+
+	// defaultSendBufferSize is the default buffer size for client send channel
+	defaultSendBufferSize = 256
 )
 
 // ReadPump pumps messages from the WebSocket connection to the hub
@@ -125,7 +133,7 @@ func NewClient(hub *Hub, conn *websocket.Conn, jobID, userID string) *Client {
 	return &Client{
 		hub:    hub,
 		conn:   conn,
-		send:   make(chan []byte, 256),
+		send:   make(chan []byte, defaultSendBufferSize),
 		jobID:  jobID,
 		userID: userID,
 	}
