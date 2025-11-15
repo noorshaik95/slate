@@ -169,6 +169,7 @@ func TestSubmissionService_SubmitAssignment(t *testing.T) {
 		mockAssignmentRepo.AssertExpectations(t)
 		mockStorage.AssertExpectations(t)
 		mockSubmissionRepo.AssertExpectations(t)
+		mockProducer.AssertExpectations(t)
 	})
 
 	t.Run("assignment not found", func(t *testing.T) {

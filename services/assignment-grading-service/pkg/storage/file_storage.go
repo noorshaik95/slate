@@ -149,9 +149,10 @@ func (s *LocalFileStorage) Exists(filePath string) (bool, error) {
 
 // sanitizeFilename removes unsafe characters from filename
 func sanitizeFilename(filename string) string {
-	// Remove path separators and null bytes
+	// Remove path separators, colons, and null bytes
 	filename = strings.ReplaceAll(filename, "/", "")
 	filename = strings.ReplaceAll(filename, "\\", "")
+	filename = strings.ReplaceAll(filename, ":", "")
 	filename = strings.ReplaceAll(filename, "\x00", "")
 
 	// Only allow alphanumeric, dash, underscore, and dot
