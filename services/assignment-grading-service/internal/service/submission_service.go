@@ -69,14 +69,18 @@ func (s *submissionService) SubmitAssignment(ctx context.Context, assignmentID, 
 	// Validate
 	if err := submission.Validate(); err != nil {
 		// Clean up file on validation error
-		s.storage.Delete(filePath)
+		if delErr := s.storage.Delete(filePath); delErr != nil {
+			fmt.Printf("Failed to delete file %s: %v\n", filePath, delErr)
+		}
 		return nil, fmt.Errorf("validation failed: %w", err)
 	}
 
 	// Create in repository (will replace existing submission if any)
 	if err := s.submissionRepo.Create(ctx, submission); err != nil {
 		// Clean up file on error
-		s.storage.Delete(filePath)
+		if delErr := s.storage.Delete(filePath); delErr != nil {
+			fmt.Printf("Failed to delete file %s: %v\n", filePath, delErr)
+		}
 		return nil, fmt.Errorf("failed to create submission: %w", err)
 	}
 

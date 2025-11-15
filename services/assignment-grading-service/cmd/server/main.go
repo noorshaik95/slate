@@ -76,6 +76,11 @@ func main() {
 	db, err := database.NewPostgresDB(cfg.Database.DSN())
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to connect to database")
+		if tp != nil {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			_ = tracing.Shutdown(shutdownCtx, tp)
+			cancel()
+		}
 		os.Exit(1)
 	}
 	defer db.Close()
@@ -101,8 +106,9 @@ func main() {
 	// Start metrics HTTP server
 	metricsAddr := fmt.Sprintf(":%d", cfg.Observability.MetricsPort)
 	metricsServer := &http.Server{
-		Addr:    metricsAddr,
-		Handler: promhttp.HandlerFor(registry, promhttp.HandlerOpts{Registry: registry}),
+		Addr:              metricsAddr,
+		Handler:           promhttp.HandlerFor(registry, promhttp.HandlerOpts{Registry: registry}),
+		ReadHeaderTimeout: 10 * time.Second,
 	}
 
 	go func() {
