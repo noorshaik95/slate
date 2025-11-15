@@ -1,13 +1,12 @@
+version: "2"
+
 run:
   timeout: 5m
   tests: false
   modules-download-mode: readonly
-  skip-dirs:
-    - vendor
 
 linters-settings:
   govet:
-    check-shadowing: true
     enable-all: true
 
   gocyclo:
@@ -46,13 +45,10 @@ linters:
   disable-all: true
   enable:
     - errcheck        # Check for unchecked errors
-    - gosimple        # Simplify code
     - govet           # Vet examines Go source code
     - ineffassign     # Detect ineffectual assignments
-    - staticcheck     # Static analysis
+    - staticcheck     # Static analysis (includes gosimple)
     - unused          # Check for unused constants, variables, functions and types
-    - gofmt           # Check if code is gofmt-ed
-    - goimports       # Check if imports are formatted
     - misspell        # Check for misspelled English words
     - goconst         # Find repeated strings that could be constants
     - gocyclo         # Check cyclomatic complexity
@@ -61,9 +57,12 @@ linters:
     - dupl            # Code clone detection
     - gocritic        # Comprehensive Go linter
     - prealloc        # Find slice declarations that could potentially be pre-allocated
-    - revive          # Fast, configurable, extensible, flexible linter
+    - revive          # Fast, configurable, extensive, flexible linter
+    - predeclared     # Find code that shadows predeclared identifiers
 
 issues:
+  exclude-dirs:
+    - vendor
   exclude-rules:
     # Exclude some linters from running on tests files
     - path: _test\.go
@@ -87,8 +86,3 @@ issues:
 
   max-issues-per-linter: 50
   max-same-issues: 3
-
-output:
-  format: colored-line-number
-  print-issued-lines: true
-  print-linter-name: true
