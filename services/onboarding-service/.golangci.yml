@@ -67,7 +67,6 @@ linters:
     - noctx
     - nolintlint
     - revive
-    - shadow
     - staticcheck
     - stylecheck
     - unconvert
