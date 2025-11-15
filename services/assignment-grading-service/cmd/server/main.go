@@ -115,8 +115,8 @@ func main() {
 
 	go func() {
 		log.Info().Str("address", metricsAddr).Msg("Starting metrics HTTP server")
-		if err := metricsServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Error().Err(err).Msg("Metrics server failed")
+		if serverErr := metricsServer.ListenAndServe(); serverErr != nil && serverErr != http.ErrServerClosed {
+			log.Error().Err(serverErr).Msg("Metrics server failed")
 		}
 	}()
 
