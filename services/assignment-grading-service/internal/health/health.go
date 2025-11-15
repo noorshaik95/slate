@@ -22,7 +22,7 @@ func NewHealthChecker(db *sql.DB) *HealthChecker {
 }
 
 // Check performs a health check
-func (h *HealthChecker) Check(ctx context.Context, req *grpc_health_v1.HealthCheckRequest) (*grpc_health_v1.HealthCheckResponse, error) {
+func (h *HealthChecker) Check(ctx context.Context, _ *grpc_health_v1.HealthCheckRequest) (*grpc_health_v1.HealthCheckResponse, error) {
 	// Create a context with 2-second timeout for health check
 	checkCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
@@ -40,7 +40,7 @@ func (h *HealthChecker) Check(ctx context.Context, req *grpc_health_v1.HealthChe
 }
 
 // Watch performs a streaming health check
-func (h *HealthChecker) Watch(req *grpc_health_v1.HealthCheckRequest, stream grpc_health_v1.Health_WatchServer) error {
+func (h *HealthChecker) Watch(_ *grpc_health_v1.HealthCheckRequest, stream grpc_health_v1.Health_WatchServer) error {
 	// Send initial status
 	ctx := stream.Context()
 

@@ -5,6 +5,10 @@ import (
 	"time"
 )
 
+const (
+	actionLogin = "login"
+)
+
 // MemoryRateLimiter implements rate limiting using in-memory storage
 // This is used as a fallback when Redis is unavailable
 type MemoryRateLimiter struct {
@@ -31,7 +35,7 @@ func NewMemoryRateLimiter(loginLimit, registerLimit RateLimit) *MemoryRateLimite
 
 // AllowLogin checks if a login attempt is allowed for the given client IP
 func (m *MemoryRateLimiter) AllowLogin(clientIP string) (bool, time.Duration, error) {
-	return m.checkLimit(clientIP, "login", m.loginLimit)
+	return m.checkLimit(clientIP, actionLogin, m.loginLimit)
 }
 
 // AllowRegister checks if a registration attempt is allowed for the given client IP
@@ -102,7 +106,7 @@ func (m *MemoryRateLimiter) Cleanup() int {
 		// Determine which limit applies based on key suffix
 		var window time.Duration
 		if len(state.attempts) > 0 {
-			if key[len(key)-5:] == "login" {
+			if key[len(key)-5:] == actionLogin {
 				window = m.loginLimit.Window
 			} else {
 				window = m.registerLimit.Window

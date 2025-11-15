@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	// Import PostgreSQL driver for database/sql
 	_ "github.com/lib/pq"
 )
 
