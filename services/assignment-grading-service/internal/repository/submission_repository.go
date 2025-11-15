@@ -11,6 +11,10 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	orderDesc = "DESC"
+)
+
 // SubmissionRepository defines the interface for submission data access
 type SubmissionRepository interface {
 	Create(ctx context.Context, submission *models.Submission) error
@@ -159,7 +163,7 @@ func (r *submissionRepository) ListByAssignment(ctx context.Context, assignmentI
 		sortBy = "submitted_at"
 	}
 	if order == "" {
-		order = "DESC"
+		order = orderDesc
 	}
 
 	// Prevent SQL injection by validating sortBy
@@ -173,8 +177,8 @@ func (r *submissionRepository) ListByAssignment(ctx context.Context, assignmentI
 	}
 
 	// Validate order
-	if order != "ASC" && order != "DESC" {
-		order = "DESC"
+	if order != "ASC" && order != orderDesc {
+		order = orderDesc
 	}
 
 	// #nosec G201 - sortBy and order are validated against allowlists above

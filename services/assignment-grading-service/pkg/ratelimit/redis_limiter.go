@@ -114,7 +114,7 @@ func (r *RedisRateLimiter) checkRateLimit(clientIP, operation string, limit Rate
 
 // Cleanup removes expired entries (Redis handles this automatically with EXPIRE)
 // This method is provided for interface compatibility
-func (r *RedisRateLimiter) Cleanup(ctx context.Context) error {
+func (r *RedisRateLimiter) Cleanup(_ context.Context) error {
 	// Redis automatically removes expired keys, so this is a no-op
 	// We could add metrics collection here if needed
 	return nil

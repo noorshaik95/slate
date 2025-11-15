@@ -144,13 +144,13 @@ func (s *gradingService) PublishGrade(ctx context.Context, id string) (*models.G
 	}
 
 	// Publish grade
-	if err := grade.Publish(); err != nil {
-		return nil, fmt.Errorf("failed to publish grade: %w", err)
+	if publishErr := grade.Publish(); publishErr != nil {
+		return nil, fmt.Errorf("failed to publish grade: %w", publishErr)
 	}
 
 	// Update in repository
-	if err := s.gradeRepo.Update(ctx, grade); err != nil {
-		return nil, fmt.Errorf("failed to update grade: %w", err)
+	if updateErr := s.gradeRepo.Update(ctx, grade); updateErr != nil {
+		return nil, fmt.Errorf("failed to update grade: %w", updateErr)
 	}
 
 	// Update submission status

@@ -10,6 +10,11 @@ import (
 	"github.com/rs/zerolog"
 )
 
+const (
+	levelInfo     = "info"
+	redactedValue = "***REDACTED***"
+)
+
 // Logger wraps zerolog for structured logging
 type Logger struct {
 	logger zerolog.Logger
@@ -53,7 +58,7 @@ func parseLogLevel(level string) zerolog.Level {
 	switch strings.ToLower(level) {
 	case "debug":
 		return zerolog.DebugLevel
-	case "info":
+	case levelInfo:
 		return zerolog.InfoLevel
 	case "warn", "warning":
 		return zerolog.WarnLevel
@@ -117,7 +122,7 @@ func (l *Logger) RedactPassword(password string) string {
 	if password == "" {
 		return ""
 	}
-	return "***REDACTED***"
+	return redactedValue
 }
 
 // RedactToken redacts sensitive token data for logging
@@ -127,9 +132,9 @@ func (l *Logger) RedactToken(token string) string {
 	}
 	// Show first 8 characters for debugging, redact the rest
 	if len(token) > 8 {
-		return token[:8] + "***REDACTED***"
+		return token[:8] + redactedValue
 	}
-	return "***REDACTED***"
+	return redactedValue
 }
 
 // RedactEmail partially redacts email for logging (keeps domain for debugging)
@@ -141,7 +146,7 @@ func (l *Logger) RedactEmail(email string) string {
 	// Split email at @
 	parts := strings.Split(email, "@")
 	if len(parts) != 2 {
-		return "***REDACTED***"
+		return redactedValue
 	}
 
 	// Show first 2 characters of local part, keep domain

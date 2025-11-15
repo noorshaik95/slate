@@ -66,8 +66,8 @@ func main() {
 		defer func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			if err := tracing.Shutdown(ctx, tp); err != nil {
-				log.Error().Err(err).Msg("Failed to shutdown tracer provider")
+			if shutdownErr := tracing.Shutdown(ctx, tp); shutdownErr != nil {
+				log.Error().Err(shutdownErr).Msg("Failed to shutdown tracer provider")
 			}
 		}()
 	}
@@ -91,12 +91,12 @@ func main() {
 
 	// Run migrations
 	migrationsPath := filepath.Join(".", "migrations")
-	if _, err := os.Stat(migrationsPath); os.IsNotExist(err) {
+	if _, statErr := os.Stat(migrationsPath); os.IsNotExist(statErr) {
 		migrationsPath = "/app/migrations"
 	}
 
-	if err := migrations.RunMigrations(db.DB, migrationsPath); err != nil {
-		log.Error().Err(err).Msg("Failed to run migrations")
+	if migrationErr := migrations.RunMigrations(db.DB, migrationsPath); migrationErr != nil {
+		log.Error().Err(migrationErr).Msg("Failed to run migrations")
 		os.Exit(1)
 	}
 
