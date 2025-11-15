@@ -29,28 +29,28 @@ type Job struct {
 
 // Task represents an individual user onboarding task
 type Task struct {
-	ID               string         `json:"id"`
-	JobID            string         `json:"job_id"`
-	TenantID         string         `json:"tenant_id"`
-	Email            string         `json:"email"`
-	FirstName        string         `json:"first_name"`
-	LastName         string         `json:"last_name"`
-	Role             string         `json:"role"`
-	StudentID        string         `json:"student_id,omitempty"`
-	Department       string         `json:"department,omitempty"`
-	CourseCodes      []string       `json:"course_codes,omitempty"`
-	GraduationYear   sql.NullInt32  `json:"graduation_year,omitempty"`
-	Phone            string         `json:"phone,omitempty"`
-	PreferredLang    string         `json:"preferred_language"`
-	CustomFields     sql.NullString `json:"custom_fields,omitempty"`
-	Status           string         `json:"status"`
-	UserID           sql.NullString `json:"user_id,omitempty"`
-	RetryCount       int            `json:"retry_count"`
-	ErrorMessage     sql.NullString `json:"error_message,omitempty"`
-	ErrorDetails     sql.NullString `json:"error_details,omitempty"`
-	CreatedAt        time.Time      `json:"created_at"`
-	UpdatedAt        time.Time      `json:"updated_at"`
-	ProcessedAt      sql.NullTime   `json:"processed_at,omitempty"`
+	ID             string         `json:"id"`
+	JobID          string         `json:"job_id"`
+	TenantID       string         `json:"tenant_id"`
+	Email          string         `json:"email"`
+	FirstName      string         `json:"first_name"`
+	LastName       string         `json:"last_name"`
+	Role           string         `json:"role"`
+	StudentID      string         `json:"student_id,omitempty"`
+	Department     string         `json:"department,omitempty"`
+	CourseCodes    []string       `json:"course_codes,omitempty"`
+	GraduationYear sql.NullInt32  `json:"graduation_year,omitempty"`
+	Phone          string         `json:"phone,omitempty"`
+	PreferredLang  string         `json:"preferred_language"`
+	CustomFields   sql.NullString `json:"custom_fields,omitempty"`
+	Status         string         `json:"status"`
+	UserID         sql.NullString `json:"user_id,omitempty"`
+	RetryCount     int            `json:"retry_count"`
+	ErrorMessage   sql.NullString `json:"error_message,omitempty"`
+	ErrorDetails   sql.NullString `json:"error_details,omitempty"`
+	CreatedAt      time.Time      `json:"created_at"`
+	UpdatedAt      time.Time      `json:"updated_at"`
+	ProcessedAt    sql.NullTime   `json:"processed_at,omitempty"`
 }
 
 // IntegrationConfig represents configuration for external integrations
@@ -140,17 +140,17 @@ type AuditEventMessage struct {
 
 // UserDataPayload represents user data for onboarding
 type UserDataPayload struct {
-	Email            string            `json:"email"`
-	FirstName        string            `json:"first_name"`
-	LastName         string            `json:"last_name"`
-	Role             string            `json:"role"`
-	StudentID        string            `json:"student_id,omitempty"`
-	Department       string            `json:"department,omitempty"`
-	CourseCodes      []string          `json:"course_codes,omitempty"`
-	GraduationYear   int               `json:"graduation_year,omitempty"`
-	Phone            string            `json:"phone,omitempty"`
-	PreferredLang    string            `json:"preferred_language,omitempty"`
-	CustomFields     map[string]string `json:"custom_fields,omitempty"`
+	Email          string            `json:"email"`
+	FirstName      string            `json:"first_name"`
+	LastName       string            `json:"last_name"`
+	Role           string            `json:"role"`
+	StudentID      string            `json:"student_id,omitempty"`
+	Department     string            `json:"department,omitempty"`
+	CourseCodes    []string          `json:"course_codes,omitempty"`
+	GraduationYear int               `json:"graduation_year,omitempty"`
+	Phone          string            `json:"phone,omitempty"`
+	PreferredLang  string            `json:"preferred_language,omitempty"`
+	CustomFields   map[string]string `json:"custom_fields,omitempty"`
 }
 
 // Helper methods
@@ -205,17 +205,17 @@ const (
 	RoleAdmin      = "admin"
 
 	// Event types
-	EventJobCreated      = "job_created"
-	EventJobStarted      = "job_started"
-	EventJobCompleted    = "job_completed"
-	EventJobFailed       = "job_failed"
-	EventJobCancelled    = "job_cancelled"
-	EventTaskProcessed   = "task_processed"
-	EventTaskCompleted   = "task_completed"
-	EventTaskFailed      = "task_failed"
-	EventTaskRetried     = "task_retried"
-	EventUserCreated     = "user_created"
-	EventRoleAssigned    = "role_assigned"
-	EventCourseEnrolled  = "course_enrolled"
-	EventEmailSent       = "email_sent"
+	EventJobCreated     = "job_created"
+	EventJobStarted     = "job_started"
+	EventJobCompleted   = "job_completed"
+	EventJobFailed      = "job_failed"
+	EventJobCancelled   = "job_cancelled"
+	EventTaskProcessed  = "task_processed"
+	EventTaskCompleted  = "task_completed"
+	EventTaskFailed     = "task_failed"
+	EventTaskRetried    = "task_retried"
+	EventUserCreated    = "user_created"
+	EventRoleAssigned   = "role_assigned"
+	EventCourseEnrolled = "course_enrolled"
+	EventEmailSent      = "email_sent"
 )

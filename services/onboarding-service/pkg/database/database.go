@@ -14,7 +14,11 @@ type DB struct {
 }
 
 // NewPostgresDB creates a new PostgreSQL database connection
-func NewPostgresDB(host, port, user, password, dbname, sslmode string, maxOpenConns, maxIdleConns int, connMaxLifetime, connMaxIdleTime time.Duration) (*DB, error) {
+func NewPostgresDB(
+	host, port, user, password, dbname, sslmode string,
+	maxOpenConns, maxIdleConns int,
+	connMaxLifetime, connMaxIdleTime time.Duration,
+) (*DB, error) {
 	// Build connection string
 	connStr := fmt.Sprintf(
 		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",

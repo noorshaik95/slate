@@ -36,10 +36,17 @@ var upgrader = websocket.Upgrader{
 }
 
 func main() {
+	if err := run(); err != nil {
+		log.Error().Err(err).Msg("Server failed")
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to load configuration")
+		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
 	// Initialize logger
@@ -55,11 +62,11 @@ func main() {
 		SamplingRate:   1.0,
 	})
 	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to initialize tracer")
+		return fmt.Errorf("failed to initialize tracer: %w", err)
 	}
 	defer func() {
-		if err := tracing.Shutdown(context.Background(), tp); err != nil {
-			log.Error().Err(err).Msg("Failed to shutdown tracer")
+		if shutdownErr := tracing.Shutdown(context.Background(), tp); shutdownErr != nil {
+			log.Error().Err(shutdownErr).Msg("Failed to shutdown tracer")
 		}
 	}()
 
@@ -80,13 +87,13 @@ func main() {
 		cfg.Database.ConnMaxIdleTime,
 	)
 	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to connect to database")
+		return fmt.Errorf("failed to connect to database: %w", err)
 	}
 	defer db.Close()
 
 	// Run migrations
 	if err := migrations.RunMigrations(db.DB); err != nil {
-		log.Fatal().Err(err).Msg("Failed to run database migrations")
+		return fmt.Errorf("failed to run database migrations: %w", err)
 	}
 
 	// Initialize repository
@@ -115,10 +122,18 @@ func main() {
 	<-sigChan
 
 	log.Info().Msg("Shutting down service...")
+	return nil
 }
 
-func startGRPCServer(cfg *config.Config, repo *repository.Repository, producer *kafka.Producer) {
-	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%s", cfg.Server.GRPCHost, cfg.Server.GRPCPort))
+func startGRPCServer(
+	cfg *config.Config,
+	repo *repository.Repository,
+	producer *kafka.Producer,
+) {
+	listener, err := net.Listen(
+		"tcp",
+		fmt.Sprintf("%s:%s", cfg.Server.GRPCHost, cfg.Server.GRPCPort),
+	)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to listen on gRPC port")
 	}
@@ -187,8 +202,8 @@ func startMetricsServer() {
 
 	log.Info().Str("port", "9090").Msg("Starting metrics server")
 
-	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Fatal().Err(err).Msg("Failed to start metrics server")
+	if serveErr := server.ListenAndServe(); serveErr != nil && serveErr != http.ErrServerClosed {
+		log.Fatal().Err(serveErr).Msg("Failed to start metrics server")
 	}
 }
 

@@ -14,10 +14,10 @@ func TestUserDataPayload_ToJSON(t *testing.T) {
 		{
 			name: "valid user data",
 			payload: UserDataPayload{
-				Email:     "john.doe@university.edu",
-				FirstName: "John",
-				LastName:  "Doe",
-				Role:      RoleStudent,
+				Email:       "john.doe@university.edu",
+				FirstName:   "John",
+				LastName:    "Doe",
+				Role:        RoleStudent,
 				CourseCodes: []string{"CS101", "CS102"},
 				CustomFields: map[string]string{
 					"student_id": "S12345",
@@ -99,8 +99,8 @@ func TestUserDataPayload_FromJSON(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "empty JSON object",
-			json: `{}`,
+			name:    "empty JSON object",
+			json:    `{}`,
 			wantErr: false,
 			check: func(t *testing.T, p *UserDataPayload) {
 				if p.Email != "" {

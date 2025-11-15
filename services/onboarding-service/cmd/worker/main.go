@@ -4,12 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"github.com/rs/zerolog/log"
+
 	"github.com/noorshaik95/slate/services/onboarding-service/internal/config"
 	"github.com/noorshaik95/slate/services/onboarding-service/internal/models"
 	"github.com/noorshaik95/slate/services/onboarding-service/internal/repository"
@@ -22,10 +24,17 @@ import (
 )
 
 func main() {
+	if err := run(); err != nil {
+		log.Error().Err(err).Msg("Worker failed")
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to load configuration")
+		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
 	// Initialize logger
@@ -41,11 +50,11 @@ func main() {
 		SamplingRate:   1.0,
 	})
 	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to initialize tracer")
+		return fmt.Errorf("failed to initialize tracer: %w", err)
 	}
 	defer func() {
-		if err := tracing.Shutdown(context.Background(), tp); err != nil {
-			log.Error().Err(err).Msg("Failed to shutdown tracer")
+		if shutdownErr := tracing.Shutdown(context.Background(), tp); shutdownErr != nil {
+			log.Error().Err(shutdownErr).Msg("Failed to shutdown tracer")
 		}
 	}()
 
@@ -66,13 +75,13 @@ func main() {
 		cfg.Database.ConnMaxIdleTime,
 	)
 	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to connect to database")
+		return fmt.Errorf("failed to connect to database: %w", err)
 	}
 	defer db.Close()
 
 	// Run migrations
 	if err := migrations.RunMigrations(db.DB); err != nil {
-		log.Fatal().Err(err).Msg("Failed to run database migrations")
+		return fmt.Errorf("failed to run database migrations: %w", err)
 	}
 
 	// Initialize repository
@@ -114,11 +123,12 @@ func main() {
 	log.Info().Msg("Worker started, waiting for tasks...")
 	if err := consumer.Consume(ctx, worker.HandleTask); err != nil {
 		if err != context.Canceled {
-			log.Fatal().Err(err).Msg("Consumer error")
+			return fmt.Errorf("consumer error: %w", err)
 		}
 	}
 
 	log.Info().Msg("Worker shut down gracefully")
+	return nil
 }
 
 // Worker processes onboarding tasks
@@ -262,10 +272,10 @@ func (w *Worker) onboardGenericUser(ctx context.Context, task *models.Task) (str
 
 func (w *Worker) createAuditLog(ctx context.Context, task *models.Task, userID string) {
 	eventData, _ := json.Marshal(map[string]interface{}{
-		"task_id":  task.ID,
-		"email":    task.Email,
-		"role":     task.Role,
-		"user_id":  userID,
+		"task_id": task.ID,
+		"email":   task.Email,
+		"role":    task.Role,
+		"user_id": userID,
 	})
 
 	auditLog := &models.AuditLog{

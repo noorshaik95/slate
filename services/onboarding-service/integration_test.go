@@ -27,12 +27,11 @@ func TestMain(m *testing.M) {
 		fmt.Printf("Failed to setup test database: %v\n", err)
 		os.Exit(1)
 	}
-	defer testDB.Close()
 
 	// Run tests
 	code := m.Run()
 
-	// Cleanup
+	// Cleanup - must happen before os.Exit
 	cleanupTestDatabase(testDB)
 
 	os.Exit(code)
@@ -186,16 +185,16 @@ func TestIntegration_TaskLifecycle(t *testing.T) {
 
 	// Create a task
 	task := &models.Task{
-		JobID:        job.ID,
-		TenantID:     job.TenantID,
-		Email:        "test@example.com",
-		FirstName:    "Test",
-		LastName:     "User",
-		Role:         models.RoleStudent,
-		Department:   "Computer Science",
-		CourseCodes:  []string{"CS101", "CS102"},
+		JobID:         job.ID,
+		TenantID:      job.TenantID,
+		Email:         "test@example.com",
+		FirstName:     "Test",
+		LastName:      "User",
+		Role:          models.RoleStudent,
+		Department:    "Computer Science",
+		CourseCodes:   []string{"CS101", "CS102"},
 		PreferredLang: "en",
-		Status:       models.TaskStatusPending,
+		Status:        models.TaskStatusPending,
 	}
 
 	err = repo.CreateTask(ctx, task)

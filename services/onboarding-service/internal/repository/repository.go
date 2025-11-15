@@ -113,7 +113,7 @@ func (r *Repository) ListJobs(ctx context.Context, tenantID, status string, page
 
 	// Get paginated results
 	query += " ORDER BY created_at DESC LIMIT $" + fmt.Sprintf("%d", len(args)+1) +
-	         " OFFSET $" + fmt.Sprintf("%d", len(args)+2)
+		" OFFSET $" + fmt.Sprintf("%d", len(args)+2)
 	args = append(args, pageSize, offset)
 
 	rows, err := r.db.QueryContext(ctx, query, args...)

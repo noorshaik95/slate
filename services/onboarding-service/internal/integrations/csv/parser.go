@@ -12,10 +12,10 @@ import (
 
 // ValidationError represents a CSV validation error
 type ValidationError struct {
-	Row    int
-	Field  string
-	Value  string
-	Error  string
+	Row   int
+	Field string
+	Value string
+	Error string
 }
 
 // ParseResult contains parsed tasks and any validation errors
