@@ -1,0 +1,380 @@
+syntax = "proto3";
+
+package course;
+
+option go_package = "slate/services/course-service/api/proto";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+// Course Management Service
+service CourseService {
+  // Course CRUD
+  rpc CreateCourse(CreateCourseRequest) returns (CourseResponse);
+  rpc GetCourse(GetCourseRequest) returns (CourseResponse);
+  rpc UpdateCourse(UpdateCourseRequest) returns (CourseResponse);
+  rpc DeleteCourse(DeleteCourseRequest) returns (google.protobuf.Empty);
+  rpc ListCourses(ListCoursesRequest) returns (ListCoursesResponse);
+
+  // Course Publishing
+  rpc PublishCourse(PublishCourseRequest) returns (CourseResponse);
+  rpc UnpublishCourse(UnpublishCourseRequest) returns (CourseResponse);
+
+  // Enrollment Management
+  rpc SelfEnroll(SelfEnrollRequest) returns (EnrollmentResponse);
+  rpc InstructorAddStudent(InstructorAddStudentRequest) returns (EnrollmentResponse);
+  rpc RemoveEnrollment(RemoveEnrollmentRequest) returns (google.protobuf.Empty);
+  rpc GetCourseRoster(GetCourseRosterRequest) returns (CourseRosterResponse);
+  rpc GetStudentEnrollments(GetStudentEnrollmentsRequest) returns (StudentEnrollmentsResponse);
+
+  // Course Templates
+  rpc CreateCourseTemplate(CreateCourseTemplateRequest) returns (CourseTemplateResponse);
+  rpc GetCourseTemplate(GetCourseTemplateRequest) returns (CourseTemplateResponse);
+  rpc ListCourseTemplates(ListCourseTemplatesRequest) returns (ListCourseTemplatesResponse);
+  rpc CreateCourseFromTemplate(CreateCourseFromTemplateRequest) returns (CourseResponse);
+
+  // Prerequisites
+  rpc AddPrerequisite(AddPrerequisiteRequest) returns (CourseResponse);
+  rpc RemovePrerequisite(RemovePrerequisiteRequest) returns (CourseResponse);
+  rpc CheckPrerequisites(CheckPrerequisitesRequest) returns (CheckPrerequisitesResponse);
+
+  // Co-teaching
+  rpc AddCoInstructor(AddCoInstructorRequest) returns (CourseResponse);
+  rpc RemoveCoInstructor(RemoveCoInstructorRequest) returns (CourseResponse);
+
+  // Course Sections
+  rpc CreateSection(CreateSectionRequest) returns (SectionResponse);
+  rpc GetSection(GetSectionRequest) returns (SectionResponse);
+  rpc UpdateSection(UpdateSectionRequest) returns (SectionResponse);
+  rpc DeleteSection(DeleteSectionRequest) returns (google.protobuf.Empty);
+  rpc ListCourseSections(ListCourseSectionsRequest) returns (ListSectionsResponse);
+
+  // Cross-listing
+  rpc CrossListCourses(CrossListCoursesRequest) returns (CrossListingResponse);
+  rpc RemoveCrossListing(RemoveCrossListingRequest) returns (google.protobuf.Empty);
+  rpc GetCrossListedCourses(GetCrossListedCoursesRequest) returns (CrossListedCoursesResponse);
+}
+
+// Core Models
+
+message Course {
+  string id = 1;
+  string title = 2;
+  string description = 3;
+  string term = 4;
+  string syllabus = 5;
+  string instructor_id = 6;
+  repeated string co_instructor_ids = 7;
+  bool is_published = 8;
+  repeated string prerequisite_course_ids = 9;
+  string template_id = 10;
+  string cross_listing_group_id = 11;
+  google.protobuf.Timestamp created_at = 12;
+  google.protobuf.Timestamp updated_at = 13;
+  CourseMetadata metadata = 14;
+}
+
+message CourseMetadata {
+  int32 max_students = 1;
+  string department = 2;
+  string course_code = 3;
+  int32 credits = 4;
+  repeated string tags = 5;
+}
+
+message Enrollment {
+  string id = 1;
+  string course_id = 2;
+  string student_id = 3;
+  EnrollmentType enrollment_type = 4;
+  EnrollmentStatus status = 5;
+  string enrolled_by = 6; // user_id who enrolled the student
+  google.protobuf.Timestamp enrolled_at = 7;
+  string section_id = 8;
+}
+
+enum EnrollmentType {
+  ENROLLMENT_TYPE_UNSPECIFIED = 0;
+  ENROLLMENT_TYPE_SELF = 1;
+  ENROLLMENT_TYPE_INSTRUCTOR = 2;
+  ENROLLMENT_TYPE_ADMIN = 3;
+}
+
+enum EnrollmentStatus {
+  ENROLLMENT_STATUS_UNSPECIFIED = 0;
+  ENROLLMENT_STATUS_ACTIVE = 1;
+  ENROLLMENT_STATUS_DROPPED = 2;
+  ENROLLMENT_STATUS_COMPLETED = 3;
+  ENROLLMENT_STATUS_WAITLISTED = 4;
+}
+
+message CourseTemplate {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string syllabus_template = 4;
+  string created_by = 5;
+  google.protobuf.Timestamp created_at = 6;
+  CourseMetadata default_metadata = 7;
+}
+
+message Section {
+  string id = 1;
+  string course_id = 2;
+  string section_number = 3;
+  string instructor_id = 4;
+  Schedule schedule = 5;
+  string location = 6;
+  int32 max_students = 7;
+  int32 enrolled_count = 8;
+  google.protobuf.Timestamp created_at = 9;
+}
+
+message Schedule {
+  repeated string days_of_week = 1; // e.g., ["MON", "WED", "FRI"]
+  string start_time = 2; // e.g., "09:00"
+  string end_time = 3; // e.g., "10:30"
+}
+
+message CrossListing {
+  string id = 1;
+  string group_id = 2;
+  repeated string course_ids = 3;
+  string created_by = 4;
+  google.protobuf.Timestamp created_at = 5;
+}
+
+// Request/Response Messages
+
+// Course CRUD
+message CreateCourseRequest {
+  string title = 1;
+  string description = 2;
+  string term = 3;
+  string syllabus = 4;
+  string instructor_id = 5;
+  CourseMetadata metadata = 6;
+}
+
+message GetCourseRequest {
+  string course_id = 1;
+}
+
+message UpdateCourseRequest {
+  string course_id = 1;
+  optional string title = 2;
+  optional string description = 3;
+  optional string term = 4;
+  optional string syllabus = 5;
+  optional CourseMetadata metadata = 6;
+}
+
+message DeleteCourseRequest {
+  string course_id = 1;
+}
+
+message ListCoursesRequest {
+  optional string instructor_id = 1;
+  optional string term = 2;
+  optional bool is_published = 3;
+  int32 page = 4;
+  int32 page_size = 5;
+}
+
+message ListCoursesResponse {
+  repeated Course courses = 1;
+  int32 total_count = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message CourseResponse {
+  Course course = 1;
+}
+
+// Publishing
+message PublishCourseRequest {
+  string course_id = 1;
+}
+
+message UnpublishCourseRequest {
+  string course_id = 1;
+}
+
+// Enrollment
+message SelfEnrollRequest {
+  string course_id = 1;
+  string student_id = 2;
+  optional string section_id = 3;
+}
+
+message InstructorAddStudentRequest {
+  string course_id = 1;
+  string student_id = 2;
+  string instructor_id = 3;
+  optional string section_id = 4;
+}
+
+message RemoveEnrollmentRequest {
+  string enrollment_id = 1;
+}
+
+message GetCourseRosterRequest {
+  string course_id = 1;
+  optional string section_id = 2;
+  optional EnrollmentStatus status = 3;
+}
+
+message CourseRosterResponse {
+  repeated Enrollment enrollments = 1;
+  int32 total_count = 2;
+}
+
+message GetStudentEnrollmentsRequest {
+  string student_id = 1;
+  optional string term = 2;
+  optional EnrollmentStatus status = 3;
+}
+
+message StudentEnrollmentsResponse {
+  repeated EnrollmentWithCourse enrollments = 1;
+}
+
+message EnrollmentWithCourse {
+  Enrollment enrollment = 1;
+  Course course = 2;
+}
+
+message EnrollmentResponse {
+  Enrollment enrollment = 1;
+}
+
+// Templates
+message CreateCourseTemplateRequest {
+  string name = 1;
+  string description = 2;
+  string syllabus_template = 3;
+  string created_by = 4;
+  CourseMetadata default_metadata = 5;
+}
+
+message GetCourseTemplateRequest {
+  string template_id = 1;
+}
+
+message ListCourseTemplatesRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+}
+
+message ListCourseTemplatesResponse {
+  repeated CourseTemplate templates = 1;
+  int32 total_count = 2;
+}
+
+message CreateCourseFromTemplateRequest {
+  string template_id = 1;
+  string title = 2;
+  string term = 3;
+  string instructor_id = 4;
+  optional string description = 5;
+}
+
+message CourseTemplateResponse {
+  CourseTemplate template = 1;
+}
+
+// Prerequisites
+message AddPrerequisiteRequest {
+  string course_id = 1;
+  string prerequisite_course_id = 2;
+}
+
+message RemovePrerequisiteRequest {
+  string course_id = 1;
+  string prerequisite_course_id = 2;
+}
+
+message CheckPrerequisitesRequest {
+  string course_id = 1;
+  string student_id = 2;
+}
+
+message CheckPrerequisitesResponse {
+  bool has_prerequisites = 1;
+  repeated string missing_prerequisite_ids = 2;
+  repeated Course missing_prerequisites = 3;
+}
+
+// Co-teaching
+message AddCoInstructorRequest {
+  string course_id = 1;
+  string co_instructor_id = 2;
+}
+
+message RemoveCoInstructorRequest {
+  string course_id = 1;
+  string co_instructor_id = 2;
+}
+
+// Sections
+message CreateSectionRequest {
+  string course_id = 1;
+  string section_number = 2;
+  string instructor_id = 3;
+  Schedule schedule = 4;
+  string location = 5;
+  int32 max_students = 6;
+}
+
+message GetSectionRequest {
+  string section_id = 1;
+}
+
+message UpdateSectionRequest {
+  string section_id = 1;
+  optional string section_number = 2;
+  optional string instructor_id = 3;
+  optional Schedule schedule = 4;
+  optional string location = 5;
+  optional int32 max_students = 6;
+}
+
+message DeleteSectionRequest {
+  string section_id = 1;
+}
+
+message ListCourseSectionsRequest {
+  string course_id = 1;
+}
+
+message ListSectionsResponse {
+  repeated Section sections = 1;
+}
+
+message SectionResponse {
+  Section section = 1;
+}
+
+// Cross-listing
+message CrossListCoursesRequest {
+  repeated string course_ids = 1;
+  string created_by = 2;
+}
+
+message RemoveCrossListingRequest {
+  string group_id = 1;
+}
+
+message GetCrossListedCoursesRequest {
+  string course_id = 1;
+}
+
+message CrossListedCoursesResponse {
+  repeated Course courses = 1;
+  string group_id = 2;
+}
+
+message CrossListingResponse {
+  CrossListing cross_listing = 1;
+}
