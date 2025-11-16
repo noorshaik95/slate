@@ -1,5 +1,6 @@
 # Rust
 services/api-gateway/target/
+services/content-management-service/target/
 /target/
 Cargo.lock
 

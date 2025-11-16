@@ -6,11 +6,12 @@ import (
 	"net"
 
 	pb "slate/services/user-auth-service/api/proto"
+	"slate/services/user-auth-service/internal/auth"
 	"slate/services/user-auth-service/internal/models"
 	"slate/services/user-auth-service/internal/service"
+	"slate/services/user-auth-service/pkg/logger"
 	"slate/services/user-auth-service/pkg/ratelimit"
 
-	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
@@ -21,14 +22,18 @@ import (
 
 type UserServiceServer struct {
 	pb.UnimplementedUserServiceServer
-	userService *service.UserService
-	rateLimiter ratelimit.RateLimiter
+	userService     *service.UserService
+	strategyManager *auth.StrategyManager
+	rateLimiter     ratelimit.RateLimiter
+	log             *logger.Logger
 }
 
-func NewUserServiceServer(userService *service.UserService, rateLimiter ratelimit.RateLimiter) *UserServiceServer {
+func NewUserServiceServer(userService *service.UserService, strategyManager *auth.StrategyManager, rateLimiter ratelimit.RateLimiter) *UserServiceServer {
 	return &UserServiceServer{
-		userService: userService,
-		rateLimiter: rateLimiter,
+		userService:     userService,
+		strategyManager: strategyManager,
+		rateLimiter:     rateLimiter,
+		log:             logger.NewLogger("info"),
 	}
 }
 
@@ -71,7 +76,7 @@ func (s *UserServiceServer) Login(ctx context.Context, req *pb.LoginRequest) (*p
 		allowed, retryAfter, err := s.rateLimiter.AllowLogin(clientIP)
 		if err != nil {
 			// Log error but don't fail the request (fail-open design for availability)
-			log.Error().Err(err).Str("client_ip", clientIP).Msg("Rate limiter error during login")
+			s.log.ErrorWithContext(ctx).Err(err).Str("client_ip", clientIP).Msg("Rate limiter error during login")
 		} else if !allowed {
 			// Security: Return RESOURCE_EXHAUSTED status to indicate rate limit exceeded.
 			// Retry-after duration is included in the error message to inform clients when they can retry.
@@ -106,7 +111,7 @@ func (s *UserServiceServer) Register(ctx context.Context, req *pb.RegisterReques
 		allowed, retryAfter, err := s.rateLimiter.AllowRegister(clientIP)
 		if err != nil {
 			// Log error but don't fail the request (fail-open design for availability)
-			log.Error().Err(err).Str("client_ip", clientIP).Msg("Rate limiter error during registration")
+			s.log.ErrorWithContext(ctx).Err(err).Str("client_ip", clientIP).Msg("Rate limiter error during registration")
 		} else if !allowed {
 			// Security: Return RESOURCE_EXHAUSTED status to indicate rate limit exceeded.
 			// Retry-after duration is included in the error message to inform clients when they can retry.
@@ -403,4 +408,337 @@ func userToProto(user *models.User) *pb.User {
 		CreatedAt: timestamppb.New(user.CreatedAt),
 		UpdatedAt: timestamppb.New(user.UpdatedAt),
 	}
+}
+
+// GetOAuthAuthorizationURL initiates OAuth authentication flow
+// Security: Rate limited to prevent abuse (5 requests per 15 minutes per IP)
+func (s *UserServiceServer) GetOAuthAuthorizationURL(ctx context.Context, req *pb.OAuthAuthRequest) (*pb.OAuthAuthResponse, error) {
+	// Security: Check rate limit before processing OAuth request to prevent abuse
+	if s.rateLimiter != nil {
+		clientIP := getClientIP(ctx)
+		allowed, retryAfter, err := s.rateLimiter.AllowLogin(clientIP) // Reuse login rate limit (5 per 15 min)
+		if err != nil {
+			s.log.ErrorWithContext(ctx).Err(err).Str("client_ip", clientIP).Msg("Rate limiter error during OAuth authorization")
+		} else if !allowed {
+			msg := fmt.Sprintf("too many OAuth requests, please try again in %d seconds", int(retryAfter.Seconds()))
+			return nil, status.Error(codes.ResourceExhausted, msg)
+		}
+	}
+
+	// Validate provider is specified
+	if req.Provider == "" {
+		return nil, status.Error(codes.InvalidArgument, "provider is required")
+	}
+
+	// Get OAuth strategy from strategy manager
+	strategy, err := s.strategyManager.GetStrategy(auth.AuthTypeOAuth)
+	if err != nil {
+		s.log.ErrorWithContext(ctx).Err(err).Str("provider", req.Provider).Msg("OAuth strategy not found")
+		return nil, status.Error(codes.Unimplemented, "OAuth authentication is not configured")
+	}
+
+	// Create authentication request
+	authReq := &auth.AuthRequest{
+		Provider: req.Provider,
+	}
+
+	// Initiate OAuth flow
+	result, err := strategy.Authenticate(ctx, authReq)
+	if err != nil {
+		s.log.ErrorWithContext(ctx).Err(err).Str("provider", req.Provider).Msg("Failed to generate OAuth authorization URL")
+		return nil, status.Errorf(codes.Internal, "failed to initiate OAuth flow: %v", err)
+	}
+
+	// Log OAuth authorization URL generation
+	clientIP := getClientIP(ctx)
+	s.log.WithContext(ctx).
+		Str("provider", req.Provider).
+		Str("client_ip", clientIP).
+		Str("state", result.State).
+		Msg("OAuth authorization URL generated")
+
+	return &pb.OAuthAuthResponse{
+		AuthorizationUrl: result.AuthorizationURL,
+		State:            result.State,
+	}, nil
+}
+
+// HandleOAuthCallback processes OAuth callback and completes authentication
+// Security: Rate limited to prevent abuse (10 requests per 15 minutes per IP)
+func (s *UserServiceServer) HandleOAuthCallback(ctx context.Context, req *pb.OAuthCallbackRequest) (*pb.LoginResponse, error) {
+	// Security: Check rate limit before processing callback
+	if s.rateLimiter != nil {
+		clientIP := getClientIP(ctx)
+		// Use a slightly higher limit for callbacks (10 per 15 min) since they're part of legitimate OAuth flows
+		allowed, retryAfter, err := s.rateLimiter.AllowLogin(clientIP)
+		if err != nil {
+			s.log.ErrorWithContext(ctx).Err(err).Str("client_ip", clientIP).Msg("Rate limiter error during OAuth callback")
+		} else if !allowed {
+			msg := fmt.Sprintf("too many OAuth callback requests, please try again in %d seconds", int(retryAfter.Seconds()))
+			return nil, status.Error(codes.ResourceExhausted, msg)
+		}
+	}
+
+	// Validate required parameters
+	if req.Code == "" {
+		return nil, status.Error(codes.InvalidArgument, "authorization code is required")
+	}
+	if req.State == "" {
+		return nil, status.Error(codes.InvalidArgument, "state parameter is required")
+	}
+
+	// Get OAuth strategy from strategy manager
+	strategy, err := s.strategyManager.GetStrategy(auth.AuthTypeOAuth)
+	if err != nil {
+		s.log.ErrorWithContext(ctx).Err(err).Msg("OAuth strategy not found")
+		return nil, status.Error(codes.Unimplemented, "OAuth authentication is not configured")
+	}
+
+	// Create callback request
+	callbackReq := &auth.CallbackRequest{
+		Code:  req.Code,
+		State: req.State,
+	}
+
+	// Process OAuth callback
+	result, err := strategy.HandleCallback(ctx, callbackReq)
+	if err != nil {
+		// Map errors to appropriate gRPC status codes
+		errMsg := err.Error()
+
+		// CSRF/state validation errors
+		if contains(errMsg, "invalid state") || contains(errMsg, "state") {
+			s.log.WarnWithContext(ctx).Err(err).Msg("Invalid OAuth state parameter")
+			return nil, status.Error(codes.InvalidArgument, "invalid state parameter")
+		}
+
+		// User/organization access errors
+		if contains(errMsg, "user account is disabled") {
+			s.log.WarnWithContext(ctx).Err(err).Msg("User account is disabled")
+			return nil, status.Error(codes.PermissionDenied, "user account is disabled")
+		}
+		if contains(errMsg, "organization is disabled") {
+			s.log.WarnWithContext(ctx).Err(err).Msg("Organization is disabled")
+			return nil, status.Error(codes.PermissionDenied, "organization is disabled")
+		}
+
+		// Generic error
+		s.log.ErrorWithContext(ctx).Err(err).Str("provider", req.Provider).Msg("OAuth callback processing failed")
+		return nil, status.Errorf(codes.Internal, "OAuth authentication failed: %v", err)
+	}
+
+	// Log successful OAuth callback
+	clientIP := getClientIP(ctx)
+	s.log.WithContext(ctx).
+		Str("user_id", result.User.ID).
+		Str("provider", req.Provider).
+		Str("client_ip", clientIP).
+		Msg("OAuth authentication successful")
+
+	return &pb.LoginResponse{
+		AccessToken:  result.Tokens.AccessToken,
+		RefreshToken: result.Tokens.RefreshToken,
+		User:         userToProto(result.User),
+		ExpiresIn:    result.Tokens.ExpiresIn,
+	}, nil
+}
+
+// Helper function to check if string contains substring
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && findSubstring(s, substr))
+}
+
+func findSubstring(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
+
+// GetSAMLAuthRequest initiates SAML authentication flow
+// Security: Rate limited to prevent abuse (5 requests per 15 minutes per IP)
+func (s *UserServiceServer) GetSAMLAuthRequest(ctx context.Context, req *pb.SAMLAuthRequest) (*pb.SAMLAuthResponse, error) {
+	// Security: Check rate limit before processing SAML request
+	if s.rateLimiter != nil {
+		clientIP := getClientIP(ctx)
+		allowed, retryAfter, err := s.rateLimiter.AllowLogin(clientIP) // Reuse login rate limit (5 per 15 min)
+		if err != nil {
+			s.log.ErrorWithContext(ctx).Err(err).Str("client_ip", clientIP).Msg("Rate limiter error during SAML request")
+		} else if !allowed {
+			msg := fmt.Sprintf("too many SAML requests, please try again in %d seconds", int(retryAfter.Seconds()))
+			return nil, status.Error(codes.ResourceExhausted, msg)
+		}
+	}
+
+	// Validate organization ID is specified
+	if req.OrganizationId == "" {
+		return nil, status.Error(codes.InvalidArgument, "organization_id is required")
+	}
+
+	// Get SAML strategy from strategy manager
+	strategy, err := s.strategyManager.GetStrategy(auth.AuthTypeSAML)
+	if err != nil {
+		s.log.ErrorWithContext(ctx).Err(err).Str("organization_id", req.OrganizationId).Msg("SAML strategy not found")
+		return nil, status.Error(codes.Unimplemented, "SAML authentication is not configured")
+	}
+
+	// Create authentication request
+	authReq := &auth.AuthRequest{
+		OrganizationID: req.OrganizationId,
+	}
+
+	// Initiate SAML flow
+	result, err := strategy.Authenticate(ctx, authReq)
+	if err != nil {
+		errMsg := err.Error()
+
+		// Check if SAML is not configured for this organization
+		if contains(errMsg, "not configured") || contains(errMsg, "config not found") {
+			s.log.WarnWithContext(ctx).Err(err).Str("organization_id", req.OrganizationId).Msg("SAML not configured for organization")
+			return nil, status.Error(codes.NotFound, "SAML not configured for this organization")
+		}
+
+		s.log.ErrorWithContext(ctx).Err(err).Str("organization_id", req.OrganizationId).Msg("Failed to generate SAML request")
+		return nil, status.Errorf(codes.Internal, "failed to initiate SAML flow: %v", err)
+	}
+
+	// Log SAML request generation
+	clientIP := getClientIP(ctx)
+	s.log.WithContext(ctx).
+		Str("organization_id", req.OrganizationId).
+		Str("client_ip", clientIP).
+		Msg("SAML authentication request generated")
+
+	return &pb.SAMLAuthResponse{
+		SamlRequest: result.SAMLRequest,
+		SsoUrl:      result.SSOURL,
+	}, nil
+}
+
+// HandleSAMLAssertion processes SAML assertion and completes authentication
+// Security: Rate limited to prevent abuse (10 requests per 15 minutes per IP)
+func (s *UserServiceServer) HandleSAMLAssertion(ctx context.Context, req *pb.SAMLAssertionRequest) (*pb.LoginResponse, error) {
+	// Security: Check rate limit before processing assertion
+	if s.rateLimiter != nil {
+		clientIP := getClientIP(ctx)
+		// Use a slightly higher limit for assertions (10 per 15 min) since they're part of legitimate SAML flows
+		allowed, retryAfter, err := s.rateLimiter.AllowLogin(clientIP)
+		if err != nil {
+			s.log.ErrorWithContext(ctx).Err(err).Str("client_ip", clientIP).Msg("Rate limiter error during SAML assertion")
+		} else if !allowed {
+			msg := fmt.Sprintf("too many SAML assertion requests, please try again in %d seconds", int(retryAfter.Seconds()))
+			return nil, status.Error(codes.ResourceExhausted, msg)
+		}
+	}
+
+	// Validate SAML response is provided
+	if req.SamlResponse == "" {
+		return nil, status.Error(codes.InvalidArgument, "saml_response is required")
+	}
+
+	// Get SAML strategy from strategy manager
+	strategy, err := s.strategyManager.GetStrategy(auth.AuthTypeSAML)
+	if err != nil {
+		s.log.ErrorWithContext(ctx).Err(err).Msg("SAML strategy not found")
+		return nil, status.Error(codes.Unimplemented, "SAML authentication is not configured")
+	}
+
+	// Create callback request
+	callbackReq := &auth.CallbackRequest{
+		SAMLResponse: req.SamlResponse,
+	}
+
+	// Process SAML assertion
+	result, err := strategy.HandleCallback(ctx, callbackReq)
+	if err != nil {
+		// Map errors to appropriate gRPC status codes
+		errMsg := err.Error()
+
+		// SAML signature validation errors
+		if contains(errMsg, "invalid SAML signature") || contains(errMsg, "signature") {
+			s.log.WarnWithContext(ctx).Err(err).Msg("Invalid SAML signature")
+			return nil, status.Error(codes.Unauthenticated, "invalid SAML signature")
+		}
+
+		// SAML assertion expiration errors
+		if contains(errMsg, "assertion expired") || contains(errMsg, "expired") {
+			s.log.WarnWithContext(ctx).Err(err).Msg("SAML assertion expired")
+			return nil, status.Error(codes.Unauthenticated, "SAML assertion expired")
+		}
+
+		// JIT provisioning disabled errors
+		if contains(errMsg, "user not found") && contains(errMsg, "JIT provisioning") {
+			s.log.WarnWithContext(ctx).Err(err).Msg("User not found and JIT provisioning is disabled")
+			return nil, status.Error(codes.NotFound, "user not found and JIT provisioning is disabled")
+		}
+
+		// User/organization access errors
+		if contains(errMsg, "user account is disabled") {
+			s.log.WarnWithContext(ctx).Err(err).Msg("User account is disabled")
+			return nil, status.Error(codes.PermissionDenied, "user account is disabled")
+		}
+		if contains(errMsg, "organization is disabled") {
+			s.log.WarnWithContext(ctx).Err(err).Msg("Organization is disabled")
+			return nil, status.Error(codes.PermissionDenied, "organization is disabled")
+		}
+
+		// Generic error
+		s.log.ErrorWithContext(ctx).Err(err).Msg("SAML assertion processing failed")
+		return nil, status.Errorf(codes.Internal, "SAML authentication failed: %v", err)
+	}
+
+	// Log successful SAML assertion processing
+	clientIP := getClientIP(ctx)
+	s.log.WithContext(ctx).
+		Str("user_id", result.User.ID).
+		Str("client_ip", clientIP).
+		Msg("SAML authentication successful")
+
+	return &pb.LoginResponse{
+		AccessToken:  result.Tokens.AccessToken,
+		RefreshToken: result.Tokens.RefreshToken,
+		User:         userToProto(result.User),
+		ExpiresIn:    result.Tokens.ExpiresIn,
+	}, nil
+}
+
+// GetSAMLMetadata returns the Service Provider metadata XML
+func (s *UserServiceServer) GetSAMLMetadata(ctx context.Context, req *pb.SAMLMetadataRequest) (*pb.SAMLMetadataResponse, error) {
+	// Get SAML strategy from strategy manager to verify SAML is configured
+	_, err := s.strategyManager.GetStrategy(auth.AuthTypeSAML)
+	if err != nil {
+		s.log.ErrorWithContext(ctx).Err(err).Msg("SAML strategy not found")
+		return nil, status.Error(codes.Unimplemented, "SAML authentication is not configured")
+	}
+
+	// Get SAML configuration
+	// Note: This is a simplified implementation. In a real scenario, you would:
+	// 1. Load the SP certificate from config
+	// 2. Generate proper SAML metadata XML with EntityID, ACS URL, certificate, etc.
+	// For now, we'll return a placeholder that indicates SAML is configured
+
+	// TODO: Implement proper SAML metadata generation
+	// This requires:
+	// - Loading certificate from config.CertificatePath
+	// - Generating XML with EntityID, AssertionConsumerServiceURL, X509Certificate
+	// - Proper XML formatting according to SAML 2.0 metadata spec
+
+	metadataXML := `<?xml version="1.0"?>
+<md:EntityDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata"
+                     entityID="http://localhost:8080/saml/metadata">
+  <md:SPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">
+    <md:NameIDFormat>urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress</md:NameIDFormat>
+    <md:AssertionConsumerService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
+                                 Location="http://localhost:8080/auth/saml/acs"
+                                 index="0"/>
+  </md:SPSSODescriptor>
+</md:EntityDescriptor>`
+
+	s.log.WithContext(ctx).Msg("SAML metadata requested")
+
+	return &pb.SAMLMetadataResponse{
+		MetadataXml: metadataXML,
+	}, nil
 }

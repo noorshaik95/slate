@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // Logger wraps zerolog for structured logging
@@ -85,8 +86,45 @@ func (l *Logger) Debug() *zerolog.Event {
 }
 
 // WithContext returns a logger event with trace ID extracted from context
+// This method should be used for all logging that has access to a context
 func (l *Logger) WithContext(ctx context.Context) *zerolog.Event {
 	event := l.logger.Info()
+
+	// Extract trace ID from context if available
+	if traceID := extractTraceID(ctx); traceID != "" {
+		event = event.Str("trace_id", traceID)
+	}
+
+	return event
+}
+
+// ErrorWithContext returns an error logger event with trace ID extracted from context
+func (l *Logger) ErrorWithContext(ctx context.Context) *zerolog.Event {
+	event := l.logger.Error()
+
+	// Extract trace ID from context if available
+	if traceID := extractTraceID(ctx); traceID != "" {
+		event = event.Str("trace_id", traceID)
+	}
+
+	return event
+}
+
+// WarnWithContext returns a warning logger event with trace ID extracted from context
+func (l *Logger) WarnWithContext(ctx context.Context) *zerolog.Event {
+	event := l.logger.Warn()
+
+	// Extract trace ID from context if available
+	if traceID := extractTraceID(ctx); traceID != "" {
+		event = event.Str("trace_id", traceID)
+	}
+
+	return event
+}
+
+// DebugWithContext returns a debug logger event with trace ID extracted from context
+func (l *Logger) DebugWithContext(ctx context.Context) *zerolog.Event {
+	event := l.logger.Debug()
 
 	// Extract trace ID from context if available
 	if traceID := extractTraceID(ctx); traceID != "" {
@@ -101,14 +139,19 @@ func (l *Logger) WithTraceID(traceID string) *zerolog.Event {
 	return l.logger.Info().Str("trace_id", traceID)
 }
 
-// extractTraceID extracts trace ID from context
-// This will be enhanced when we integrate with OpenTelemetry
+// extractTraceID extracts trace ID from OpenTelemetry span context
 func extractTraceID(ctx context.Context) string {
-	// TODO: Extract from OpenTelemetry span context
-	// For now, check for trace_id in context values
+	// Extract from OpenTelemetry span context
+	span := trace.SpanFromContext(ctx)
+	if span.SpanContext().IsValid() {
+		return span.SpanContext().TraceID().String()
+	}
+
+	// Fallback: check for trace_id in context values
 	if traceID, ok := ctx.Value("trace_id").(string); ok {
 		return traceID
 	}
+
 	return ""
 }
 
