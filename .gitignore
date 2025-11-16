@@ -36,5 +36,5 @@ postgres-data
 .DS_Store
 .kiro
 
-/node_modules
+/frontend/student/node_modules
 /frontend/student/.next
