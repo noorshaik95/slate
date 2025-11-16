@@ -60,7 +60,7 @@ services:
       POSTGRES_PASSWORD: cms_password
       POSTGRES_DB: cms
     ports:
-      - "5433:5432"
+      - "5434:5432"
     volumes:
       - postgres-cms-data:/var/lib/postgresql/data
     healthcheck:
@@ -346,9 +346,9 @@ services:
       # Analytics Service (placeholder - will be implemented later)
       # ANALYTICS_SERVICE_URL: "http://analytics-service:50053"
     ports:
-      - "50052:50052"
+      - "50054:50052"
       - "8082:8082"
-      - "9092:9092"
+      - "9095:9092"
     depends_on:
       postgres-cms:
         condition: service_healthy
