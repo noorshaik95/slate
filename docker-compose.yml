@@ -189,10 +189,11 @@ services:
       LOG_LEVEL: "info"
       METRICS_PORT: "9090"
       SERVICE_VERSION: "1.0.0"
+      PROTO_PATH: "/app/proto/course.proto"
     ports:
       - "50052:50052"  # gRPC
       - "3001:3001"    # HTTP (health/metrics)
-      - "9092:9090"    # Prometheus metrics endpoint
+      - "9094:9090"    # Prometheus metrics endpoint
     depends_on:
       mongodb:
         condition: service_healthy

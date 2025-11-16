@@ -11,6 +11,7 @@ import (
 	"time"
 
 	pb "slate/services/user-auth-service/api/proto"
+	"slate/services/user-auth-service/api/proto/authpb"
 	"slate/services/user-auth-service/internal/auth"
 	"slate/services/user-auth-service/internal/auth/saml"
 	"slate/services/user-auth-service/internal/auth/services"
@@ -269,6 +270,11 @@ func main() {
 	}
 	userServiceServer := grpcHandler.NewUserServiceServer(userService, strategyManager, rateLimiterInterface)
 	pb.RegisterUserServiceServer(grpcServer, userServiceServer)
+
+	// Register AuthService (wraps UserServiceServer for API Gateway compatibility)
+	authServiceServer := grpcHandler.NewAuthServiceServer(userServiceServer)
+	authpb.RegisterAuthServiceServer(grpcServer, authServiceServer)
+	log.Info().Msg("AuthService registered successfully")
 
 	// Register health check service
 	healthChecker := health.NewHealthChecker(db.DB)

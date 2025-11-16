@@ -22,8 +22,11 @@ RUN mkdir -p api/proto && \
     protoc --go_out=. --go_opt=paths=source_relative \
     --go-grpc_out=. --go-grpc_opt=paths=source_relative \
     -I /build/proto \
-    /build/proto/user.proto && \
-    mv -f user.pb.go user_grpc.pb.go api/proto/ 2>/dev/null || true
+    /build/proto/user.proto \
+    /build/proto/auth.proto && \
+    mkdir -p api/proto/authpb && \
+    mv -f user.pb.go user_grpc.pb.go api/proto/ 2>/dev/null || true && \
+    mv -f auth.pb.go auth_grpc.pb.go api/proto/authpb/ 2>/dev/null || true
 
 # Copy source code
 COPY services/user-auth-service/ .

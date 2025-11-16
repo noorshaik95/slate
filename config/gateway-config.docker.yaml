@@ -181,32 +181,6 @@ route_overrides:
     http_path: "/api/parent-child/permissions"
     http_method: "PUT"
     service: "user-auth-service"
-  # Course Service - CRUD operations (basic)
-  - grpc_method: "course.CourseService/CreateCourse"
-    http_path: "/api/courses"
-    http_method: "POST"
-    service: "course-service"
-
-  - grpc_method: "course.CourseService/GetCourse"
-    http_path: "/api/courses/:id"
-    http_method: "GET"
-    service: "course-service"
-
-  - grpc_method: "course.CourseService/UpdateCourse"
-    http_path: "/api/courses/:id"
-    http_method: "PUT"
-    service: "course-service"
-
-  - grpc_method: "course.CourseService/DeleteCourse"
-    http_path: "/api/courses/:id"
-    http_method: "DELETE"
-    service: "course-service"
-
-  - grpc_method: "course.CourseService/ListCourses"
-    http_path: "/api/courses"
-    http_method: "GET"
-    service: "course-service"
-
   # Course Service - Publishing
   - grpc_method: "course.CourseService/PublishCourse"
     http_path: "/api/courses/:id/publish"
@@ -298,31 +272,8 @@ route_overrides:
     http_path: "/api/courses/:id/cross-listed"
     http_method: "GET"
     service: "course-service"
-  # Assignment-Grading Service - CRUD operations
-  - grpc_method: "assignment.AssignmentService/CreateAssignment"
-    http_path: "/api/assignments"
-    http_method: "POST"
-    service: "assignment-grading-service"
-
-  - grpc_method: "assignment.AssignmentService/GetAssignment"
-    http_path: "/api/assignments/:id"
-    http_method: "GET"
-    service: "assignment-grading-service"
-
-  - grpc_method: "assignment.AssignmentService/UpdateAssignment"
-    http_path: "/api/assignments/:id"
-    http_method: "PUT"
-    service: "assignment-grading-service"
-
-  - grpc_method: "assignment.AssignmentService/DeleteAssignment"
-    http_path: "/api/assignments/:id"
-    http_method: "DELETE"
-    service: "assignment-grading-service"
-
-  - grpc_method: "assignment.AssignmentService/ListAssignments"
-    http_path: "/api/assignments"
-    http_method: "GET"
-    service: "assignment-grading-service"
+  # Assignment-Grading Service - Only non-conventional routes
+  # Most routes auto-discovered (GetAssignment, CreateAssignment, etc.)
 
   # Custom: SubmitAssignment doesn't follow Get/List/Create/Update/Delete convention
   - grpc_method: "assignment.SubmissionService/SubmitAssignment"

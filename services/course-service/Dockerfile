@@ -10,7 +10,7 @@ COPY proto /build/proto
 COPY services/course-service/package*.json ./
 
 # Install dependencies
-RUN npm ci
+RUN npm install
 
 # Copy source code
 COPY services/course-service/ .
@@ -25,7 +25,7 @@ WORKDIR /app
 
 # Install only production dependencies
 COPY services/course-service/package*.json ./
-RUN npm ci --only=production && npm cache clean --force
+RUN npm install --only=production && npm cache clean --force
 
 # Copy built application from builder
 COPY --from=builder /build/dist ./dist
@@ -35,11 +35,11 @@ COPY --from=builder /build/proto /app/proto
 ENV NODE_ENV=production
 
 # Expose ports
-EXPOSE 3000 50052
+EXPOSE 3001 50052
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/health', (r) => {if(r.statusCode !== 200) throw new Error('Health check failed')})"
+  CMD node -e "require('http').get('http://localhost:3001/health', (r) => {if(r.statusCode !== 200) throw new Error('Health check failed')})"
 
 # Run the application
 CMD ["node", "dist/main"]
