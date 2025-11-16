@@ -4,7 +4,7 @@ import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import { initializeTracing } from './observability/tracing';
 import { join } from 'path';
-import { Server, ServerCredentials } from '@grpc/grpc-js';
+import { Server } from '@grpc/grpc-js';
 import { ReflectionService } from '@grpc/reflection';
 import * as protoLoader from '@grpc/proto-loader';
 
@@ -31,7 +31,7 @@ async function bootstrap() {
   // Create gRPC microservice
   // Use environment variable for proto path, fallback to relative path for local development
   const protoPath = process.env.PROTO_PATH || join(__dirname, '../../../proto/course.proto');
-  
+
   // Load proto for reflection
   const packageDefinition = await protoLoader.load(protoPath, {
     keepCase: true,
