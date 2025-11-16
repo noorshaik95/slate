@@ -3,7 +3,7 @@ package totp
 import (
 	"crypto/rand"
 	"encoding/base32"
-	"fmt"
+	"errors"
 	"net/url"
 	"time"
 
@@ -33,7 +33,7 @@ func (m *TOTPManager) GenerateSecret(accountName string) (string, string, error)
 		Algorithm:   otp.AlgorithmSHA1,
 	})
 	if err != nil {
-		return "", "", fmt.Errorf("failed to generate TOTP secret: %w", err)
+		return "", "", err
 	}
 
 	return key.Secret(), key.URL(), nil
@@ -41,12 +41,11 @@ func (m *TOTPManager) GenerateSecret(accountName string) (string, string, error)
 
 // GenerateQRCodeURL generates a QR code URL for the secret
 func (m *TOTPManager) GenerateQRCodeURL(secret, accountName string) string {
-	return fmt.Sprintf("otpauth://totp/%s:%s?secret=%s&issuer=%s",
-		url.QueryEscape(m.issuer),
-		url.QueryEscape(accountName),
-		secret,
-		url.QueryEscape(m.issuer),
-	)
+	return "otpauth://totp/" +
+		url.QueryEscape(m.issuer) + ":" +
+		url.QueryEscape(accountName) +
+		"?secret=" + secret +
+		"&issuer=" + url.QueryEscape(m.issuer)
 }
 
 // ValidateCode validates a TOTP code
@@ -73,7 +72,7 @@ func (m *TOTPManager) GenerateBackupCodes(count int) ([]string, error) {
 	for i := 0; i < count; i++ {
 		code, err := generateRandomCode(8)
 		if err != nil {
-			return nil, fmt.Errorf("failed to generate backup code: %w", err)
+			return nil, errors.New("failed to generate backup code")
 		}
 		codes[i] = code
 	}

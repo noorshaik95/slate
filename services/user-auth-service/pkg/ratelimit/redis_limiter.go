@@ -2,7 +2,6 @@ package ratelimit
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -46,7 +45,7 @@ func NewRedisRateLimiter(redisAddr string, loginLimit, registerLimit RateLimit) 
 	defer cancel()
 
 	if err := client.Ping(ctx).Err(); err != nil {
-		return nil, fmt.Errorf("failed to connect to Redis: %w", err)
+		return nil, err
 	}
 
 	return &RedisRateLimiter{
@@ -71,7 +70,7 @@ func (r *RedisRateLimiter) AllowRegister(clientIP string) (bool, time.Duration, 
 // checkRateLimit implements the sliding window rate limiting algorithm using Redis
 func (r *RedisRateLimiter) checkRateLimit(clientIP, operation string, limit RateLimit) (bool, time.Duration, error) {
 	ctx := context.Background()
-	key := fmt.Sprintf("ratelimit:%s:%s", operation, clientIP)
+	key := "ratelimit:" + operation + ":" + clientIP
 
 	// Use Redis pipeline for atomic operations
 	pipe := r.client.Pipeline()
@@ -85,13 +84,13 @@ func (r *RedisRateLimiter) checkRateLimit(clientIP, operation string, limit Rate
 	// Execute pipeline
 	_, err := pipe.Exec(ctx)
 	if err != nil && err != redis.Nil {
-		return false, 0, fmt.Errorf("failed to check rate limit: %w", err)
+		return false, 0, err
 	}
 
 	// Get the incremented value
 	count, err := incrCmd.Result()
 	if err != nil {
-		return false, 0, fmt.Errorf("failed to get count: %w", err)
+		return false, 0, err
 	}
 
 	// Check if limit exceeded
@@ -123,7 +122,7 @@ func (r *RedisRateLimiter) Cleanup(ctx context.Context) error {
 // GetRemainingAttempts returns the number of remaining attempts for a client IP
 func (r *RedisRateLimiter) GetRemainingAttempts(clientIP, operation string) (int, error) {
 	ctx := context.Background()
-	key := fmt.Sprintf("ratelimit:%s:%s", operation, clientIP)
+	key := "ratelimit:" + operation + ":" + clientIP
 
 	count, err := r.client.Get(ctx, key).Int()
 	if err == redis.Nil {
@@ -134,7 +133,7 @@ func (r *RedisRateLimiter) GetRemainingAttempts(clientIP, operation string) (int
 		return r.registerLimit.MaxAttempts, nil
 	}
 	if err != nil {
-		return 0, fmt.Errorf("failed to get remaining attempts: %w", err)
+		return 0, err
 	}
 
 	var maxAttempts int
@@ -156,11 +155,11 @@ func (r *RedisRateLimiter) GetRemainingAttempts(clientIP, operation string) (int
 // Useful for testing or manual intervention
 func (r *RedisRateLimiter) Reset(clientIP, operation string) error {
 	ctx := context.Background()
-	key := fmt.Sprintf("ratelimit:%s:%s", operation, clientIP)
+	key := "ratelimit:" + operation + ":" + clientIP
 
 	err := r.client.Del(ctx, key).Err()
 	if err != nil {
-		return fmt.Errorf("failed to reset rate limit: %w", err)
+		return err
 	}
 
 	return nil
@@ -178,7 +177,7 @@ func (r *RedisRateLimiter) GetStats(ctx context.Context) (map[string]interface{}
 	// Get Redis info
 	info, err := r.client.Info(ctx, "stats").Result()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get Redis stats: %w", err)
+		return nil, err
 	}
 
 	stats["redis_info"] = info

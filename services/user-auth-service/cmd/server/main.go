@@ -11,6 +11,10 @@ import (
 	"time"
 
 	pb "slate/services/user-auth-service/api/proto"
+	"slate/services/user-auth-service/internal/auth"
+	"slate/services/user-auth-service/internal/auth/saml"
+	"slate/services/user-auth-service/internal/auth/services"
+	"slate/services/user-auth-service/internal/auth/strategies"
 	"slate/services/user-auth-service/internal/config"
 	grpcHandler "slate/services/user-auth-service/internal/grpc"
 	"slate/services/user-auth-service/internal/health"
@@ -28,6 +32,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/otel"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
@@ -67,17 +73,23 @@ func main() {
 	tp, err := tracing.InitTracer(tracingCfg)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to initialize tracing")
-		log.Info().Msg("Continuing without tracing")
+		log.Info().Msg("Continuing without tracing - using no-op tracer")
+		// Set a no-op tracer provider to prevent nil pointer issues
+		tp = sdktrace.NewTracerProvider()
+		otel.SetTracerProvider(tp)
 	} else {
 		log.Info().Msg("OpenTelemetry tracing initialized successfully")
-		defer func() {
+	}
+	// Always defer shutdown
+	defer func() {
+		if tp != nil {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			if err := tracing.Shutdown(ctx, tp); err != nil {
 				log.Error().Err(err).Msg("Failed to shutdown tracer provider")
 			}
-		}()
-	}
+		}
+	}()
 
 	// Connect to database
 	db, err := database.NewPostgresDB(cfg.Database.DSN())
@@ -188,8 +200,23 @@ func main() {
 		log.Info().Msg("Redis not configured (REDIS_HOST or REDIS_PORT not set)")
 	}
 
-	// Initialize services
-	userService := service.NewUserService(userRepo, roleRepo, tokenServiceAdapter, tokenBlacklist, log, metricsCollector)
+	// Initialize OAuth and SAML repositories
+	oauthRepo := repository.NewOAuthRepository(db.DB)
+	samlRepo := repository.NewSAMLRepository(db.DB)
+
+	// Initialize authentication strategy manager first (before UserService)
+	log.Info().Str("auth_type", cfg.Auth.Type).Msg("Initializing authentication strategies")
+	strategyManager := initializeAuthStrategiesWithoutNormal(cfg, userRepo, oauthRepo, samlRepo, roleRepo, tokenServiceAdapter, log)
+
+	// Create adapter for strategy manager to avoid import cycles
+	strategyManagerAdapter := service.NewStrategyManagerAdapter(strategyManager)
+
+	// Initialize services with strategy manager adapter
+	userService := service.NewUserService(userRepo, roleRepo, tokenServiceAdapter, tokenBlacklist, log, metricsCollector, strategyManagerAdapter)
+
+	// Register Normal strategy now that UserService exists
+	registerNormalStrategy(strategyManager, userService, log)
+	log.Info().Msg("Authentication strategies initialized successfully")
 
 	// Initialize rate limiter with fallback support
 	var rateLimiter *ratelimit.FallbackRateLimiter
@@ -229,12 +256,18 @@ func main() {
 	grpcServer := grpc.NewServer(
 		grpc.StatsHandler(otelgrpc.NewServerHandler()), // OpenTelemetry stats handler (new API)
 		grpc.ChainUnaryInterceptor(
+			tracing.TracingUnaryInterceptor(), // Explicit trace context extraction and span creation
 			tracing.LoggingUnaryInterceptor(), // Debug interceptor
 		),
 	)
 
 	// Register services
-	userServiceServer := grpcHandler.NewUserServiceServer(userService, rateLimiter)
+	// Convert rateLimiter to interface properly - if nil, pass nil interface
+	var rateLimiterInterface ratelimit.RateLimiter
+	if rateLimiter != nil {
+		rateLimiterInterface = rateLimiter
+	}
+	userServiceServer := grpcHandler.NewUserServiceServer(userService, strategyManager, rateLimiterInterface)
 	pb.RegisterUserServiceServer(grpcServer, userServiceServer)
 
 	// Register health check service
@@ -280,4 +313,105 @@ func main() {
 	}
 
 	log.Info().Msg("Server stopped")
+}
+
+// initializeAuthStrategiesWithoutNormal initializes the strategy manager and registers
+// OAuth and SAML strategies. Normal strategy is registered separately after UserService
+// is created to avoid circular dependency.
+func initializeAuthStrategiesWithoutNormal(
+	cfg *config.Config,
+	userRepo *repository.UserRepository,
+	oauthRepo *repository.OAuthRepository,
+	samlRepo *repository.SAMLRepository,
+	roleRepo *repository.RoleRepository,
+	tokenSvc service.TokenServiceInterface,
+	log *logger.Logger,
+) *auth.StrategyManager {
+	// Get tracer for distributed tracing
+	tracer := otel.Tracer("user-auth-service")
+
+	// Create strategy manager
+	manager := auth.NewStrategyManager(cfg, tracer, log)
+
+	// Create SessionManager for OAuth and SAML strategies
+	sessionMgr := services.NewSessionManager(oauthRepo, samlRepo, tracer, log)
+
+	// Always initialize OAuth strategy (for multi-auth support)
+	log.Info().
+		Int("provider_count", len(cfg.OAuth.Providers)).
+		Str("environment", cfg.Environment).
+		Msg("Registering OAuth authentication strategy")
+
+	oauthStrategy := strategies.NewOAuthAuthStrategy(
+		&cfg.OAuth,
+		userRepo,
+		oauthRepo,
+		nil, // userService will be set later if needed
+		tokenSvc,
+		sessionMgr,
+		tracer,
+		log,
+		cfg.Environment,
+	)
+	if err := manager.RegisterStrategy(oauthStrategy); err != nil {
+		log.Error().Err(err).Msg("Failed to register OAuth authentication strategy")
+		os.Exit(1)
+	}
+
+	// Always initialize SAML strategy (for multi-auth support)
+	log.Info().
+		Int("provider_count", len(cfg.SAML.Providers)).
+		Str("environment", cfg.Environment).
+		Msg("Registering SAML authentication strategy")
+
+	// Create HTTP client for metadata fetching
+	httpClient := &http.Client{Timeout: 30 * time.Second}
+
+	// Create SAML metadata cache
+	metadataCache := saml.NewSAMLMetadataCache(samlRepo, httpClient, tracer, log)
+
+	samlStrategy := strategies.NewSAMLAuthStrategy(
+		&cfg.SAML,
+		nil, // userService will be set later if needed
+		userRepo,
+		samlRepo,
+		roleRepo,
+		tokenSvc,
+		sessionMgr,
+		metadataCache,
+		tracer,
+		log,
+		cfg.Environment,
+	)
+	if err := manager.RegisterStrategy(samlStrategy); err != nil {
+		log.Error().Err(err).Msg("Failed to register SAML authentication strategy")
+		os.Exit(1)
+	}
+
+	return manager
+}
+
+// registerNormalStrategy registers the Normal authentication strategy after UserService
+// has been created. This avoids circular dependency issues.
+func registerNormalStrategy(
+	manager *auth.StrategyManager,
+	userService *service.UserService,
+	log *logger.Logger,
+) {
+	// Get tracer for distributed tracing
+	tracer := otel.Tracer("user-auth-service")
+
+	// Register NormalAuthStrategy
+	log.Info().Msg("Registering Normal authentication strategy")
+	normalStrategy := strategies.NewNormalAuthStrategy(userService, tracer, log)
+	if err := manager.RegisterStrategy(normalStrategy); err != nil {
+		log.Error().Err(err).Msg("Failed to register Normal authentication strategy")
+		os.Exit(1)
+	}
+
+	// Log summary of enabled strategies
+	activeAuthType := manager.GetActiveAuthType()
+	log.Info().
+		Str("primary_auth_type", string(activeAuthType)).
+		Msg("All authentication strategies registered")
 }

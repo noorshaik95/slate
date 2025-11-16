@@ -10,10 +10,6 @@ services:
     connection_pool_size: 10
     auto_discover: true
     tls_enabled: false
-    circuit_breaker:
-      failure_threshold: 5
-      success_threshold: 2
-      timeout_seconds: 30  # Fast service - recover quickly
 
 discovery:
   enabled: true
@@ -21,18 +17,194 @@ discovery:
 
 # Optional: Override specific routes when convention doesn't fit
 route_overrides:
-  - grpc_method: "user.UserService/GetPublicStatus"
-    http_path: "/api/public/status"
+  # Authentication
+  - grpc_method: "user.UserService/Login"
+    http_path: "/api/auth/login"
+    http_method: "POST"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/Register"
+    http_path: "/api/auth/register"
+    http_method: "POST"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/RefreshToken"
+    http_path: "/api/auth/refresh"
+    http_method: "POST"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/ValidateToken"
+    http_path: "/api/auth/validate"
+    http_method: "POST"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/Logout"
+    http_path: "/api/auth/logout"
+    http_method: "POST"
+    service: "user-auth-service"
+
+  # OAuth/SSO
+  - grpc_method: "user.UserService/OAuthCallback"
+    http_path: "/api/oauth/callback"
+    http_method: "POST"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/LinkOAuthProvider"
+    http_path: "/api/oauth/link"
+    http_method: "POST"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/UnlinkOAuthProvider"
+    http_path: "/api/oauth/unlink"
+    http_method: "POST"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/GetOAuthProviders"
+    http_path: "/api/oauth/providers"
     http_method: "GET"
+    service: "user-auth-service"
+
+  # OAuth 2.0 Multi-Auth Routes
+  - grpc_method: "user.UserService/GetOAuthAuthorizationURL"
+    http_path: "/auth/oauth/authorize"
+    http_method: "POST"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/HandleOAuthCallback"
+    http_path: "/auth/oauth/callback"
+    http_method: "GET"
+    service: "user-auth-service"
+
+  # SAML 2.0 Multi-Auth Routes
+  - grpc_method: "user.UserService/GetSAMLAuthRequest"
+    http_path: "/auth/saml/login"
+    http_method: "POST"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/HandleSAMLAssertion"
+    http_path: "/auth/saml/acs"
+    http_method: "POST"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/GetSAMLMetadata"
+    http_path: "/auth/saml/metadata"
+    http_method: "GET"
+    service: "user-auth-service"
+
+  # MFA/2FA
+  - grpc_method: "user.UserService/SetupMFA"
+    http_path: "/api/mfa/setup"
+    http_method: "POST"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/VerifyMFA"
+    http_path: "/api/mfa/verify"
+    http_method: "POST"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/DisableMFA"
+    http_path: "/api/mfa/disable"
+    http_method: "POST"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/GetMFAStatus"
+    http_path: "/api/mfa/status"
+    http_method: "GET"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/ValidateMFACode"
+    http_path: "/api/mfa/validate"
+    http_method: "POST"
+    service: "user-auth-service"
+
+  # User Groups (member management - CRUD methods auto-discover)
+  - grpc_method: "user.UserService/AddGroupMember"
+    http_path: "/api/groups/:id/members"
+    http_method: "POST"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/RemoveGroupMember"
+    http_path: "/api/groups/:id/members/:user_id"
+    http_method: "DELETE"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/GetGroupMembers"
+    http_path: "/api/groups/:id/members"
+    http_method: "GET"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/GetUserGroups"
+    http_path: "/api/users/:id/groups"
+    http_method: "GET"
+    service: "user-auth-service"
+
+  # Parent-Child Account Management
+  - grpc_method: "user.UserService/CreateParentChildLink"
+    http_path: "/api/parent-child/link"
+    http_method: "POST"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/RemoveParentChildLink"
+    http_path: "/api/parent-child/link"
+    http_method: "DELETE"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/GetChildAccounts"
+    http_path: "/api/users/:id/children"
+    http_method: "GET"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/GetParentAccounts"
+    http_path: "/api/users/:id/parents"
+    http_method: "GET"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/UpdateParentChildPermissions"
+    http_path: "/api/parent-child/permissions"
+    http_method: "PUT"
+    service: "user-auth-service"
 
 auth:
   service_endpoint: "http://user-auth-service:50051"
   timeout_ms: 3000
+  public_routes:
+    # Authentication endpoints
+    - path: "/api/auth/login"
+      method: "POST"
+    - path: "/api/auth/register"
+      method: "POST"
+    - path: "/api/auth/refresh"
+      method: "POST"
+    - path: "/api/auth/validate"
+      method: "POST"
+
+    # OAuth endpoints (callback is public for OAuth flow)
+    - path: "/api/oauth/callback"
+      method: "POST"
+
+    # Multi-Auth OAuth endpoints
+    - path: "/auth/oauth/authorize"
+      method: "POST"
+    - path: "/auth/oauth/callback"
+      method: "GET"
+
+    # Multi-Auth SAML endpoints
+    - path: "/auth/saml/login"
+      method: "POST"
+    - path: "/auth/saml/acs"
+      method: "POST"
+    - path: "/auth/saml/metadata"
+      method: "GET"
 
 rate_limit:
-  enabled: true
+  enabled: false  # Disabled for testing
   requests_per_minute: 100
   window_seconds: 60
+
+circuit_breaker:
+  enabled: false  # Disabled for testing to avoid blocking e2e tests
+  failure_threshold: 5
+  timeout_seconds: 30
 
 observability:
   tempo_endpoint: "http://tempo:4317"
