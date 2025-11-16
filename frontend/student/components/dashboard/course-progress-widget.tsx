@@ -1,10 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
 import { ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { CourseCard } from '@/components/common/course-card';
+import { GradientType } from '@/components/common/gradient-card';
+import { useRouter } from 'next/navigation';
 
 const enrolledCourses = [
   {
@@ -13,7 +14,10 @@ const enrolledCourses = [
     name: 'Introduction to Computer Science',
     progress: 75,
     instructor: 'Dr. Smith',
-    nextDeadline: '2 days',
+    nextDeadline: 'Next deadline in 2 days',
+    gradient: 'blue-cyan' as GradientType,
+    studentCount: 45,
+    credits: 4,
   },
   {
     id: '2',
@@ -21,7 +25,10 @@ const enrolledCourses = [
     name: 'Calculus II',
     progress: 60,
     instructor: 'Prof. Johnson',
-    nextDeadline: '5 days',
+    nextDeadline: 'Next deadline in 5 days',
+    gradient: 'purple-pink' as GradientType,
+    studentCount: 38,
+    credits: 4,
   },
   {
     id: '3',
@@ -29,7 +36,10 @@ const enrolledCourses = [
     name: 'English Composition',
     progress: 90,
     instructor: 'Dr. Williams',
-    nextDeadline: '1 day',
+    nextDeadline: 'Next deadline in 1 day',
+    gradient: 'emerald-teal' as GradientType,
+    studentCount: 32,
+    credits: 3,
   },
   {
     id: '4',
@@ -37,57 +47,52 @@ const enrolledCourses = [
     name: 'Physics I',
     progress: 45,
     instructor: 'Dr. Brown',
-    nextDeadline: '3 days',
+    nextDeadline: 'Next deadline in 3 days',
+    gradient: 'orange-red' as GradientType,
+    studentCount: 41,
+    credits: 4,
   },
 ];
 
 export function CourseProgressWidget() {
+  const router = useRouter();
+
   return (
-    <Card className="h-full">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>My Courses</CardTitle>
-            <CardDescription>Track your progress across all enrolled courses</CardDescription>
-          </div>
-          <Button asChild variant="ghost" size="sm">
-            <Link href="/courses">
-              View All
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Link>
-          </Button>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">My Courses</h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+            Track your progress across all enrolled courses
+          </p>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {enrolledCourses.map((course) => (
-          <Link
-            key={course.id}
-            href={`/courses/${course.id}`}
-            className="block rounded-lg border p-4 transition-colors hover:bg-accent focus-ring"
-          >
-            <div className="space-y-2">
-              <div className="flex items-start justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-sm font-medium text-muted-foreground">
-                      {course.code}
-                    </span>
-                    <span className="text-xs text-muted-foreground">•</span>
-                    <span className="text-sm text-muted-foreground">{course.instructor}</span>
-                  </div>
-                  <h4 className="font-semibold">{course.name}</h4>
-                </div>
-                <span className="text-sm font-medium">{course.progress}%</span>
-              </div>
-              <Progress value={course.progress} className="h-2" />
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Next deadline in {course.nextDeadline}</span>
-                <span className="text-primary">Continue →</span>
-              </div>
-            </div>
+        <Button
+          asChild
+          variant="outline"
+          size="sm"
+          className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
+        >
+          <Link href="/courses">
+            View All
+            <ArrowRight className="ml-2 h-4 w-4" />
           </Link>
+        </Button>
+      </div>
+
+      {/* Course Cards Grid */}
+      <div className="grid gap-6 md:grid-cols-2">
+        {enrolledCourses.map((course) => (
+          <CourseCard
+            key={course.id}
+            course={course}
+            variant="detailed"
+            showProgress={true}
+            showMetadata={true}
+            onContinue={() => router.push(`/courses/${course.id}`)}
+          />
         ))}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

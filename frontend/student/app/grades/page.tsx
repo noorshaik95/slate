@@ -1,156 +1,109 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { BarChart3, TrendingUp, Download, FileText } from 'lucide-react';
+import { BarChart3, BookOpen, Download, GraduationCap } from 'lucide-react';
 import { mockGrades, mockCourses } from '@/lib/mock-data';
-import { getGradeColor, getGradeLetter, formatDate } from '@/lib/utils';
+import { StatCard } from '@/components/common/stat-card';
+import { GradeCard } from '@/components/common/grade-card';
+import { GradientType } from '@/components/common/gradient-card';
 
 export const metadata = {
   title: 'Grades | Student Portal',
   description: 'View your grades and academic performance',
 };
 
+// Map courses to gradients
+const courseGradients: Record<string, GradientType> = {
+  '1': 'blue-cyan',
+  '2': 'purple-pink',
+  '3': 'emerald-teal',
+  '4': 'orange-red',
+};
+
 export default function GradesPage() {
   // Calculate GPA (simplified)
   const totalPoints = mockGrades.reduce((sum, g) => sum + g.percentage, 0);
   const gpa = (totalPoints / mockGrades.length / 25).toFixed(2); // Simplified GPA calculation
+  const totalCredits = mockCourses.reduce((sum, c) => sum + c.credits, 0);
+  const averageGrade = Math.round(totalPoints / mockGrades.length);
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-900 p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Grades</h1>
-          <p className="text-muted-foreground">Track your academic performance</p>
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Grades</h1>
+          <p className="text-gray-600 dark:text-gray-400">Track your academic performance</p>
         </div>
-        <Button variant="outline">
+        <Button 
+          variant="outline" 
+          className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
+        >
           <Download className="mr-2 h-4 w-4" />
           Export Transcript
         </Button>
       </div>
 
-      {/* GPA Overview */}
+      {/* Grade Statistics */}
       <div className="grid gap-6 md:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardDescription>Current GPA</CardDescription>
-            <CardTitle className="text-4xl">{gpa}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2 text-green-600">
-              <TrendingUp className="h-4 w-4" />
-              <span className="text-sm">+0.2 from last semester</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardDescription>Total Credits</CardDescription>
-            <CardTitle className="text-4xl">
-              {mockCourses.reduce((sum, c) => sum + c.credits, 0)}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Enrolled in {mockCourses.length} courses
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardDescription>Average Grade</CardDescription>
-            <CardTitle className="text-4xl">
-              {Math.round(totalPoints / mockGrades.length)}%
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Across {mockGrades.length} graded assignments
-            </p>
-          </CardContent>
-        </Card>
+        <StatCard
+          icon={<GraduationCap className="h-6 w-6" />}
+          label="Current GPA"
+          value={gpa}
+          subtitle="+0.2 from last semester"
+          gradient="blue-cyan"
+          variant="outline"
+        />
+        <StatCard
+          icon={<BookOpen className="h-6 w-6" />}
+          label="Total Credits"
+          value={totalCredits}
+          subtitle={`Enrolled in ${mockCourses.length} courses`}
+          gradient="purple-pink"
+          variant="outline"
+        />
+        <StatCard
+          icon={<BarChart3 className="h-6 w-6" />}
+          label="Average Grade"
+          value={`${averageGrade}%`}
+          subtitle={`Across ${mockGrades.length} graded assignments`}
+          gradient="emerald-teal"
+          variant="outline"
+        />
       </div>
 
       {/* Grades by Course */}
       <div className="space-y-4">
-        <h2 className="text-xl font-semibold">Grades by Course</h2>
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Grades by Course</h2>
         {mockCourses.map((course) => {
           const courseGrades = mockGrades.filter(g => g.courseId === course.id);
           const courseAvg = courseGrades.length > 0
             ? courseGrades.reduce((sum, g) => sum + g.percentage, 0) / courseGrades.length
             : 0;
 
+          // Map grades to the format expected by GradeCard
+          const assignments = courseGrades.map(grade => ({
+            id: grade.id,
+            name: grade.assignmentName,
+            type: grade.category,
+            grade: grade.score,
+            maxPoints: grade.maxScore,
+            date: new Date(grade.gradedAt),
+            feedback: grade.feedback,
+          }));
+
           return (
-            <Card key={course.id}>
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <Badge>{course.code}</Badge>
-                      {courseAvg > 0 && (
-                        <Badge className={getGradeColor(courseAvg)}>
-                          {getGradeLetter(courseAvg)}
-                        </Badge>
-                      )}
-                    </div>
-                    <CardTitle>{course.name}</CardTitle>
-                    <CardDescription>{course.instructor}</CardDescription>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-3xl font-bold">{Math.round(courseAvg)}%</p>
-                    <p className="text-sm text-muted-foreground">{courseGrades.length} graded</p>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Progress */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Course Progress</span>
-                    <span>{course.progress}%</span>
-                  </div>
-                  <Progress value={course.progress} className="h-2" />
-                </div>
-
-                {/* Individual Grades */}
-                {courseGrades.length > 0 && (
-                  <div className="space-y-2">
-                    {courseGrades.map((grade) => (
-                      <div key={grade.id} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div className="flex-1">
-                          <p className="font-medium">{grade.assignmentName}</p>
-                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                            <span>{grade.category}</span>
-                            <span>{formatDate(grade.gradedAt)}</span>
-                          </div>
-                          {grade.feedback && (
-                            <p className="mt-1 text-sm text-muted-foreground">{grade.feedback}</p>
-                          )}
-                        </div>
-                        <div className="text-right ml-4">
-                          <p className={`text-xl font-bold ${getGradeColor(grade.percentage)}`}>
-                            {grade.percentage}%
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            {grade.score}/{grade.maxScore}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {courseGrades.length === 0 && (
-                  <div className="flex flex-col items-center justify-center py-8 text-center">
-                    <FileText className="mb-2 h-12 w-12 text-muted-foreground/50" />
-                    <p className="text-sm text-muted-foreground">No grades yet for this course</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <GradeCard
+              key={course.id}
+              course={{
+                id: course.id,
+                code: course.code,
+                name: course.name,
+                instructor: course.instructor,
+                gradient: courseGradients[course.id] || 'blue-cyan',
+                grade: Math.round(courseAvg),
+                progress: course.progress,
+              }}
+              assignments={assignments}
+            />
           );
         })}
       </div>

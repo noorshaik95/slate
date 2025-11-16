@@ -1,67 +1,60 @@
 'use client';
 
-import { Card, CardContent } from '@/components/ui/card';
 import { Upload, MessageSquare, Calendar, BookOpen, FileText, Video } from 'lucide-react';
-import Link from 'next/link';
+import { QuickActionButton } from '@/components/common/quick-action-button';
+import { GradientType } from '@/components/common/gradient-card';
 
 const quickActions = [
   {
-    name: 'Submit Assignment',
-    icon: Upload,
+    name: 'Submit Work',
+    icon: <Upload className="h-6 w-6" />,
     href: '/assignments',
-    color: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
+    gradient: 'blue-cyan' as GradientType,
   },
   {
-    name: 'Join Discussion',
-    icon: MessageSquare,
+    name: 'Discussions',
+    icon: <MessageSquare className="h-6 w-6" />,
     href: '/discussions',
-    color: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
+    gradient: 'emerald-teal' as GradientType,
   },
   {
-    name: 'View Schedule',
-    icon: Calendar,
+    name: 'Schedule',
+    icon: <Calendar className="h-6 w-6" />,
     href: '/calendar',
-    color: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300',
+    gradient: 'purple-pink' as GradientType,
   },
   {
     name: 'My Courses',
-    icon: BookOpen,
+    icon: <BookOpen className="h-6 w-6" />,
     href: '/courses',
-    color: 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300',
+    gradient: 'orange-red' as GradientType,
   },
   {
     name: 'View Grades',
-    icon: FileText,
+    icon: <FileText className="h-6 w-6" />,
     href: '/grades',
-    color: 'bg-pink-100 text-pink-700 dark:bg-pink-900 dark:text-pink-300',
+    gradient: 'amber-yellow' as GradientType,
   },
   {
     name: 'Live Classes',
-    icon: Video,
-    href: '/classes',
-    color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300',
+    icon: <Video className="h-6 w-6" />,
+    href: '/video',
+    gradient: 'violet-indigo' as GradientType,
   },
 ];
 
 export function QuickActionsWidget() {
   return (
-    <Card>
-      <CardContent className="pt-6">
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-6">
-          {quickActions.map((action) => (
-            <Link
-              key={action.name}
-              href={action.href}
-              className="group flex flex-col items-center gap-2 rounded-lg p-4 transition-colors hover:bg-accent focus-ring"
-            >
-              <div className={`rounded-lg p-3 ${action.color} transition-transform group-hover:scale-110`}>
-                <action.icon className="h-6 w-6" aria-hidden="true" />
-              </div>
-              <span className="text-center text-sm font-medium">{action.name}</span>
-            </Link>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-6">
+      {quickActions.map((action) => (
+        <QuickActionButton
+          key={action.name}
+          icon={action.icon}
+          label={action.name}
+          gradient={action.gradient}
+          href={action.href}
+        />
+      ))}
+    </div>
   );
 }

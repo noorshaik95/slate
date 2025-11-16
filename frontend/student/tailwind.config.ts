@@ -63,6 +63,16 @@ const config: Config = {
           foreground: "hsl(204 94% 94%)",
         },
       },
+      backgroundImage: {
+        "gradient-blue-cyan": "linear-gradient(to bottom right, rgb(59 130 246), rgb(34 211 238))",
+        "gradient-purple-pink": "linear-gradient(to bottom right, rgb(168 85 247), rgb(244 114 182))",
+        "gradient-emerald-teal": "linear-gradient(to bottom right, rgb(16 185 129), rgb(45 212 191))",
+        "gradient-orange-red": "linear-gradient(to bottom right, rgb(249 115 22), rgb(248 113 113))",
+        "gradient-amber-yellow": "linear-gradient(to bottom right, rgb(245 158 11), rgb(250 204 21))",
+        "gradient-violet-indigo": "linear-gradient(to bottom right, rgb(139 92 246), rgb(99 102 241))",
+        "gradient-indigo-purple": "linear-gradient(to bottom right, rgb(79 70 229), rgb(168 85 247))",
+        "gradient-slate-blue-indigo": "linear-gradient(to bottom right, rgb(248 250 252), rgb(239 246 255), rgb(238 242 255))",
+      },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
@@ -94,9 +104,16 @@ const config: Config = {
           to: { opacity: "0" },
         },
         shimmer: {
+          "0%": {
+            transform: "translateX(-100%)",
+          },
           "100%": {
             transform: "translateX(100%)",
           },
+        },
+        "hover-lift": {
+          from: { transform: "translateY(0)" },
+          to: { transform: "translateY(-4px)" },
         },
       },
       animation: {
@@ -107,6 +124,7 @@ const config: Config = {
         "fade-in": "fade-in 0.2s ease-out",
         "fade-out": "fade-out 0.2s ease-in",
         shimmer: "shimmer 2s infinite",
+        "hover-lift": "hover-lift 0.3s ease-out",
       },
       fontFamily: {
         sans: ["var(--font-inter)", "system-ui", "sans-serif"],

@@ -1,138 +1,142 @@
-import Link from 'next/link';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Clock, FileText, CheckCircle2, AlertCircle, Calendar } from 'lucide-react';
-import { mockAssignments } from '@/lib/mock-data';
-import { formatRelativeTime } from '@/lib/utils';
+'use client';
 
-export const metadata = {
-  title: 'Assignments | Student Portal',
-  description: 'View and manage your assignments',
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Calendar, FileText } from 'lucide-react';
+import { mockAssignments, mockCourses } from '@/lib/mock-data';
+import { AssignmentCard } from '@/components/common/assignment-card';
+import { GradientType } from '@/components/common/gradient-card';
+
+// Map course colors to gradients
+const colorToGradient: Record<string, GradientType> = {
+  blue: 'blue-cyan',
+  purple: 'purple-pink',
+  green: 'emerald-teal',
+  red: 'orange-red',
+  orange: 'amber-yellow',
+  violet: 'violet-indigo',
+  indigo: 'indigo-purple',
 };
 
 export default function AssignmentsPage() {
-  const pendingAssignments = mockAssignments.filter(a => a.status === 'pending');
-  const submittedAssignments = mockAssignments.filter(a => a.status === 'submitted' || a.status === 'graded');
+  const router = useRouter();
+
+  // Convert mock assignments to AssignmentCard format
+  const assignments = mockAssignments.map((assignment) => {
+    const course = mockCourses.find((c) => c.id === assignment.courseId);
+    const gradient = course ? colorToGradient[course.color] || 'blue-cyan' : 'blue-cyan';
+
+    return {
+      id: assignment.id,
+      title: assignment.title,
+      description: assignment.description,
+      course: {
+        code: assignment.courseName,
+        gradient,
+      },
+      points: assignment.points,
+      dueDate: new Date(assignment.dueDate),
+      type: assignment.submissionType as 'file' | 'text' | 'quiz' | 'exam',
+      status: assignment.status,
+    };
+  });
+
+  const pendingAssignments = assignments.filter((a) => a.status === 'pending');
+  const submittedAssignments = assignments.filter((a) => a.status === 'submitted');
+  const gradedAssignments = assignments.filter((a) => a.status === 'graded');
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Assignments</h1>
-          <p className="text-muted-foreground">
-            {pendingAssignments.length} pending assignments
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-900">
+      <div className="space-y-6 p-6 max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+              Assignments
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-1">
+              {pendingAssignments.length} pending assignment{pendingAssignments.length !== 1 ? 's' : ''}
+            </p>
+          </div>
+          <Button
+            onClick={() => router.push('/calendar')}
+            className="gradient-indigo-purple text-white font-semibold hover-lift"
+          >
+            <Calendar className="mr-2 h-4 w-4" />
+            View Calendar
+          </Button>
         </div>
-        <Button variant="outline">
-          <Calendar className="mr-2 h-4 w-4" />
-          View Calendar
-        </Button>
-      </div>
 
-      {/* Pending Assignments */}
-      {pendingAssignments.length > 0 && (
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Pending</h2>
-          <div className="grid gap-4">
-            {pendingAssignments.map((assignment) => {
-              const daysUntilDue = Math.floor(
-                (new Date(assignment.dueDate).getTime() - Date.now()) / (24 * 60 * 60 * 1000)
-              );
-              const isUrgent = daysUntilDue <= 2;
-
-              return (
+        {/* Pending Assignments */}
+        {pendingAssignments.length > 0 && (
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Pending</h2>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {pendingAssignments.map((assignment) => (
                 <Link key={assignment.id} href={`/assignments/${assignment.id}`}>
-                  <Card className="transition-all hover:shadow-md">
-                    <CardHeader>
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <Badge variant="secondary">{assignment.courseName}</Badge>
-                            <Badge variant={isUrgent ? 'destructive' : 'default'}>
-                              {assignment.points} points
-                            </Badge>
-                          </div>
-                          <CardTitle className="hover:text-primary">{assignment.title}</CardTitle>
-                          <CardDescription>{assignment.description}</CardDescription>
-                        </div>
-                        <AlertCircle className={`h-5 w-5 ${isUrgent ? 'text-red-600' : 'text-orange-600'}`} />
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-4 w-4" />
-                          <span className={isUrgent ? 'text-red-600 font-medium' : ''}>
-                            Due {formatRelativeTime(assignment.dueDate)}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <FileText className="h-4 w-4" />
-                          <span>{assignment.submissionType}</span>
-                        </div>
-                      </div>
-                      <Button className="w-full">Submit Assignment</Button>
-                    </CardContent>
-                  </Card>
+                  <AssignmentCard
+                    assignment={assignment}
+                    onSubmit={() => router.push(`/assignments/${assignment.id}`)}
+                    className="hover-lift"
+                  />
                 </Link>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Submitted Assignments */}
-      {submittedAssignments.length > 0 && (
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold">Submitted</h2>
-          <div className="grid gap-4">
-            {submittedAssignments.map((assignment) => (
-              <Link key={assignment.id} href={`/assignments/${assignment.id}`}>
-                <Card className="transition-all hover:shadow-md">
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="secondary">{assignment.courseName}</Badge>
-                          <Badge variant="success">{assignment.status}</Badge>
-                        </div>
-                        <CardTitle className="hover:text-primary">{assignment.title}</CardTitle>
-                        <CardDescription>{assignment.description}</CardDescription>
-                      </div>
-                      <CheckCircle2 className="h-5 w-5 text-green-600" />
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      {assignment.submittedAt && (
-                        <span>Submitted {formatRelativeTime(assignment.submittedAt)}</span>
-                      )}
-                      <span>{assignment.points} points</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Empty State */}
-      {mockAssignments.length === 0 && (
-        <Card className="p-12">
-          <div className="flex flex-col items-center text-center space-y-4">
-            <FileText className="h-16 w-16 text-muted-foreground/50" />
-            <div className="space-y-2">
-              <h3 className="text-xl font-semibold">No Assignments</h3>
-              <p className="text-muted-foreground">
-                You don&apos;t have any assignments at the moment.
-              </p>
+              ))}
             </div>
           </div>
-        </Card>
-      )}
+        )}
+
+        {/* Submitted Assignments */}
+        {submittedAssignments.length > 0 && (
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Submitted</h2>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {submittedAssignments.map((assignment) => (
+                <Link key={assignment.id} href={`/assignments/${assignment.id}`}>
+                  <AssignmentCard
+                    assignment={assignment}
+                    className="hover-lift"
+                  />
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Graded Assignments */}
+        {gradedAssignments.length > 0 && (
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Graded</h2>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {gradedAssignments.map((assignment) => (
+                <Link key={assignment.id} href={`/assignments/${assignment.id}`}>
+                  <AssignmentCard
+                    assignment={assignment}
+                    className="hover-lift"
+                  />
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Empty State */}
+        {assignments.length === 0 && (
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-12">
+            <div className="flex flex-col items-center text-center space-y-4">
+              <FileText className="h-16 w-16 text-gray-400 dark:text-gray-600" />
+              <div className="space-y-2">
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  No Assignments
+                </h3>
+                <p className="text-gray-600 dark:text-gray-400">
+                  You don&apos;t have any assignments at the moment.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

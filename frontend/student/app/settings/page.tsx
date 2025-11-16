@@ -19,76 +19,86 @@ export default function SettingsPage() {
   });
 
   return (
-    <div className="space-y-6 max-w-4xl">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground">Manage your account settings and preferences</p>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6">
+      <div className="space-y-6 max-w-4xl mx-auto">
+        {/* Header */}
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+          <p className="text-slate-600 mt-1">Manage your account settings and preferences</p>
+        </div>
 
-      {/* Appearance */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Palette className="h-5 w-5" />
-            <CardTitle>Appearance</CardTitle>
+        {/* Appearance Section */}
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+              <Palette className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold">Appearance</h2>
+              <p className="text-sm text-slate-600">Customize how the portal looks on your device</p>
+            </div>
           </div>
-          <CardDescription>Customize how the portal looks on your device</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Theme</label>
+          
+          <div className="space-y-2 pt-2">
+            <label className="text-sm font-medium text-slate-700">Theme</label>
             <div className="grid grid-cols-3 gap-3">
               <button
                 onClick={() => setTheme('light')}
-                className={`flex flex-col items-center gap-2 p-4 border-2 rounded-lg transition-colors ${
-                  theme === 'light' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
+                className={`flex flex-col items-center gap-2 p-4 border-2 rounded-xl transition-all duration-300 ${
+                  theme === 'light' 
+                    ? 'border-indigo-600 bg-indigo-50' 
+                    : 'border-slate-200 hover:border-indigo-300 hover:bg-slate-50'
                 }`}
               >
-                <Sun className="h-5 w-5" />
+                <Sun className="h-6 w-6 text-slate-700" />
                 <span className="text-sm font-medium">Light</span>
               </button>
               <button
                 onClick={() => setTheme('dark')}
-                className={`flex flex-col items-center gap-2 p-4 border-2 rounded-lg transition-colors ${
-                  theme === 'dark' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
+                className={`flex flex-col items-center gap-2 p-4 border-2 rounded-xl transition-all duration-300 ${
+                  theme === 'dark' 
+                    ? 'border-indigo-600 bg-indigo-50' 
+                    : 'border-slate-200 hover:border-indigo-300 hover:bg-slate-50'
                 }`}
               >
-                <Moon className="h-5 w-5" />
+                <Moon className="h-6 w-6 text-slate-700" />
                 <span className="text-sm font-medium">Dark</span>
               </button>
               <button
                 onClick={() => setTheme('system')}
-                className={`flex flex-col items-center gap-2 p-4 border-2 rounded-lg transition-colors ${
-                  theme === 'system' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
+                className={`flex flex-col items-center gap-2 p-4 border-2 rounded-xl transition-all duration-300 ${
+                  theme === 'system' 
+                    ? 'border-indigo-600 bg-indigo-50' 
+                    : 'border-slate-200 hover:border-indigo-300 hover:bg-slate-50'
                 }`}
               >
-                <Monitor className="h-5 w-5" />
+                <Monitor className="h-6 w-6 text-slate-700" />
                 <span className="text-sm font-medium">System</span>
               </button>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Notifications */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Bell className="h-5 w-5" />
-            <CardTitle>Notifications</CardTitle>
+        {/* Notifications Section */}
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+              <Bell className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold">Notifications</h2>
+              <p className="text-sm text-slate-600">Choose what notifications you want to receive</p>
+            </div>
           </div>
-          <CardDescription>Choose what notifications you want to receive</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Channels */}
-          <div className="space-y-3">
-            <label className="text-sm font-medium">Notification Channels</label>
+
+          {/* Notification Channels */}
+          <div className="space-y-3 pt-2">
+            <label className="text-sm font-medium text-slate-700">Notification Channels</label>
             <div className="space-y-2">
-              <div className="flex items-center justify-between p-3 border rounded-lg">
+              <div className="flex items-center justify-between p-4 border border-slate-200 rounded-xl">
                 <div>
-                  <p className="font-medium">Email Notifications</p>
-                  <p className="text-sm text-muted-foreground">Receive updates via email</p>
+                  <p className="font-medium text-slate-900">Email Notifications</p>
+                  <p className="text-sm text-slate-600">Receive updates via email</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -97,13 +107,13 @@ export default function SettingsPage() {
                     onChange={(e) => setNotifications({ ...notifications, email: e.target.checked })}
                     className="sr-only peer"
                   />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 dark:peer-focus:ring-primary/40 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
                 </label>
               </div>
-              <div className="flex items-center justify-between p-3 border rounded-lg">
+              <div className="flex items-center justify-between p-4 border border-slate-200 rounded-xl">
                 <div>
-                  <p className="font-medium">Push Notifications</p>
-                  <p className="text-sm text-muted-foreground">Receive instant alerts</p>
+                  <p className="font-medium text-slate-900">Push Notifications</p>
+                  <p className="text-sm text-slate-600">Receive instant alerts</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -112,15 +122,15 @@ export default function SettingsPage() {
                     onChange={(e) => setNotifications({ ...notifications, push: e.target.checked })}
                     className="sr-only peer"
                   />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 dark:peer-focus:ring-primary/40 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
                 </label>
               </div>
             </div>
           </div>
 
-          {/* Types */}
-          <div className="space-y-3">
-            <label className="text-sm font-medium">Notification Types</label>
+          {/* Notification Types */}
+          <div className="space-y-3 pt-2">
+            <label className="text-sm font-medium text-slate-700">Notification Types</label>
             <div className="space-y-2">
               {[
                 { key: 'assignments' as const, label: 'Assignments', desc: 'New assignments and due dates' },
@@ -128,10 +138,10 @@ export default function SettingsPage() {
                 { key: 'announcements' as const, label: 'Announcements', desc: 'Course and system announcements' },
                 { key: 'discussions' as const, label: 'Discussions', desc: 'Replies to your posts' },
               ].map(({ key, label, desc }) => (
-                <div key={key} className="flex items-center justify-between p-3 border rounded-lg">
+                <div key={key} className="flex items-center justify-between p-4 border border-slate-200 rounded-xl">
                   <div>
-                    <p className="font-medium">{label}</p>
-                    <p className="text-sm text-muted-foreground">{desc}</p>
+                    <p className="font-medium text-slate-900">{label}</p>
+                    <p className="text-sm text-slate-600">{desc}</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
@@ -140,62 +150,78 @@ export default function SettingsPage() {
                       onChange={(e) => setNotifications({ ...notifications, [key]: e.target.checked })}
                       className="sr-only peer"
                     />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 dark:peer-focus:ring-primary/40 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
                   </label>
                 </div>
               ))}
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Privacy */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Globe className="h-5 w-5" />
-            <CardTitle>Privacy</CardTitle>
-          </div>
-          <CardDescription>Control who can see your information</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex items-center justify-between p-3 border rounded-lg">
-            <div>
-              <p className="font-medium">Show Profile</p>
-              <p className="text-sm text-muted-foreground">Allow others to view your profile</p>
+        {/* Privacy */}
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center">
+              <Globe className="h-5 w-5 text-white" />
             </div>
-            <Badge variant="secondary">Public</Badge>
-          </div>
-          <div className="flex items-center justify-between p-3 border rounded-lg">
             <div>
-              <p className="font-medium">Show Grades</p>
-              <p className="text-sm text-muted-foreground">Display grades on leaderboards</p>
+              <h2 className="text-lg font-semibold">Privacy</h2>
+              <p className="text-sm text-slate-600">Control who can see your information</p>
             </div>
-            <Badge variant="secondary">Private</Badge>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Security */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Lock className="h-5 w-5" />
-            <CardTitle>Security</CardTitle>
+          
+          <div className="space-y-2 pt-2">
+            <div className="flex items-center justify-between p-4 border border-slate-200 rounded-xl">
+              <div>
+                <p className="font-medium text-slate-900">Show Profile</p>
+                <p className="text-sm text-slate-600">Allow others to view your profile</p>
+              </div>
+              <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Public</Badge>
+            </div>
+            <div className="flex items-center justify-between p-4 border border-slate-200 rounded-xl">
+              <div>
+                <p className="font-medium text-slate-900">Show Grades</p>
+                <p className="text-sm text-slate-600">Display grades on leaderboards</p>
+              </div>
+              <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-100">Private</Badge>
+            </div>
           </div>
-          <CardDescription>Manage your account security</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Button variant="outline" className="w-full">Change Password</Button>
-          <Button variant="outline" className="w-full">Enable Two-Factor Authentication</Button>
-          <Button variant="outline" className="w-full">Download Account Data</Button>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Save Button */}
-      <div className="flex justify-end gap-3">
-        <Button variant="outline">Reset to Defaults</Button>
-        <Button>Save Changes</Button>
+        {/* Security */}
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
+              <Lock className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold">Security</h2>
+              <p className="text-sm text-slate-600">Manage your account security</p>
+            </div>
+          </div>
+          
+          <div className="space-y-2 pt-2">
+            <Button variant="outline" className="w-full rounded-xl border-slate-200 hover:bg-slate-50">
+              Change Password
+            </Button>
+            <Button variant="outline" className="w-full rounded-xl border-slate-200 hover:bg-slate-50">
+              Enable Two-Factor Authentication
+            </Button>
+            <Button variant="outline" className="w-full rounded-xl border-slate-200 hover:bg-slate-50">
+              Download Account Data
+            </Button>
+          </div>
+        </div>
+
+        {/* Save Button */}
+        <div className="flex justify-end gap-3">
+          <Button variant="outline" className="rounded-xl border-slate-200 hover:bg-slate-50">
+            Reset to Defaults
+          </Button>
+          <Button className="rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700">
+            Save Changes
+          </Button>
+        </div>
       </div>
     </div>
   );

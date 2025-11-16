@@ -4,6 +4,7 @@ import { AnnouncementsWidget } from '@/components/dashboard/announcements-widget
 import { CalendarWidget } from '@/components/dashboard/calendar-widget';
 import { QuickActionsWidget } from '@/components/dashboard/quick-actions-widget';
 import { CourseProgressWidget } from '@/components/dashboard/course-progress-widget';
+import { AcademicPerformanceWidget } from '@/components/dashboard/academic-performance-widget';
 
 export const metadata = {
   title: 'Dashboard | Student Portal',
@@ -14,9 +15,11 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Welcome Section */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Welcome back, John!</h1>
-        <p className="text-muted-foreground">
+      <div className="mb-8">
+        <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-white mb-2">
+          Welcome back, John!
+        </h1>
+        <p className="text-lg text-gray-600 dark:text-gray-400">
           Here&apos;s what&apos;s happening with your courses today.
         </p>
       </div>
@@ -33,6 +36,11 @@ export default function DashboardPage() {
 
         {/* Calendar Widget */}
         <CalendarWidget />
+
+        {/* Academic Performance Widget */}
+        <div className="md:col-span-2 lg:col-span-1">
+          <AcademicPerformanceWidget />
+        </div>
 
         {/* Upcoming Assignments */}
         <UpcomingAssignmentsWidget />

@@ -1,196 +1,156 @@
 'use client';
 
-import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { GradientCard } from '@/components/common/gradient-card';
+import { StatCard } from '@/components/common/stat-card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { User, Mail, Calendar, Award, BookOpen, Clock } from 'lucide-react';
+import { User, Mail, Calendar, BookOpen, Award, Clock, ChevronRight, Edit } from 'lucide-react';
 import { mockUser, mockCourses, mockGrades } from '@/lib/mock-data';
 import { formatDate } from '@/lib/utils';
+import Link from 'next/link';
+
+const courseGradients = [
+  'blue-cyan',
+  'purple-pink',
+  'emerald-teal',
+  'orange-red',
+] as const;
+
+const courseColors: Record<string, string> = {
+  'blue-cyan': 'text-blue-600',
+  'purple-pink': 'text-purple-600',
+  'emerald-teal': 'text-emerald-600',
+  'orange-red': 'text-orange-600',
+};
 
 export default function ProfilePage() {
-  const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState({
-    firstName: mockUser.firstName,
-    lastName: mockUser.lastName,
-    email: mockUser.email,
-    bio: mockUser.bio || '',
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Save profile changes
-    setIsEditing(false);
-  };
-
   const totalCredits = mockCourses.reduce((sum, c) => sum + c.credits, 0);
   const avgGrade = mockGrades.length > 0
     ? Math.round(mockGrades.reduce((sum, g) => sum + g.percentage, 0) / mockGrades.length)
     : 0;
 
   return (
-    <div className="space-y-6 max-w-4xl">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Profile</h1>
-        <p className="text-muted-foreground">Manage your personal information and academic profile</p>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6">
+      <div className="max-w-6xl mx-auto space-y-6">
+        {/* Header with Edit Button */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-gray-900">Profile</h1>
+            <p className="text-gray-600">Manage your personal information and academic profile</p>
+          </div>
+          <Button
+            variant="outline"
+            className="bg-white border-gray-200 hover:bg-gray-50 transition-all duration-300"
+          >
+            <Edit className="h-4 w-4 mr-2" />
+            Edit Profile
+          </Button>
+        </div>
 
-      {/* Profile Card */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-4">
-              <img
-                src={mockUser.avatar}
-                alt={`${mockUser.firstName} ${mockUser.lastName}`}
-                className="h-20 w-20 rounded-full"
-              />
-              <div>
-                <CardTitle className="text-2xl">
-                  {mockUser.firstName} {mockUser.lastName}
-                </CardTitle>
-                <CardDescription className="flex items-center gap-2">
-                  <Badge>{mockUser.role}</Badge>
-                  <span>•</span>
-                  <span>Joined {formatDate(mockUser.createdAt)}</span>
-                </CardDescription>
+        {/* Profile Header Section */}
+        <GradientCard gradient="indigo-purple" className="text-white">
+          <div className="flex items-start gap-6">
+            {/* Avatar */}
+            <div className="flex-shrink-0">
+              <div className="h-24 w-24 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                <User className="h-12 w-12 text-white" />
               </div>
             </div>
-            <Button
-              variant={isEditing ? 'default' : 'outline'}
-              onClick={() => setIsEditing(!isEditing)}
-            >
-              {isEditing ? 'Save Changes' : 'Edit Profile'}
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {isEditing ? (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">First Name</label>
-                  <Input
-                    value={formData.firstName}
-                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                  />
+
+            {/* User Info */}
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-2">
+                <h2 className="text-2xl font-bold">
+                  {mockUser.firstName} {mockUser.lastName}
+                </h2>
+                <Badge className="bg-white/20 backdrop-blur-sm text-white border-white/30 hover:bg-white/30">
+                  {mockUser.role}
+                </Badge>
+              </div>
+
+              <div className="space-y-2 text-white/90">
+                <div className="flex items-center gap-2">
+                  <Mail className="h-4 w-4" />
+                  <span>{mockUser.email}</span>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Last Name</label>
-                  <Input
-                    value={formData.lastName}
-                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                  />
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  <span>Joined {formatDate(mockUser.createdAt)}</span>
                 </div>
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Email</label>
-                <Input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Bio</label>
-                <textarea
-                  value={formData.bio}
-                  onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                  className="w-full min-h-[100px] p-3 border rounded-lg"
-                  placeholder="Tell us about yourself..."
-                />
-              </div>
-            </form>
-          ) : (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">Email</p>
-                  <div className="flex items-center gap-2">
-                    <Mail className="h-4 w-4 text-muted-foreground" />
-                    <p className="font-medium">{mockUser.email}</p>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">Member Since</p>
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <p className="font-medium">{formatDate(mockUser.createdAt)}</p>
-                  </div>
-                </div>
-              </div>
+
               {mockUser.bio && (
-                <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">Bio</p>
-                  <p>{mockUser.bio}</p>
-                </div>
+                <p className="mt-4 text-white/90 leading-relaxed">
+                  {mockUser.bio}
+                </p>
               )}
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </div>
+        </GradientCard>
 
-      {/* Academic Overview */}
-      <div className="grid gap-6 md:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardDescription>Enrolled Courses</CardDescription>
-            <div className="flex items-center gap-2">
-              <BookOpen className="h-5 w-5 text-primary" />
-              <CardTitle className="text-3xl">{mockCourses.length}</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">{totalCredits} total credits</p>
-          </CardContent>
-        </Card>
+        {/* Profile Statistics Section */}
+        <div className="grid gap-6 md:grid-cols-3">
+          <StatCard
+            icon={<BookOpen className="h-6 w-6" />}
+            label="Enrolled Courses"
+            value={mockCourses.length}
+            subtitle={`${totalCredits} total credits`}
+            gradient="blue-cyan"
+            variant="outline"
+          />
+          <StatCard
+            icon={<Award className="h-6 w-6" />}
+            label="Average Grade"
+            value={`${avgGrade}%`}
+            subtitle={`Across ${mockGrades.length} assignments`}
+            gradient="emerald-teal"
+            variant="outline"
+          />
+          <StatCard
+            icon={<Clock className="h-6 w-6" />}
+            label="Study Time"
+            value="42h"
+            subtitle="This week"
+            gradient="purple-pink"
+            variant="outline"
+          />
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardDescription>Average Grade</CardDescription>
-            <div className="flex items-center gap-2">
-              <Award className="h-5 w-5 text-primary" />
-              <CardTitle className="text-3xl">{avgGrade}%</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">Across {mockGrades.length} assignments</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardDescription>Study Time</CardDescription>
-            <div className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-primary" />
-              <CardTitle className="text-3xl">42h</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">This week</p>
-          </CardContent>
-        </Card>
+        {/* Current Courses List */}
+        <div className="bg-white rounded-2xl border border-gray-200 p-6">
+          <h3 className="text-xl font-bold text-gray-900 mb-4">Current Courses</h3>
+          <div className="space-y-3">
+            {mockCourses.map((course, index) => {
+              const gradient = courseGradients[index % courseGradients.length];
+              const colorClass = courseColors[gradient];
+              
+              return (
+                <Link
+                  key={course.id}
+                  href={`/courses/${course.id}`}
+                  className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-xl hover-lift transition-all duration-300"
+                >
+                  <div className="flex items-center gap-4 flex-1">
+                    <Badge className={`gradient-${gradient} text-white border-0`}>
+                      {course.code}
+                    </Badge>
+                    <div className="flex-1">
+                      <p className="font-semibold text-gray-900">{course.name}</p>
+                      <p className="text-sm text-gray-600">{course.instructor}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className={`text-2xl font-bold ${colorClass}`}>
+                      {course.progress}%
+                    </span>
+                    <ChevronRight className="h-5 w-5 text-gray-400" />
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
       </div>
-
-      {/* Current Courses */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Current Courses</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {mockCourses.map(course => (
-            <div key={course.id} className="flex items-center justify-between p-3 border rounded-lg">
-              <div>
-                <p className="font-medium">{course.name}</p>
-                <p className="text-sm text-muted-foreground">{course.code} • {course.instructor}</p>
-              </div>
-              <Badge>{course.progress}% complete</Badge>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
     </div>
   );
 }
