@@ -420,9 +420,9 @@ pub(crate) async fn convert_http_to_grpc(
         }
     }
 
-    // Note: Trace headers are now extracted and injected into gRPC metadata
-    // by the DynamicGrpcClient, not added to the payload
-    // This ensures proper W3C trace context propagation
+    // Note: Trace context is now extracted from the current OpenTelemetry span
+    // in call_backend_service() and injected into gRPC metadata using W3C Trace Context format.
+    // This ensures proper trace propagation across service boundaries.
 
     // Serialize to bytes
     let payload_bytes = serde_json::to_vec(&payload)
@@ -459,9 +459,11 @@ pub(crate) async fn convert_grpc_to_http(grpc_response: Vec<u8>) -> Result<Respo
 /// Call backend service via gRPC using dynamic client
 ///
 /// This function:
-/// 1. Routes to appropriate typed client based on service
-/// 2. Makes the actual gRPC call with proper protobuf types
-/// 3. Returns the response
+/// 1. Uses dynamic client for all services unconditionally
+/// 2. Extracts trace context from current OpenTelemetry span
+/// 3. Injects trace context into gRPC metadata using W3C Trace Context format
+/// 4. Makes the actual gRPC call with proper protobuf types
+/// 5. Returns the response
 pub(crate) async fn call_backend_service(
     channel: tonic::transport::Channel,
     grpc_method: &str,
@@ -470,7 +472,7 @@ pub(crate) async fn call_backend_service(
     debug!(
         grpc_method = %grpc_method,
         payload_size = request_payload.len(),
-        "Calling backend service with typed client"
+        "Calling backend service with dynamic client"
     );
 
     // Extract service name from grpc_method (format: "service.ServiceName/Method")
@@ -484,55 +486,78 @@ pub(crate) async fn call_backend_service(
         .nth(1)
         .ok_or_else(|| GatewayError::ConversionError("Invalid gRPC method format".to_string()))?;
 
-    // Route to appropriate typed client based on service
-    match service_name {
-        "user.UserService" => {
-            use crate::handlers::user_service::call_user_service;
-            call_user_service(channel, method_name, request_payload).await
-        }
-        _ => {
-            // Fall back to dynamic client for other services
-            use crate::grpc::DynamicGrpcClient;
-            use std::collections::HashMap;
+    // Extract trace context from current OpenTelemetry span
+    use std::collections::HashMap;
+    use tracing_opentelemetry::OpenTelemetrySpanExt;
+    
+    let mut trace_headers = HashMap::new();
+    let current_span = tracing::Span::current();
+    let context = current_span.context();
+    
+    // Inject trace context into HashMap using W3C Trace Context propagator
+    opentelemetry::global::get_text_map_propagator(|propagator| {
+        propagator.inject_context(&context, &mut trace_headers);
+    });
+    
+    debug!(
+        trace_headers = ?trace_headers,
+        "Extracted trace context from current span"
+    );
 
-            debug!(
-                service = %service_name,
-                "Using dynamic client for non-user service"
-            );
+    // Route to appropriate handler based on service and method
+    // UserService auth methods (Login, Register, OAuth, SAML, MFA, etc.) → typed handler
+    // UserService CRUD methods (GetUser, CreateUser, UpdateUser, DeleteUser, ListUsers) → dynamic client with prost-reflect
+    // All other services → dynamic client
+    if service_name == "user.UserService" && is_auth_method(method_name) {
+        // Use typed handler for UserService auth methods only
+        debug!(
+            service = %service_name,
+            method = %method_name,
+            "Using typed UserService handler for auth method"
+        );
+        
+        use crate::handlers::user_service::call_user_service;
+        call_user_service(channel, method_name, request_payload).await
+    } else {
+        // Use dynamic client for all other services and UserService CRUD methods
+        use crate::grpc::DynamicGrpcClient;
 
-            let mut trace_headers = HashMap::new();
-            let mut clean_payload = request_payload.clone();
+        debug!(
+            service = %service_name,
+            method = %method_name,
+            "Using dynamic client"
+        );
 
-            if let Ok(mut json_value) = serde_json::from_slice::<serde_json::Value>(&request_payload) {
-                if let Some(obj) = json_value.as_object_mut() {
-                    if let Some(trace_data) = obj.remove(METADATA_TRACE) {
-                        if let Some(trace_obj) = trace_data.as_object() {
-                            for (key, value) in trace_obj {
-                                if let Some(value_str) = value.as_str() {
-                                    trace_headers.insert(key.clone(), value_str.to_string());
-                                }
-                            }
-                        }
-                    }
-                    clean_payload = serde_json::to_vec(&json_value)
-                        .map_err(|e| GatewayError::ConversionError(format!("Failed to serialize clean payload: {}", e)))?;
-                }
-            }
-
-            let mut client = DynamicGrpcClient::new(channel, service_name.to_string());
-            client
-                .call(method_name, clean_payload, trace_headers)
-                .await
-                .map_err(|e| {
-                    error!(
-                        grpc_method = %grpc_method,
-                        error = %e,
-                        "Dynamic gRPC call failed"
-                    );
-                    GatewayError::GrpcCallFailed(e.to_string())
-                })
-        }
+        // Call backend service using dynamic client with trace headers
+        let mut client = DynamicGrpcClient::new(channel, service_name.to_string());
+        client
+            .call(method_name, request_payload, trace_headers)
+            .await
+            .map_err(|e| {
+                error!(
+                    grpc_method = %grpc_method,
+                    error = %e,
+                    "Dynamic gRPC call failed"
+                );
+                GatewayError::GrpcCallFailed(e.to_string())
+            })
     }
+}
+
+/// Check if a method is an auth-related method that should use the typed handler
+fn is_auth_method(method_name: &str) -> bool {
+    matches!(
+        method_name,
+        // Basic auth
+        "Login" | "Register" | "RefreshToken" | "ValidateToken" | "Logout" |
+        // OAuth
+        "OAuthCallback" | "LinkOAuthProvider" | "UnlinkOAuthProvider" | "GetOAuthProviders" |
+        "GetOAuthAuthorizationURL" | "HandleOAuthCallback" |
+        // SAML
+        "GetSAMLAuthRequest" | "HandleSAMLAssertion" | "GetSAMLMetadata" |
+        // MFA
+        "SetupMFA" | "VerifyMFA" | "DisableMFA" | "GetMFAStatus" | "ValidateMFACode"
+    )
 }
 
 

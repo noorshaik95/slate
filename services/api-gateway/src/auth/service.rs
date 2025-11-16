@@ -75,6 +75,14 @@ impl AuthService {
     }
     
     /// Validate an authentication token via the auth service
+    #[tracing::instrument(
+        name = "validate_token",
+        skip(self, token),
+        fields(
+            user.id = tracing::field::Empty,
+            validation.result = tracing::field::Empty
+        )
+    )]
     pub async fn validate_token(&self, token: &str) -> Result<AuthResult, AuthError> {
         debug!("Validating authentication token");
         
@@ -91,6 +99,10 @@ impl AuthService {
                 if response.valid {
                     debug!(user_id = %response.user_id, "Token validation successful");
                     
+                    // Record user ID and validation result in span
+                    tracing::Span::current().record("user.id", &response.user_id);
+                    tracing::Span::current().record("validation.result", true);
+                    
                     Ok(AuthResult {
                         valid: true,
                         claims: Some(TokenClaims {
@@ -103,6 +115,9 @@ impl AuthService {
                 } else {
                     warn!("Token validation failed: {}", response.error);
                     
+                    // Record validation failure in span
+                    tracing::Span::current().record("validation.result", false);
+                    
                     Ok(AuthResult {
                         valid: false,
                         claims: None,
@@ -112,6 +127,10 @@ impl AuthService {
             }
             Err(status) => {
                 error!(error = %status, "Auth service call failed");
+                
+                // Record validation failure in span
+                tracing::Span::current().record("validation.result", false);
+                
                 Err(AuthError::ServiceError(status.to_string()))
             }
         }

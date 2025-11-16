@@ -135,6 +135,12 @@ route_overrides:
     http_method: "POST"
     service: "user-auth-service"
 
+  # User CRUD
+  - grpc_method: "user.UserService/GetUser"
+    http_path: "/api/users/:user_id"
+    http_method: "GET"
+    service: "user-auth-service"
+
   # User Groups (member management - CRUD methods auto-discover)
   - grpc_method: "user.UserService/AddGroupMember"
     http_path: "/api/groups/:id/members"
