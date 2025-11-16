@@ -21,6 +21,13 @@ services:
       failure_threshold: 5
       success_threshold: 2
       timeout_seconds: 30
+  assignment-grading-service:
+    name: "assignment-grading-service"
+    endpoint: "http://assignment-grading-service:50053"
+    timeout_ms: 10000
+    connection_pool_size: 10
+    auto_discover: true
+    tls_enabled: false
 
 discovery:
   enabled: true
@@ -265,6 +272,44 @@ route_overrides:
     http_path: "/api/courses/:id/cross-listed"
     http_method: "GET"
     service: "course-service"
+  # Assignment-Grading Service - Only non-conventional routes
+  # Most routes auto-discovered (GetAssignment, CreateAssignment, etc.)
+
+  # Custom: SubmitAssignment doesn't follow Get/List/Create/Update/Delete convention
+  - grpc_method: "assignment.SubmissionService/SubmitAssignment"
+    http_path: "/api/assignments/:assignment_id/submissions"
+    http_method: "POST"
+    service: "assignment-grading-service"
+
+  # Custom: PublishGrade is a special action, not a standard CRUD operation
+  - grpc_method: "assignment.GradingService/PublishGrade"
+    http_path: "/api/grades/:id/publish"
+    http_method: "POST"
+    service: "assignment-grading-service"
+
+  # Custom: Gradebook endpoints have specific resource hierarchies
+  - grpc_method: "assignment.GradebookService/GetStudentGradebook"
+    http_path: "/api/students/:student_id/gradebook"
+    http_method: "GET"
+    service: "assignment-grading-service"
+
+  - grpc_method: "assignment.GradebookService/GetCourseGradebook"
+    http_path: "/api/courses/:course_id/gradebook"
+    http_method: "GET"
+    service: "assignment-grading-service"
+
+  - grpc_method: "assignment.GradebookService/GetGradeStatistics"
+    http_path: "/api/assignments/:assignment_id/statistics"
+    http_method: "GET"
+    service: "assignment-grading-service"
+
+  # Custom: ExportGrades is a special action
+  - grpc_method: "assignment.GradebookService/ExportGrades"
+    http_path: "/api/courses/:course_id/gradebook/export"
+    http_method: "GET"
+    service: "assignment-grading-service"
+
+
 
 
 auth:
