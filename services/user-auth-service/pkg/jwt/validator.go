@@ -1,9 +1,9 @@
 package jwt
 
 import (
-	"fmt"
 	"math"
 	"regexp"
+	"slate/services/user-auth-service/pkg/logger"
 	"strings"
 	"unicode"
 )
@@ -15,6 +15,7 @@ type SecretValidator struct {
 	requireNumbers   bool
 	requireSpecial   bool
 	devMode          bool
+	log              *logger.Logger
 }
 
 // NewSecretValidator creates a new secret validator
@@ -26,6 +27,7 @@ func NewSecretValidator(devMode bool) *SecretValidator {
 		requireNumbers:   true,
 		requireSpecial:   true,
 		devMode:          devMode,
+		log:              logger.NewLogger("info"),
 	}
 }
 
@@ -35,49 +37,68 @@ func NewSecretValidator(devMode bool) *SecretValidator {
 func (v *SecretValidator) ValidateSecret(secret string) error {
 	// Check minimum length
 	if len(secret) < v.minLength {
-		msg := fmt.Sprintf("JWT secret must be at least %d characters (current: %d)", v.minLength, len(secret))
 		if v.devMode {
-			fmt.Printf("WARNING: %s\n", msg)
+			v.log.Warn().
+				Int("min_length", v.minLength).
+				Int("current_length", len(secret)).
+				Msg("JWT secret is shorter than recommended")
 			return nil
 		}
-		return fmt.Errorf(msg)
+		v.log.Error().
+			Int("min_length", v.minLength).
+			Int("current_length", len(secret)).
+			Msg("JWT secret must meet minimum length requirement")
+		return &ValidationError{Field: "jwt_secret", Message: "secret too short"}
 	}
 
 	// Check mixed case
 	if v.requireMixedCase && !hasMixedCase(secret) {
 		msg := "JWT secret must contain both uppercase and lowercase letters"
 		if v.devMode {
-			fmt.Printf("WARNING: %s\n", msg)
+			v.log.Warn().Msg(msg)
 			return nil
 		}
-		return fmt.Errorf(msg)
+		v.log.Error().Msg(msg)
+		return &ValidationError{Field: "jwt_secret", Message: "missing mixed case"}
 	}
 
 	// Check numbers
 	if v.requireNumbers && !hasNumbers(secret) {
 		msg := "JWT secret must contain numbers"
 		if v.devMode {
-			fmt.Printf("WARNING: %s\n", msg)
+			v.log.Warn().Msg(msg)
 			return nil
 		}
-		return fmt.Errorf(msg)
+		v.log.Error().Msg(msg)
+		return &ValidationError{Field: "jwt_secret", Message: "missing numbers"}
 	}
 
 	// Check special characters
 	if v.requireSpecial && !hasSpecialChars(secret) {
 		msg := "JWT secret must contain special characters"
 		if v.devMode {
-			fmt.Printf("WARNING: %s\n", msg)
+			v.log.Warn().Msg(msg)
 			return nil
 		}
-		return fmt.Errorf(msg)
+		v.log.Error().Msg(msg)
+		return &ValidationError{Field: "jwt_secret", Message: "missing special characters"}
 	}
 
 	// Calculate and log entropy (without logging the secret itself)
 	entropy := calculateEntropy(secret)
-	fmt.Printf("JWT secret entropy: %.2f bits\n", entropy)
+	v.log.Info().Float64("entropy_bits", entropy).Msg("JWT secret entropy calculated")
 
 	return nil
+}
+
+// ValidationError represents a validation error
+type ValidationError struct {
+	Field   string
+	Message string
+}
+
+func (e *ValidationError) Error() string {
+	return e.Field + ": " + e.Message
 }
 
 // hasMixedCase checks if string contains both uppercase and lowercase letters

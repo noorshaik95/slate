@@ -2,7 +2,6 @@ package tracing
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -41,7 +40,7 @@ func InitTracer(cfg Config) (*sdktrace.TracerProvider, error) {
 
 	exporter, err := otlptracegrpc.New(ctx, opts...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create OTLP exporter: %w", err)
+		return nil, err
 	}
 
 	// Create resource with service information
@@ -52,7 +51,7 @@ func InitTracer(cfg Config) (*sdktrace.TracerProvider, error) {
 		),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create resource: %w", err)
+		return nil, err
 	}
 
 	// Create tracer provider with batch span processor

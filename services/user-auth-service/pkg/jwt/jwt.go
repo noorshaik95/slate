@@ -1,7 +1,7 @@
 package jwt
 
 import (
-	"fmt"
+	"errors"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -47,7 +47,7 @@ func (s *TokenService) GenerateAccessToken(userID, email string, roles []string)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString(s.secretKey)
 	if err != nil {
-		return "", 0, fmt.Errorf("failed to sign token: %w", err)
+		return "", 0, err
 	}
 
 	return tokenString, int64(s.accessTokenDuration.Seconds()), nil
@@ -71,7 +71,7 @@ func (s *TokenService) GenerateRefreshToken(userID, email string, roles []string
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString(s.secretKey)
 	if err != nil {
-		return "", fmt.Errorf("failed to sign refresh token: %w", err)
+		return "", err
 	}
 
 	return tokenString, nil
@@ -81,20 +81,20 @@ func (s *TokenService) GenerateRefreshToken(userID, email string, roles []string
 func (s *TokenService) ValidateToken(tokenString string) (*Claims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+			return nil, errors.New("unexpected signing method")
 		}
 		return s.secretKey, nil
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse token: %w", err)
+		return nil, err
 	}
 
 	if claims, ok := token.Claims.(*Claims); ok && token.Valid {
 		return claims, nil
 	}
 
-	return nil, fmt.Errorf("invalid token")
+	return nil, errors.New("invalid token")
 }
 
 // ValidateAccessToken validates an access token
@@ -105,7 +105,7 @@ func (s *TokenService) ValidateAccessToken(tokenString string) (*Claims, error) 
 	}
 
 	if claims.Type != "access" {
-		return nil, fmt.Errorf("invalid token type: expected access, got %s", claims.Type)
+		return nil, errors.New("invalid token type: expected access token")
 	}
 
 	return claims, nil
@@ -119,7 +119,7 @@ func (s *TokenService) ValidateRefreshToken(tokenString string) (*Claims, error)
 	}
 
 	if claims.Type != "refresh" {
-		return nil, fmt.Errorf("invalid token type: expected refresh, got %s", claims.Type)
+		return nil, errors.New("invalid token type: expected refresh token")
 	}
 
 	return claims, nil

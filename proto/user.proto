@@ -42,6 +42,15 @@ service UserService {
   rpc GetOAuthProviders(GetOAuthProvidersRequest) returns (GetOAuthProvidersResponse);
   rpc OAuthCallback(OAuthCallbackRequest) returns (OAuthCallbackResponse);
 
+  // OAuth Authentication Flow
+  rpc GetOAuthAuthorizationURL(OAuthAuthRequest) returns (OAuthAuthResponse);
+  rpc HandleOAuthCallback(OAuthCallbackRequest) returns (LoginResponse);
+
+  // SAML Authentication Flow
+  rpc GetSAMLAuthRequest(SAMLAuthRequest) returns (SAMLAuthResponse);
+  rpc HandleSAMLAssertion(SAMLAssertionRequest) returns (LoginResponse);
+  rpc GetSAMLMetadata(SAMLMetadataRequest) returns (SAMLMetadataResponse);
+
   // MFA/2FA Management
   rpc SetupMFA(SetupMFARequest) returns (SetupMFAResponse);
   rpc VerifyMFA(VerifyMFARequest) returns (google.protobuf.Empty);
@@ -287,6 +296,38 @@ message OAuthCallbackResponse {
   string refresh_token = 2;
   User user = 3;
   bool is_new_user = 4;
+}
+
+// OAuth Authentication Flow Messages
+message OAuthAuthRequest {
+  string provider = 1; // google, microsoft, custom
+}
+
+message OAuthAuthResponse {
+  string authorization_url = 1; // URL to redirect user for OAuth authorization
+  string state = 2; // CSRF protection state parameter
+}
+
+// SAML Authentication Flow Messages
+message SAMLAuthRequest {
+  string organization_id = 1; // Organization identifier for SAML configuration
+}
+
+message SAMLAuthResponse {
+  string saml_request = 1; // Base64-encoded SAML authentication request
+  string sso_url = 2; // Identity Provider SSO URL to redirect user
+}
+
+message SAMLAssertionRequest {
+  string saml_response = 1; // Base64-encoded SAML assertion from IdP
+}
+
+message SAMLMetadataRequest {
+  // Empty - no parameters needed for metadata request
+}
+
+message SAMLMetadataResponse {
+  string metadata_xml = 1; // Service Provider metadata XML
 }
 
 // MFA/2FA Messages
