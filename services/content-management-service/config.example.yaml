@@ -1,0 +1,93 @@
+# Content Management Service Configuration (YAML)
+# This is an alternative to environment variables
+# Set CONFIG_FILE=config.yaml to use this file
+
+server:
+  host: "0.0.0.0"
+  port: 8082
+  grpc_port: 50052
+  metrics_port: 9092
+  shutdown_timeout_seconds: 30
+
+database:
+  url: "postgresql://cms:cms_password@localhost:5432/cms"
+  max_connections: 20
+  min_connections: 5
+  connection_timeout_seconds: 30
+  idle_timeout_seconds: 600
+  max_lifetime_seconds: 1800
+
+s3:
+  endpoint: "http://localhost:9000"
+  access_key: "minioadmin"
+  secret_key: "minioadmin"
+  bucket: "content-storage"
+  region: "us-east-1"
+  use_path_style: true
+  presigned_url_expiry_seconds: 3600      # 1 hour for documents
+  video_presigned_url_expiry_seconds: 7200 # 2 hours for videos
+
+elasticsearch:
+  url: "http://localhost:9200"
+  index: "content"
+  max_retries: 2
+  timeout_seconds: 30
+
+redis:
+  url: "redis://localhost:6379"
+  queue_name: "transcoding_jobs"
+  connection_timeout_seconds: 5
+  max_pool_size: 10
+
+observability:
+  service_name: "content-management-service"
+  otlp_endpoint: "http://localhost:4317"
+  log_level: "info"
+  enable_tracing: true
+  enable_metrics: true
+  enable_logging: true
+
+analytics:
+  service_url: "http://localhost:50053"
+  batch_size: 100
+  batch_interval_seconds: 30
+  retry_interval_seconds: 300  # 5 minutes
+  max_queue_age_hours: 24
+
+upload:
+  max_file_size_bytes: 524288000  # 500MB
+  chunk_size_bytes: 5242880       # 5MB
+  session_expiry_hours: 24
+  allowed_video_types:
+    - "video/mp4"
+    - "video/quicktime"
+    - "video/x-msvideo"
+  allowed_document_types:
+    - "application/pdf"
+    - "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  enable_malware_scan: false
+
+transcoding:
+  worker_count: 2
+  max_retries: 3
+  segment_duration_seconds: 6
+  output_formats:
+    - "hls"
+    - "dash"
+  bitrate_variants:
+    - name: "360p"
+      width: 640
+      height: 360
+      bitrate_kbps: 800
+    - name: "480p"
+      width: 854
+      height: 480
+      bitrate_kbps: 1400
+    - name: "720p"
+      width: 1280
+      height: 720
+      bitrate_kbps: 2800
+    - name: "1080p"
+      width: 1920
+      height: 1080
+      bitrate_kbps: 5000
