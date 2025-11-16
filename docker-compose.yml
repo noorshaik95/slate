@@ -114,7 +114,7 @@ services:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 10s
       timeout: 5s
-      etries: 5
+      retries: 5
     deploy:
       resources:
         limits:
