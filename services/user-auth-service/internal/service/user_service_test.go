@@ -168,6 +168,7 @@ func createTestUser() *models.User {
 		FirstName:    "John",
 		LastName:     "Doe",
 		Phone:        "+1234567890",
+		Timezone:     "UTC",
 		IsActive:     true,
 		Roles:        []string{"user"},
 		CreatedAt:    time.Now(),
@@ -198,7 +199,7 @@ func TestRegister_Success(t *testing.T) {
 	mockTokenSvc := new(MockTokenService)
 	mockBlacklist := new(MockTokenBlacklist)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics())
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics(), nil)
 
 	email := "newuser@example.com"
 	password := "Password123!"
@@ -245,7 +246,7 @@ func TestRegister_UserAlreadyExists(t *testing.T) {
 
 	mockBlacklist := new(MockTokenBlacklist)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics())
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics(), nil)
 
 	email := "existing@example.com"
 	existingUser := createTestUser()
@@ -270,7 +271,7 @@ func TestLogin_Success(t *testing.T) {
 
 	mockBlacklist := new(MockTokenBlacklist)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics())
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics(), nil)
 
 	testUser := createTestUser()
 	email := testUser.Email
@@ -302,7 +303,7 @@ func TestLogin_InvalidCredentials(t *testing.T) {
 
 	mockBlacklist := new(MockTokenBlacklist)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics())
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics(), nil)
 
 	mockUserRepo.On("GetByEmail", "test@example.com").Return(nil, errors.New("not found"))
 
@@ -323,7 +324,7 @@ func TestLogin_WrongPassword(t *testing.T) {
 
 	mockBlacklist := new(MockTokenBlacklist)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics())
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics(), nil)
 
 	testUser := createTestUser()
 	mockUserRepo.On("GetByEmail", testUser.Email).Return(testUser, nil)
@@ -345,7 +346,7 @@ func TestLogin_InactiveUser(t *testing.T) {
 
 	mockBlacklist := new(MockTokenBlacklist)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics())
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics(), nil)
 
 	testUser := createTestUser()
 	testUser.IsActive = false
@@ -368,7 +369,7 @@ func TestValidateToken_Success(t *testing.T) {
 
 	mockBlacklist := new(MockTokenBlacklist)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics())
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics(), nil)
 
 	token := "valid-token"
 	claims := &TokenClaims{
@@ -396,7 +397,7 @@ func TestValidateToken_InvalidToken(t *testing.T) {
 
 	mockBlacklist := new(MockTokenBlacklist)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics())
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics(), nil)
 
 	token := "invalid-token"
 	mockTokenSvc.On("ValidateAccessToken", token).Return(nil, errors.New("invalid token"))
@@ -417,7 +418,7 @@ func TestGetUser_Success(t *testing.T) {
 
 	mockBlacklist := new(MockTokenBlacklist)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics())
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics(), nil)
 
 	testUser := createTestUser()
 	mockUserRepo.On("GetByID", testUser.ID).Return(testUser, nil)
@@ -438,7 +439,7 @@ func TestGetUser_NotFound(t *testing.T) {
 
 	mockBlacklist := new(MockTokenBlacklist)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics())
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics(), nil)
 
 	mockUserRepo.On("GetByID", "nonexistent").Return(nil, errors.New("user not found"))
 
@@ -457,7 +458,7 @@ func TestUpdateUser_Success(t *testing.T) {
 
 	mockBlacklist := new(MockTokenBlacklist)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics())
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics(), nil)
 
 	testUser := createTestUser()
 	newEmail := "newemail@example.com"
@@ -490,7 +491,7 @@ func TestDeleteUser_Success(t *testing.T) {
 
 	mockBlacklist := new(MockTokenBlacklist)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics())
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics(), nil)
 
 	userID := "user-123"
 	mockUserRepo.On("Delete", userID).Return(nil)
@@ -508,7 +509,7 @@ func TestChangePassword_Success(t *testing.T) {
 
 	mockBlacklist := new(MockTokenBlacklist)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics())
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics(), nil)
 
 	testUser := createTestUser()
 	oldPassword := "Password123!"
@@ -532,7 +533,7 @@ func TestChangePassword_WrongOldPassword(t *testing.T) {
 
 	mockBlacklist := new(MockTokenBlacklist)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics())
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics(), nil)
 
 	testUser := createTestUser()
 	mockUserRepo.On("GetByID", testUser.ID).Return(testUser, nil)
@@ -551,7 +552,7 @@ func TestAssignRole_Success(t *testing.T) {
 
 	mockBlacklist := new(MockTokenBlacklist)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics())
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics(), nil)
 
 	userID := "user-123"
 	role := "admin"
@@ -574,7 +575,7 @@ func TestRemoveRole_Success(t *testing.T) {
 
 	mockBlacklist := new(MockTokenBlacklist)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics())
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics(), nil)
 
 	userID := "user-123"
 	role := "admin"
@@ -594,7 +595,7 @@ func TestGetUserRoles_Success(t *testing.T) {
 
 	mockBlacklist := new(MockTokenBlacklist)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics())
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics(), nil)
 
 	userID := "user-123"
 	expectedRoles := []string{"user", "admin"}
@@ -615,7 +616,7 @@ func TestCheckPermission_Success(t *testing.T) {
 
 	mockBlacklist := new(MockTokenBlacklist)
 
-	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics())
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics(), nil)
 
 	userID := "user-123"
 	permission := "users.read"
@@ -627,4 +628,459 @@ func TestCheckPermission_Success(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, hasPermission)
 	mockRoleRepo.AssertExpectations(t)
+}
+
+// Mock StrategyManager for testing
+type MockStrategyManager struct {
+	mock.Mock
+}
+
+func (m *MockStrategyManager) GetActiveAuthType() AuthType {
+	args := m.Called()
+	return args.Get(0).(AuthType)
+}
+
+func (m *MockStrategyManager) GetStrategy(authType AuthType) (AuthenticationStrategyInterface, error) {
+	args := m.Called(authType)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(AuthenticationStrategyInterface), args.Error(1)
+}
+
+func (m *MockStrategyManager) RegisterStrategy(strategy AuthenticationStrategyInterface) error {
+	args := m.Called(strategy)
+	return args.Error(0)
+}
+
+// Mock AuthenticationStrategy for testing
+type MockAuthStrategy struct {
+	mock.Mock
+}
+
+func (m *MockAuthStrategy) Authenticate(ctx context.Context, req *AuthRequest) (*AuthResult, error) {
+	args := m.Called(ctx, req)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*AuthResult), args.Error(1)
+}
+
+func (m *MockAuthStrategy) HandleCallback(ctx context.Context, req *CallbackRequest) (*AuthResult, error) {
+	args := m.Called(ctx, req)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*AuthResult), args.Error(1)
+}
+
+func (m *MockAuthStrategy) GetType() AuthType {
+	args := m.Called()
+	return args.Get(0).(AuthType)
+}
+
+func (m *MockAuthStrategy) ValidateConfig() error {
+	args := m.Called()
+	return args.Error(0)
+}
+
+// Tests for Login with OAuth/SAML configured
+func TestLogin_WithOAuthConfigured(t *testing.T) {
+	mockUserRepo := new(MockUserRepository)
+	mockRoleRepo := new(MockRoleRepository)
+	mockTokenSvc := new(MockTokenService)
+	mockBlacklist := new(MockTokenBlacklist)
+	mockStrategyMgr := new(MockStrategyManager)
+
+	mockStrategyMgr.On("GetActiveAuthType").Return(AuthTypeOAuth)
+
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics(), mockStrategyMgr)
+
+	user, tokens, err := svc.Login(context.Background(), "test@example.com", "Password123!")
+
+	assert.Error(t, err)
+	assert.Nil(t, user)
+	assert.Nil(t, tokens)
+	assert.Contains(t, err.Error(), "oauth authentication")
+
+	mockStrategyMgr.AssertExpectations(t)
+}
+
+func TestLogin_WithSAMLConfigured(t *testing.T) {
+	mockUserRepo := new(MockUserRepository)
+	mockRoleRepo := new(MockRoleRepository)
+	mockTokenSvc := new(MockTokenService)
+	mockBlacklist := new(MockTokenBlacklist)
+	mockStrategyMgr := new(MockStrategyManager)
+
+	mockStrategyMgr.On("GetActiveAuthType").Return(AuthTypeSAML)
+
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics(), mockStrategyMgr)
+
+	user, tokens, err := svc.Login(context.Background(), "test@example.com", "Password123!")
+
+	assert.Error(t, err)
+	assert.Nil(t, user)
+	assert.Nil(t, tokens)
+	assert.Contains(t, err.Error(), "saml authentication")
+
+	mockStrategyMgr.AssertExpectations(t)
+}
+
+func TestLogin_WithNormalAuthConfigured(t *testing.T) {
+	mockUserRepo := new(MockUserRepository)
+	mockRoleRepo := new(MockRoleRepository)
+	mockTokenSvc := new(MockTokenService)
+	mockBlacklist := new(MockTokenBlacklist)
+	mockStrategyMgr := new(MockStrategyManager)
+
+	mockStrategyMgr.On("GetActiveAuthType").Return(AuthTypeNormal)
+
+	testUser := createTestUser()
+	email := testUser.Email
+	password := "Password123!"
+
+	mockUserRepo.On("GetByEmail", email).Return(testUser, nil)
+	mockTokenSvc.On("GenerateAccessToken", testUser.ID, email, testUser.Roles).
+		Return("access-token", int64(900), nil)
+	mockTokenSvc.On("GenerateRefreshToken", testUser.ID, email, testUser.Roles).
+		Return("refresh-token", nil)
+
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics(), mockStrategyMgr)
+
+	user, tokens, err := svc.Login(context.Background(), email, password)
+
+	require.NoError(t, err)
+	assert.NotNil(t, user)
+	assert.NotNil(t, tokens)
+	assert.Equal(t, testUser.ID, user.ID)
+
+	mockStrategyMgr.AssertExpectations(t)
+	mockUserRepo.AssertExpectations(t)
+	mockTokenSvc.AssertExpectations(t)
+}
+
+// Tests for LoginWithAuthType
+func TestLoginWithAuthType_Normal(t *testing.T) {
+	mockUserRepo := new(MockUserRepository)
+	mockRoleRepo := new(MockRoleRepository)
+	mockTokenSvc := new(MockTokenService)
+	mockBlacklist := new(MockTokenBlacklist)
+	mockStrategyMgr := new(MockStrategyManager)
+	mockStrategy := new(MockAuthStrategy)
+
+	testUser := createTestUser()
+	tokens := &models.TokenPair{
+		AccessToken:  "access-token",
+		RefreshToken: "refresh-token",
+		ExpiresIn:    900,
+	}
+
+	authResult := &AuthResult{
+		Success: true,
+		User:    testUser,
+		Tokens:  tokens,
+	}
+
+	mockStrategyMgr.On("GetStrategy", AuthTypeNormal).Return(mockStrategy, nil)
+	mockStrategy.On("Authenticate", mock.Anything, mock.AnythingOfType("*service.AuthRequest")).Return(authResult, nil)
+
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics(), mockStrategyMgr)
+
+	req := &AuthRequest{
+		Email:    "test@example.com",
+		Password: "Password123!",
+	}
+
+	result, err := svc.LoginWithAuthType(context.Background(), AuthTypeNormal, req)
+
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.True(t, result.Success)
+	assert.Equal(t, testUser.ID, result.User.ID)
+	assert.Equal(t, tokens.AccessToken, result.Tokens.AccessToken)
+
+	mockStrategyMgr.AssertExpectations(t)
+	mockStrategy.AssertExpectations(t)
+}
+
+func TestLoginWithAuthType_OAuth(t *testing.T) {
+	mockUserRepo := new(MockUserRepository)
+	mockRoleRepo := new(MockRoleRepository)
+	mockTokenSvc := new(MockTokenService)
+	mockBlacklist := new(MockTokenBlacklist)
+	mockStrategyMgr := new(MockStrategyManager)
+	mockStrategy := new(MockAuthStrategy)
+
+	authResult := &AuthResult{
+		Success:          false,
+		AuthorizationURL: "https://oauth.provider.com/authorize?client_id=123",
+		State:            "random-state-123",
+	}
+
+	mockStrategyMgr.On("GetStrategy", AuthTypeOAuth).Return(mockStrategy, nil)
+	mockStrategy.On("Authenticate", mock.Anything, mock.AnythingOfType("*service.AuthRequest")).Return(authResult, nil)
+
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics(), mockStrategyMgr)
+
+	req := &AuthRequest{
+		Provider: "google",
+	}
+
+	result, err := svc.LoginWithAuthType(context.Background(), AuthTypeOAuth, req)
+
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.False(t, result.Success)
+	assert.NotEmpty(t, result.AuthorizationURL)
+	assert.NotEmpty(t, result.State)
+
+	mockStrategyMgr.AssertExpectations(t)
+	mockStrategy.AssertExpectations(t)
+}
+
+func TestLoginWithAuthType_SAML(t *testing.T) {
+	mockUserRepo := new(MockUserRepository)
+	mockRoleRepo := new(MockRoleRepository)
+	mockTokenSvc := new(MockTokenService)
+	mockBlacklist := new(MockTokenBlacklist)
+	mockStrategyMgr := new(MockStrategyManager)
+	mockStrategy := new(MockAuthStrategy)
+
+	authResult := &AuthResult{
+		Success:     false,
+		SAMLRequest: "base64-encoded-saml-request",
+		SSOURL:      "https://idp.example.com/sso",
+	}
+
+	mockStrategyMgr.On("GetStrategy", AuthTypeSAML).Return(mockStrategy, nil)
+	mockStrategy.On("Authenticate", mock.Anything, mock.AnythingOfType("*service.AuthRequest")).Return(authResult, nil)
+
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics(), mockStrategyMgr)
+
+	req := &AuthRequest{
+		OrganizationID: "org-123",
+	}
+
+	result, err := svc.LoginWithAuthType(context.Background(), AuthTypeSAML, req)
+
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.False(t, result.Success)
+	assert.NotEmpty(t, result.SAMLRequest)
+	assert.NotEmpty(t, result.SSOURL)
+
+	mockStrategyMgr.AssertExpectations(t)
+	mockStrategy.AssertExpectations(t)
+}
+
+func TestLoginWithAuthType_UnsupportedType(t *testing.T) {
+	mockUserRepo := new(MockUserRepository)
+	mockRoleRepo := new(MockRoleRepository)
+	mockTokenSvc := new(MockTokenService)
+	mockBlacklist := new(MockTokenBlacklist)
+	mockStrategyMgr := new(MockStrategyManager)
+
+	mockStrategyMgr.On("GetStrategy", AuthType("invalid")).Return(nil, errors.New("no strategy registered"))
+
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics(), mockStrategyMgr)
+
+	req := &AuthRequest{
+		Email: "test@example.com",
+	}
+
+	result, err := svc.LoginWithAuthType(context.Background(), AuthType("invalid"), req)
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "auth type not supported")
+
+	mockStrategyMgr.AssertExpectations(t)
+}
+
+func TestLoginWithAuthType_NoStrategyManager(t *testing.T) {
+	mockUserRepo := new(MockUserRepository)
+	mockRoleRepo := new(MockRoleRepository)
+	mockTokenSvc := new(MockTokenService)
+	mockBlacklist := new(MockTokenBlacklist)
+
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics(), nil)
+
+	req := &AuthRequest{
+		Email: "test@example.com",
+	}
+
+	result, err := svc.LoginWithAuthType(context.Background(), AuthTypeNormal, req)
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "not configured")
+}
+
+// Tests for HandleAuthCallback
+func TestHandleAuthCallback_OAuth(t *testing.T) {
+	mockUserRepo := new(MockUserRepository)
+	mockRoleRepo := new(MockRoleRepository)
+	mockTokenSvc := new(MockTokenService)
+	mockBlacklist := new(MockTokenBlacklist)
+	mockStrategyMgr := new(MockStrategyManager)
+	mockStrategy := new(MockAuthStrategy)
+
+	testUser := createTestUser()
+	tokens := &models.TokenPair{
+		AccessToken:  "access-token",
+		RefreshToken: "refresh-token",
+		ExpiresIn:    900,
+	}
+
+	authResult := &AuthResult{
+		Success: true,
+		User:    testUser,
+		Tokens:  tokens,
+	}
+
+	mockStrategyMgr.On("GetStrategy", AuthTypeOAuth).Return(mockStrategy, nil)
+	mockStrategy.On("HandleCallback", mock.Anything, mock.AnythingOfType("*service.CallbackRequest")).Return(authResult, nil)
+
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics(), mockStrategyMgr)
+
+	req := &CallbackRequest{
+		Code:  "auth-code-123",
+		State: "state-123",
+	}
+
+	result, err := svc.HandleAuthCallback(context.Background(), AuthTypeOAuth, req)
+
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.True(t, result.Success)
+	assert.Equal(t, testUser.ID, result.User.ID)
+	assert.Equal(t, tokens.AccessToken, result.Tokens.AccessToken)
+
+	mockStrategyMgr.AssertExpectations(t)
+	mockStrategy.AssertExpectations(t)
+}
+
+func TestHandleAuthCallback_SAML(t *testing.T) {
+	mockUserRepo := new(MockUserRepository)
+	mockRoleRepo := new(MockRoleRepository)
+	mockTokenSvc := new(MockTokenService)
+	mockBlacklist := new(MockTokenBlacklist)
+	mockStrategyMgr := new(MockStrategyManager)
+	mockStrategy := new(MockAuthStrategy)
+
+	testUser := createTestUser()
+	tokens := &models.TokenPair{
+		AccessToken:  "access-token",
+		RefreshToken: "refresh-token",
+		ExpiresIn:    900,
+	}
+
+	authResult := &AuthResult{
+		Success: true,
+		User:    testUser,
+		Tokens:  tokens,
+	}
+
+	mockStrategyMgr.On("GetStrategy", AuthTypeSAML).Return(mockStrategy, nil)
+	mockStrategy.On("HandleCallback", mock.Anything, mock.AnythingOfType("*service.CallbackRequest")).Return(authResult, nil)
+
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics(), mockStrategyMgr)
+
+	req := &CallbackRequest{
+		SAMLResponse: "base64-encoded-saml-response",
+	}
+
+	result, err := svc.HandleAuthCallback(context.Background(), AuthTypeSAML, req)
+
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.True(t, result.Success)
+	assert.Equal(t, testUser.ID, result.User.ID)
+
+	mockStrategyMgr.AssertExpectations(t)
+	mockStrategy.AssertExpectations(t)
+}
+
+func TestHandleAuthCallback_InvalidState(t *testing.T) {
+	mockUserRepo := new(MockUserRepository)
+	mockRoleRepo := new(MockRoleRepository)
+	mockTokenSvc := new(MockTokenService)
+	mockBlacklist := new(MockTokenBlacklist)
+	mockStrategyMgr := new(MockStrategyManager)
+	mockStrategy := new(MockAuthStrategy)
+
+	mockStrategyMgr.On("GetStrategy", AuthTypeOAuth).Return(mockStrategy, nil)
+	mockStrategy.On("HandleCallback", mock.Anything, mock.AnythingOfType("*service.CallbackRequest")).Return(nil, errors.New("invalid state"))
+
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics(), mockStrategyMgr)
+
+	req := &CallbackRequest{
+		Code:  "auth-code-123",
+		State: "invalid-state",
+	}
+
+	result, err := svc.HandleAuthCallback(context.Background(), AuthTypeOAuth, req)
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "invalid state")
+
+	mockStrategyMgr.AssertExpectations(t)
+	mockStrategy.AssertExpectations(t)
+}
+
+func TestHandleAuthCallback_NoStrategyManager(t *testing.T) {
+	mockUserRepo := new(MockUserRepository)
+	mockRoleRepo := new(MockRoleRepository)
+	mockTokenSvc := new(MockTokenService)
+	mockBlacklist := new(MockTokenBlacklist)
+
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics(), nil)
+
+	req := &CallbackRequest{
+		Code:  "auth-code-123",
+		State: "state-123",
+	}
+
+	result, err := svc.HandleAuthCallback(context.Background(), AuthTypeOAuth, req)
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "not configured")
+}
+
+// Tests for GetSupportedAuthTypes
+func TestGetSupportedAuthTypes_WithStrategyManager(t *testing.T) {
+	mockUserRepo := new(MockUserRepository)
+	mockRoleRepo := new(MockRoleRepository)
+	mockTokenSvc := new(MockTokenService)
+	mockBlacklist := new(MockTokenBlacklist)
+	mockStrategyMgr := new(MockStrategyManager)
+
+	mockStrategyMgr.On("GetActiveAuthType").Return(AuthTypeOAuth)
+
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics(), mockStrategyMgr)
+
+	authTypes := svc.GetSupportedAuthTypes()
+
+	assert.NotEmpty(t, authTypes)
+	assert.Contains(t, authTypes, AuthTypeOAuth)
+
+	mockStrategyMgr.AssertExpectations(t)
+}
+
+func TestGetSupportedAuthTypes_WithoutStrategyManager(t *testing.T) {
+	mockUserRepo := new(MockUserRepository)
+	mockRoleRepo := new(MockRoleRepository)
+	mockTokenSvc := new(MockTokenService)
+	mockBlacklist := new(MockTokenBlacklist)
+
+	svc := NewUserService(mockUserRepo, mockRoleRepo, mockTokenSvc, mockBlacklist, createTestLogger(), createTestMetrics(), nil)
+
+	authTypes := svc.GetSupportedAuthTypes()
+
+	assert.NotEmpty(t, authTypes)
+	assert.Contains(t, authTypes, AuthTypeNormal)
+	assert.Len(t, authTypes, 1)
 }

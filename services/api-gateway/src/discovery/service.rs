@@ -185,34 +185,43 @@ impl RouteDiscoveryService {
 
             // Map each method to an HTTP route using conventions
             for method in methods {
+                tracing::info!(
+                    service = %service_name,
+                    grpc_service = %grpc_service,
+                    method_name = %method.name,
+                    full_name = %method.full_name,
+                    "🔍 DISCOVERY: Processing method for route mapping"
+                );
+
                 match self
                     .convention_mapper
                     .map_method(grpc_service, &method.name, &method.full_name)
                 {
                     Some(mapping) => {
                         let route = RouteConfig {
-                            path: mapping.http_path,
-                            method: mapping.http_method,
+                            path: mapping.http_path.clone(),
+                            method: mapping.http_method.clone(),
                             service: service_name.to_string(),
-                            grpc_method: mapping.grpc_method,
+                            grpc_method: mapping.grpc_method.clone(),
                         };
 
-                        debug!(
+                        tracing::info!(
                             service = %service_name,
                             grpc_method = %method.name,
                             http_method = %route.method,
                             http_path = %route.path,
-                            "Mapped gRPC method to HTTP route"
+                            "✅ DISCOVERY: Successfully mapped gRPC method to HTTP route"
                         );
 
                         routes.push(route);
                     }
                     None => {
                         // Method doesn't match conventions, skip it
-                        debug!(
+                        tracing::warn!(
                             service = %service_name,
                             grpc_method = %method.name,
-                            "Method does not match naming conventions, skipping"
+                            full_name = %method.full_name,
+                            "❌ DISCOVERY: Method does not match naming conventions, skipping"
                         );
                         skipped_methods += 1;
                     }

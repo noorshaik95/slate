@@ -1,0 +1,300 @@
+syntax = "proto3";
+
+package assignment;
+
+option go_package = "slate/services/assignment-grading-service/api/proto";
+
+import "google/protobuf/timestamp.proto";
+
+// Assignment Service - manages assignment CRUD operations
+service AssignmentService {
+  rpc CreateAssignment(CreateAssignmentRequest) returns (CreateAssignmentResponse);
+  rpc GetAssignment(GetAssignmentRequest) returns (GetAssignmentResponse);
+  rpc UpdateAssignment(UpdateAssignmentRequest) returns (UpdateAssignmentResponse);
+  rpc DeleteAssignment(DeleteAssignmentRequest) returns (DeleteAssignmentResponse);
+  rpc ListAssignments(ListAssignmentsRequest) returns (ListAssignmentsResponse);
+}
+
+// Submission Service - manages assignment submissions
+service SubmissionService {
+  rpc SubmitAssignment(SubmitAssignmentRequest) returns (SubmitAssignmentResponse);
+  rpc GetSubmission(GetSubmissionRequest) returns (GetSubmissionResponse);
+  rpc ListSubmissions(ListSubmissionsRequest) returns (ListSubmissionsResponse);
+  rpc ListStudentSubmissions(ListStudentSubmissionsRequest) returns (ListStudentSubmissionsResponse);
+}
+
+// Grading Service - manages grade creation and publishing
+service GradingService {
+  rpc CreateGrade(CreateGradeRequest) returns (CreateGradeResponse);
+  rpc UpdateGrade(UpdateGradeRequest) returns (UpdateGradeResponse);
+  rpc PublishGrade(PublishGradeRequest) returns (PublishGradeResponse);
+  rpc GetGrade(GetGradeRequest) returns (GetGradeResponse);
+}
+
+// Gradebook Service - provides gradebook views and statistics
+service GradebookService {
+  rpc GetStudentGradebook(GetStudentGradebookRequest) returns (GetStudentGradebookResponse);
+  rpc GetCourseGradebook(GetCourseGradebookRequest) returns (GetCourseGradebookResponse);
+  rpc GetGradeStatistics(GetGradeStatisticsRequest) returns (GetGradeStatisticsResponse);
+  rpc ExportGrades(ExportGradesRequest) returns (ExportGradesResponse);
+}
+
+// Late Policy Configuration
+message LatePolicy {
+  int32 penalty_percent_per_day = 1;  // Percentage deduction per day late (0-100)
+  int32 max_late_days = 2;             // Maximum days late before zero (0 = no late submissions)
+}
+
+// Assignment Message
+message Assignment {
+  string id = 1;
+  string course_id = 2;
+  string title = 3;
+  string description = 4;
+  double max_points = 5;
+  google.protobuf.Timestamp due_date = 6;
+  LatePolicy late_policy = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+// Submission Message
+message Submission {
+  string id = 1;
+  string assignment_id = 2;
+  string student_id = 3;
+  string file_path = 4;
+  google.protobuf.Timestamp submitted_at = 5;
+  string status = 6; // submitted, graded, returned
+  bool is_late = 7;
+  int32 days_late = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+// Grade Message
+message Grade {
+  string id = 1;
+  string submission_id = 2;
+  string student_id = 3;
+  string assignment_id = 4;
+  double score = 5;
+  double adjusted_score = 6; // After late penalty
+  string feedback = 7;
+  string status = 8; // draft, published
+  google.protobuf.Timestamp graded_at = 9;
+  google.protobuf.Timestamp published_at = 10;
+  string graded_by = 11; // Instructor ID
+  google.protobuf.Timestamp created_at = 12;
+  google.protobuf.Timestamp updated_at = 13;
+}
+
+// Assignment Service Messages
+message CreateAssignmentRequest {
+  string course_id = 1;
+  string title = 2;
+  string description = 3;
+  double max_points = 4;
+  google.protobuf.Timestamp due_date = 5;
+  LatePolicy late_policy = 6;
+}
+
+message CreateAssignmentResponse {
+  Assignment assignment = 1;
+}
+
+message GetAssignmentRequest {
+  string id = 1;
+}
+
+message GetAssignmentResponse {
+  Assignment assignment = 1;
+}
+
+message UpdateAssignmentRequest {
+  string id = 1;
+  string title = 2;
+  string description = 3;
+  double max_points = 4;
+  google.protobuf.Timestamp due_date = 5;
+  LatePolicy late_policy = 6;
+}
+
+message UpdateAssignmentResponse {
+  Assignment assignment = 1;
+}
+
+message DeleteAssignmentRequest {
+  string id = 1;
+}
+
+message DeleteAssignmentResponse {
+  bool success = 1;
+}
+
+message ListAssignmentsRequest {
+  string course_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message ListAssignmentsResponse {
+  repeated Assignment assignments = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+// Submission Service Messages
+message SubmitAssignmentRequest {
+  string assignment_id = 1;
+  string student_id = 2;
+  bytes file_content = 3;
+  string file_name = 4;
+  string content_type = 5;
+}
+
+message SubmitAssignmentResponse {
+  Submission submission = 1;
+}
+
+message GetSubmissionRequest {
+  string id = 1;
+}
+
+message GetSubmissionResponse {
+  Submission submission = 1;
+}
+
+message ListSubmissionsRequest {
+  string assignment_id = 1;
+  string sort_by = 2; // submitted_at, student_id
+  string order = 3; // asc, desc
+}
+
+message ListSubmissionsResponse {
+  repeated Submission submissions = 1;
+}
+
+message ListStudentSubmissionsRequest {
+  string student_id = 1;
+  string course_id = 2;
+}
+
+message ListStudentSubmissionsResponse {
+  repeated Submission submissions = 1;
+}
+
+// Grading Service Messages
+message CreateGradeRequest {
+  string submission_id = 1;
+  double score = 2;
+  string feedback = 3;
+  string graded_by = 4;
+}
+
+message CreateGradeResponse {
+  Grade grade = 1;
+}
+
+message UpdateGradeRequest {
+  string id = 1;
+  double score = 2;
+  string feedback = 3;
+}
+
+message UpdateGradeResponse {
+  Grade grade = 1;
+}
+
+message PublishGradeRequest {
+  string id = 1;
+}
+
+message PublishGradeResponse {
+  Grade grade = 1;
+}
+
+message GetGradeRequest {
+  string id = 1;
+}
+
+message GetGradeResponse {
+  Grade grade = 1;
+}
+
+// Gradebook Service Messages
+message GetStudentGradebookRequest {
+  string student_id = 1;
+  string course_id = 2;
+}
+
+message GradebookEntry {
+  string assignment_id = 1;
+  string assignment_title = 2;
+  double max_points = 3;
+  double score = 4;
+  double adjusted_score = 5;
+  string status = 6;
+  google.protobuf.Timestamp due_date = 7;
+  google.protobuf.Timestamp submitted_at = 8;
+  bool is_late = 9;
+}
+
+message GetStudentGradebookResponse {
+  string student_id = 1;
+  string course_id = 2;
+  repeated GradebookEntry entries = 3;
+  double total_points = 4;
+  double earned_points = 5;
+  double percentage = 6;
+  string letter_grade = 7;
+}
+
+message GetCourseGradebookRequest {
+  string course_id = 1;
+}
+
+message StudentGradeSummary {
+  string student_id = 1;
+  string student_name = 2;
+  double total_points = 3;
+  double earned_points = 4;
+  double percentage = 5;
+  string letter_grade = 6;
+  repeated GradebookEntry entries = 7;
+}
+
+message GetCourseGradebookResponse {
+  string course_id = 1;
+  repeated StudentGradeSummary students = 2;
+}
+
+message GetGradeStatisticsRequest {
+  string assignment_id = 1;
+}
+
+message GradeStatistics {
+  string assignment_id = 1;
+  int32 total_submissions = 2;
+  int32 graded_count = 3;
+  double mean = 4;
+  double median = 5;
+  double std_deviation = 6;
+  double min_score = 7;
+  double max_score = 8;
+}
+
+message GetGradeStatisticsResponse {
+  GradeStatistics statistics = 1;
+}
+
+message ExportGradesRequest {
+  string course_id = 1;
+  string format = 2; // csv, json
+}
+
+message ExportGradesResponse {
+  bytes data = 1;
+  string format = 2;
+}

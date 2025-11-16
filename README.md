@@ -480,6 +480,28 @@ The smoke tests verify:
 - ✅ Rate limiting
 - ✅ Path traversal protection
 
+### E2E Multi-Authentication Tests
+
+Run comprehensive E2E tests for all authentication methods:
+
+```bash
+# Start the full stack first
+docker-compose up -d
+
+# Run E2E multi-auth tests
+./tests/e2e_multi_auth_test.sh
+```
+
+The E2E tests verify:
+- ✅ Normal authentication (username/password) - register, login, validate, access protected endpoints
+- ✅ OAuth 2.0 authentication - authorization URL, callback endpoint routing
+- ✅ SAML 2.0 authentication - metadata, login request, ACS endpoint routing
+- ✅ Dynamic AUTH_TYPE switching between authentication methods
+- ✅ Service restart and health checking
+- ✅ Trace ID propagation across all requests
+
+See [E2E Testing Documentation](docs/E2E_TESTING.md) for detailed information.
+
 ### Integration Testing with grpcurl
 
 ```bash

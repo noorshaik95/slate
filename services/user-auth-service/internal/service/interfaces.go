@@ -62,3 +62,60 @@ type MetricsInterface interface {
 	ObserveRequestDuration(operation string, durationSeconds float64)
 	SetDBConnections(count int)
 }
+
+// UserServiceInterface defines the interface for user service operations
+// This interface is used by authentication strategies to delegate authentication logic
+type UserServiceInterface interface {
+	Login(ctx context.Context, email, password string) (*models.User, *models.TokenPair, error)
+}
+
+// StrategyManagerInterface defines the interface for authentication strategy management
+// This interface allows the service layer to interact with the auth layer without
+// creating import cycles.
+type StrategyManagerInterface interface {
+	GetActiveAuthType() AuthType
+	GetStrategy(authType AuthType) (AuthenticationStrategyInterface, error)
+}
+
+// AuthType represents the authentication method type
+type AuthType string
+
+const (
+	AuthTypeNormal AuthType = "normal"
+	AuthTypeOAuth  AuthType = "oauth"
+	AuthTypeSAML   AuthType = "saml"
+)
+
+// AuthenticationStrategyInterface defines the interface for authentication strategies
+type AuthenticationStrategyInterface interface {
+	Authenticate(ctx context.Context, req *AuthRequest) (*AuthResult, error)
+	HandleCallback(ctx context.Context, req *CallbackRequest) (*AuthResult, error)
+	GetType() AuthType
+	ValidateConfig() error
+}
+
+// AuthRequest contains authentication request data
+type AuthRequest struct {
+	Email          string
+	Password       string
+	OrganizationID string
+	Provider       string
+}
+
+// CallbackRequest contains callback data from OAuth/SAML providers
+type CallbackRequest struct {
+	Code         string
+	State        string
+	SAMLResponse string
+}
+
+// AuthResult contains authentication result
+type AuthResult struct {
+	Success          bool
+	User             *models.User
+	Tokens           *models.TokenPair
+	AuthorizationURL string
+	State            string
+	SAMLRequest      string
+	SSOURL           string
+}

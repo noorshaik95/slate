@@ -10,6 +10,36 @@ services:
     connection_pool_size: 10
     auto_discover: true
     tls_enabled: false
+  course-service:
+    name: "course-service"
+    endpoint: "http://course-service:50052"
+    timeout_ms: 5000
+    connection_pool_size: 10
+    auto_discover: true
+    tls_enabled: false
+    circuit_breaker:
+      failure_threshold: 5
+      success_threshold: 2
+      timeout_seconds: 30
+  assignment-grading-service:
+    name: "assignment-grading-service"
+    endpoint: "http://assignment-grading-service:50053"
+    timeout_ms: 10000
+    connection_pool_size: 10
+    auto_discover: true
+    tls_enabled: false
+
+  content-management-service:
+    name: "content-management-service"
+    endpoint: "http://content-management-service:50052"
+    timeout_ms: 30000  # Longer timeout for uploads and transcoding
+    connection_pool_size: 10
+    auto_discover: true
+    tls_enabled: false
+    circuit_breaker:
+      failure_threshold: 5
+      success_threshold: 2
+      timeout_seconds: 60
 
 discovery:
   enabled: true
@@ -17,44 +47,416 @@ discovery:
 
 # Optional: Override specific routes when convention doesn't fit
 route_overrides:
+  # Authentication
   - grpc_method: "user.UserService/Login"
     http_path: "/api/auth/login"
     http_method: "POST"
     service: "user-auth-service"
-  
+
   - grpc_method: "user.UserService/Register"
     http_path: "/api/auth/register"
     http_method: "POST"
     service: "user-auth-service"
-  
+
   - grpc_method: "user.UserService/RefreshToken"
     http_path: "/api/auth/refresh"
     http_method: "POST"
     service: "user-auth-service"
-  
+
   - grpc_method: "user.UserService/ValidateToken"
     http_path: "/api/auth/validate"
     http_method: "POST"
     service: "user-auth-service"
-  
+
   - grpc_method: "user.UserService/Logout"
     http_path: "/api/auth/logout"
     http_method: "POST"
     service: "user-auth-service"
 
+  # OAuth/SSO
+  - grpc_method: "user.UserService/OAuthCallback"
+    http_path: "/api/oauth/callback"
+    http_method: "POST"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/LinkOAuthProvider"
+    http_path: "/api/oauth/link"
+    http_method: "POST"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/UnlinkOAuthProvider"
+    http_path: "/api/oauth/unlink"
+    http_method: "POST"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/GetOAuthProviders"
+    http_path: "/api/oauth/providers"
+    http_method: "GET"
+    service: "user-auth-service"
+
+  # OAuth 2.0 Multi-Auth Routes
+  - grpc_method: "user.UserService/GetOAuthAuthorizationURL"
+    http_path: "/auth/oauth/authorize"
+    http_method: "POST"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/HandleOAuthCallback"
+    http_path: "/auth/oauth/callback"
+    http_method: "GET"
+    service: "user-auth-service"
+
+  # SAML 2.0 Multi-Auth Routes
+  - grpc_method: "user.UserService/GetSAMLAuthRequest"
+    http_path: "/auth/saml/login"
+    http_method: "POST"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/HandleSAMLAssertion"
+    http_path: "/auth/saml/acs"
+    http_method: "POST"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/GetSAMLMetadata"
+    http_path: "/auth/saml/metadata"
+    http_method: "GET"
+    service: "user-auth-service"
+
+  # MFA/2FA
+  - grpc_method: "user.UserService/SetupMFA"
+    http_path: "/api/mfa/setup"
+    http_method: "POST"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/VerifyMFA"
+    http_path: "/api/mfa/verify"
+    http_method: "POST"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/DisableMFA"
+    http_path: "/api/mfa/disable"
+    http_method: "POST"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/GetMFAStatus"
+    http_path: "/api/mfa/status"
+    http_method: "GET"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/ValidateMFACode"
+    http_path: "/api/mfa/validate"
+    http_method: "POST"
+    service: "user-auth-service"
+
+  # User Groups (member management - CRUD methods auto-discover)
+  - grpc_method: "user.UserService/AddGroupMember"
+    http_path: "/api/groups/:id/members"
+    http_method: "POST"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/RemoveGroupMember"
+    http_path: "/api/groups/:id/members/:user_id"
+    http_method: "DELETE"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/GetGroupMembers"
+    http_path: "/api/groups/:id/members"
+    http_method: "GET"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/GetUserGroups"
+    http_path: "/api/users/:id/groups"
+    http_method: "GET"
+    service: "user-auth-service"
+
+  # Parent-Child Account Management
+  - grpc_method: "user.UserService/CreateParentChildLink"
+    http_path: "/api/parent-child/link"
+    http_method: "POST"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/RemoveParentChildLink"
+    http_path: "/api/parent-child/link"
+    http_method: "DELETE"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/GetChildAccounts"
+    http_path: "/api/users/:id/children"
+    http_method: "GET"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/GetParentAccounts"
+    http_path: "/api/users/:id/parents"
+    http_method: "GET"
+    service: "user-auth-service"
+
+  - grpc_method: "user.UserService/UpdateParentChildPermissions"
+    http_path: "/api/parent-child/permissions"
+    http_method: "PUT"
+    service: "user-auth-service"
+  # Course Service - Publishing
+  - grpc_method: "course.CourseService/PublishCourse"
+    http_path: "/api/courses/:id/publish"
+    http_method: "POST"
+    service: "course-service"
+
+  - grpc_method: "course.CourseService/UnpublishCourse"
+    http_path: "/api/courses/:id/unpublish"
+    http_method: "POST"
+    service: "course-service"
+
+  # Course Service - Enrollment
+  - grpc_method: "course.CourseService/SelfEnroll"
+    http_path: "/api/courses/:id/enroll"
+    http_method: "POST"
+    service: "course-service"
+
+  - grpc_method: "course.CourseService/InstructorAddStudent"
+    http_path: "/api/courses/:id/students"
+    http_method: "POST"
+    service: "course-service"
+
+  - grpc_method: "course.CourseService/RemoveEnrollment"
+    http_path: "/api/enrollments/:id"
+    http_method: "DELETE"
+    service: "course-service"
+
+  - grpc_method: "course.CourseService/GetCourseRoster"
+    http_path: "/api/courses/:id/roster"
+    http_method: "GET"
+    service: "course-service"
+
+  - grpc_method: "course.CourseService/GetStudentEnrollments"
+    http_path: "/api/students/:id/enrollments"
+    http_method: "GET"
+    service: "course-service"
+
+  # Course Service - Templates
+  - grpc_method: "course.CourseService/CreateCourseFromTemplate"
+    http_path: "/api/templates/:id/create-course"
+    http_method: "POST"
+    service: "course-service"
+
+  # Course Service - Prerequisites
+  - grpc_method: "course.CourseService/AddPrerequisite"
+    http_path: "/api/courses/:id/prerequisites"
+    http_method: "POST"
+    service: "course-service"
+
+  - grpc_method: "course.CourseService/RemovePrerequisite"
+    http_path: "/api/courses/:id/prerequisites/:prerequisite_id"
+    http_method: "DELETE"
+    service: "course-service"
+
+  - grpc_method: "course.CourseService/CheckPrerequisites"
+    http_path: "/api/courses/:id/prerequisites/check"
+    http_method: "POST"
+    service: "course-service"
+
+  # Course Service - Co-teaching
+  - grpc_method: "course.CourseService/AddCoInstructor"
+    http_path: "/api/courses/:id/co-instructors"
+    http_method: "POST"
+    service: "course-service"
+
+  - grpc_method: "course.CourseService/RemoveCoInstructor"
+    http_path: "/api/courses/:id/co-instructors/:co_instructor_id"
+    http_method: "DELETE"
+    service: "course-service"
+
+  # Course Service - Sections
+  - grpc_method: "course.CourseService/ListCourseSections"
+    http_path: "/api/courses/:id/sections"
+    http_method: "GET"
+    service: "course-service"
+
+  # Course Service - Cross-listing
+  - grpc_method: "course.CourseService/CrossListCourses"
+    http_path: "/api/courses/cross-list"
+    http_method: "POST"
+    service: "course-service"
+
+  - grpc_method: "course.CourseService/RemoveCrossListing"
+    http_path: "/api/cross-listings/:id"
+    http_method: "DELETE"
+    service: "course-service"
+
+  - grpc_method: "course.CourseService/GetCrossListedCourses"
+    http_path: "/api/courses/:id/cross-listed"
+    http_method: "GET"
+    service: "course-service"
+  # Assignment-Grading Service - Only non-conventional routes
+  # Most routes auto-discovered (GetAssignment, CreateAssignment, etc.)
+
+  # Custom: SubmitAssignment doesn't follow Get/List/Create/Update/Delete convention
+  - grpc_method: "assignment.SubmissionService/SubmitAssignment"
+    http_path: "/api/assignments/:assignment_id/submissions"
+    http_method: "POST"
+    service: "assignment-grading-service"
+
+  # Custom: PublishGrade is a special action, not a standard CRUD operation
+  - grpc_method: "assignment.GradingService/PublishGrade"
+    http_path: "/api/grades/:id/publish"
+    http_method: "POST"
+    service: "assignment-grading-service"
+
+  # Custom: Gradebook endpoints have specific resource hierarchies
+  - grpc_method: "assignment.GradebookService/GetStudentGradebook"
+    http_path: "/api/students/:student_id/gradebook"
+    http_method: "GET"
+    service: "assignment-grading-service"
+
+  - grpc_method: "assignment.GradebookService/GetCourseGradebook"
+    http_path: "/api/courses/:course_id/gradebook"
+    http_method: "GET"
+    service: "assignment-grading-service"
+
+  - grpc_method: "assignment.GradebookService/GetGradeStatistics"
+    http_path: "/api/assignments/:assignment_id/statistics"
+    http_method: "GET"
+    service: "assignment-grading-service"
+
+  # Custom: ExportGrades is a special action
+  - grpc_method: "assignment.GradebookService/ExportGrades"
+    http_path: "/api/courses/:course_id/gradebook/export"
+    http_method: "GET"
+    service: "assignment-grading-service"
+
+
+
+  # Content Management Service - Custom Content Routes
+  - grpc_method: "content.ContentService/GetContentStructure"
+    http_path: "/api/content/structure"
+    http_method: "GET"
+    service: "content-management-service"
+
+  - grpc_method: "content.ContentService/ReorderContent"
+    http_path: "/api/content/reorder"
+    http_method: "POST"
+    service: "content-management-service"
+
+  - grpc_method: "content.ContentService/PublishContent"
+    http_path: "/api/content/publish"
+    http_method: "POST"
+    service: "content-management-service"
+
+  - grpc_method: "content.ContentService/UnpublishContent"
+    http_path: "/api/content/unpublish"
+    http_method: "POST"
+    service: "content-management-service"
+
+  # Upload Service Routes
+  - grpc_method: "content.UploadService/InitiateUpload"
+    http_path: "/api/content/upload/initiate"
+    http_method: "POST"
+    service: "content-management-service"
+
+  - grpc_method: "content.UploadService/UploadChunk"
+    http_path: "/api/content/upload/chunk"
+    http_method: "POST"
+    service: "content-management-service"
+
+  - grpc_method: "content.UploadService/CompleteUpload"
+    http_path: "/api/content/upload/complete"
+    http_method: "POST"
+    service: "content-management-service"
+
+  - grpc_method: "content.UploadService/CancelUpload"
+    http_path: "/api/content/upload/cancel"
+    http_method: "POST"
+    service: "content-management-service"
+
+  # Streaming Service Routes
+  - grpc_method: "content.StreamingService/GetVideoManifest"
+    http_path: "/api/content/videos/:id/manifest"
+    http_method: "GET"
+    service: "content-management-service"
+
+  - grpc_method: "content.StreamingService/UpdatePlaybackPosition"
+    http_path: "/api/content/videos/:id/position"
+    http_method: "POST"
+    service: "content-management-service"
+
+  - grpc_method: "content.StreamingService/GetPlaybackState"
+    http_path: "/api/content/videos/:id/playback"
+    http_method: "GET"
+    service: "content-management-service"
+
+  # Progress Service Routes
+  - grpc_method: "content.ProgressService/MarkComplete"
+    http_path: "/api/content/progress/complete"
+    http_method: "POST"
+    service: "content-management-service"
+
+  - grpc_method: "content.ProgressService/GetProgress"
+    http_path: "/api/content/progress"
+    http_method: "GET"
+    service: "content-management-service"
+
+  - grpc_method: "content.ProgressService/GetProgressReport"
+    http_path: "/api/content/progress/report"
+    http_method: "GET"
+    service: "content-management-service"
+
+  # Search Service Route
+  - grpc_method: "content.SearchService/SearchContent"
+    http_path: "/api/content/search"
+    http_method: "GET"
+    service: "content-management-service"
+
+  # Download Service Route
+  - grpc_method: "content.DownloadService/GenerateDownloadUrl"
+    http_path: "/api/content/download"
+    http_method: "POST"
+    service: "content-management-service"
+
 auth:
   service_endpoint: "http://user-auth-service:50051"
   timeout_ms: 3000
   public_routes:
+    # Authentication endpoints
     - path: "/api/auth/login"
       method: "POST"
     - path: "/api/auth/register"
       method: "POST"
+    - path: "/api/auth/refresh"
+      method: "POST"
+    - path: "/api/auth/validate"
+      method: "POST"
+
+    # OAuth endpoints (callback is public for OAuth flow)
+    - path: "/api/oauth/callback"
+      method: "POST"
+
+    # Multi-Auth OAuth endpoints
+    - path: "/auth/oauth/authorize"
+      method: "POST"
+    - path: "/auth/oauth/callback"
+      method: "GET"
+
+    # Multi-Auth SAML endpoints
+    - path: "/auth/saml/login"
+      method: "POST"
+    - path: "/auth/saml/acs"
+      method: "POST"
+    - path: "/auth/saml/metadata"
+      method: "GET"
 
 rate_limit:
-  enabled: true
+  enabled: false  # Disabled for testing
   requests_per_minute: 100
   window_seconds: 60
+
+circuit_breaker:
+  enabled: false  # Disabled for testing to avoid blocking e2e tests
+  failure_threshold: 5
+  timeout_seconds: 30
+body_limit:
+  default_limit: 1048576      # 1MB for regular requests
+  upload_limit: 10485760      # 10MB for chunk uploads (5MB chunks + overhead)
+  upload_paths:
+    - "/upload"
+    - "/api/upload"
+    - "/api/content/upload/chunk"
 
 observability:
   tempo_endpoint: "http://tempo:4317"

@@ -13,24 +13,26 @@ import (
 )
 
 type UserService struct {
-	userRepo       UserRepositoryInterface
-	roleRepo       RoleRepositoryInterface
-	tokenSvc       TokenServiceInterface
-	tokenBlacklist TokenBlacklistInterface
-	validator      *validation.Validator
-	logger         *logger.Logger
-	metrics        MetricsInterface
+	userRepo        UserRepositoryInterface
+	roleRepo        RoleRepositoryInterface
+	tokenSvc        TokenServiceInterface
+	tokenBlacklist  TokenBlacklistInterface
+	validator       *validation.Validator
+	logger          *logger.Logger
+	metrics         MetricsInterface
+	strategyManager StrategyManagerInterface // Optional: for OAuth/SAML support
 }
 
-func NewUserService(userRepo UserRepositoryInterface, roleRepo RoleRepositoryInterface, tokenSvc TokenServiceInterface, tokenBlacklist TokenBlacklistInterface, log *logger.Logger, metrics MetricsInterface) *UserService {
+func NewUserService(userRepo UserRepositoryInterface, roleRepo RoleRepositoryInterface, tokenSvc TokenServiceInterface, tokenBlacklist TokenBlacklistInterface, log *logger.Logger, metrics MetricsInterface, strategyManager StrategyManagerInterface) *UserService {
 	return &UserService{
-		userRepo:       userRepo,
-		roleRepo:       roleRepo,
-		tokenSvc:       tokenSvc,
-		tokenBlacklist: tokenBlacklist,
-		validator:      validation.NewValidator(),
-		logger:         log,
-		metrics:        metrics,
+		userRepo:        userRepo,
+		roleRepo:        roleRepo,
+		tokenSvc:        tokenSvc,
+		tokenBlacklist:  tokenBlacklist,
+		validator:       validation.NewValidator(),
+		logger:          log,
+		metrics:         metrics,
+		strategyManager: strategyManager,
 	}
 }
 
@@ -91,7 +93,7 @@ func (s *UserService) Register(ctx context.Context, email, password, firstName, 
 	// Assign default "user" role
 	if err := s.roleRepo.AssignRoleByName(ctx, user.ID, "user"); err != nil {
 		// Log error but don't fail registration
-		s.logger.Warn().
+		s.logger.WarnWithContext(ctx).
 			Str("user_id", user.ID).
 			Str("operation", "register").
 			Str("error_type", "role_assignment_failed").
@@ -102,7 +104,7 @@ func (s *UserService) Register(ctx context.Context, email, password, firstName, 
 	// Reload user to get roles
 	user, err = s.userRepo.GetByID(ctx, user.ID)
 	if err != nil {
-		s.logger.Error().
+		s.logger.ErrorWithContext(ctx).
 			Str("user_id", user.ID).
 			Str("operation", "register").
 			Str("error_type", "user_reload_failed").
@@ -114,7 +116,7 @@ func (s *UserService) Register(ctx context.Context, email, password, firstName, 
 	// Generate tokens
 	tokens, err := s.generateTokens(user)
 	if err != nil {
-		s.logger.Error().
+		s.logger.ErrorWithContext(ctx).
 			Str("user_id", user.ID).
 			Str("operation", "register").
 			Str("error_type", "token_generation_failed").
@@ -123,7 +125,7 @@ func (s *UserService) Register(ctx context.Context, email, password, firstName, 
 		return nil, nil, err
 	}
 
-	s.logger.Info().
+	s.logger.WithContext(ctx).
 		Str("user_id", user.ID).
 		Str("email", s.logger.RedactEmail(user.Email)).
 		Str("operation", "register").
@@ -133,7 +135,9 @@ func (s *UserService) Register(ctx context.Context, email, password, firstName, 
 	return user, tokens, nil
 }
 
-// Login authenticates a user
+// Login authenticates a user using normal (username/password) authentication.
+// If OAuth or SAML authentication is configured, this method will return an error
+// directing users to use the appropriate authentication method.
 func (s *UserService) Login(ctx context.Context, email, password string) (*models.User, *models.TokenPair, error) {
 	start := time.Now()
 	var success bool
@@ -142,12 +146,25 @@ func (s *UserService) Login(ctx context.Context, email, password string) (*model
 		s.metrics.ObserveRequestDuration("login", time.Since(start).Seconds())
 	}()
 
+	// Check if OAuth/SAML authentication is configured
+	if s.strategyManager != nil {
+		activeAuthType := s.strategyManager.GetActiveAuthType()
+		if activeAuthType == AuthTypeOAuth || activeAuthType == AuthTypeSAML {
+			s.logger.WarnWithContext(ctx).
+				Str("auth_type", string(activeAuthType)).
+				Str("email", s.logger.RedactEmail(email)).
+				Str("operation", "login").
+				Msg("attempted normal login when OAuth/SAML is configured")
+			return nil, nil, fmt.Errorf("this organization uses %s authentication. Please use the appropriate login method", activeAuthType)
+		}
+	}
+
 	user, err := s.userRepo.GetByEmail(ctx, email)
 	if err != nil {
 		// Security: Return generic "invalid credentials" error to prevent user enumeration.
 		// This prevents attackers from determining which email addresses are registered.
 		// Detailed error is logged server-side for debugging but not exposed to client.
-		s.logger.Warn().
+		s.logger.WarnWithContext(ctx).
 			Str("email", s.logger.RedactEmail(email)).
 			Str("operation", "login").
 			Str("error_type", "user_not_found").
@@ -156,7 +173,7 @@ func (s *UserService) Login(ctx context.Context, email, password string) (*model
 	}
 
 	if !user.IsActive {
-		s.logger.Warn().
+		s.logger.WarnWithContext(ctx).
 			Str("user_id", user.ID).
 			Str("email", s.logger.RedactEmail(email)).
 			Str("operation", "login").
@@ -172,11 +189,12 @@ func (s *UserService) Login(ctx context.Context, email, password string) (*model
 		// Security: Return the same generic "invalid credentials" error as user-not-found case.
 		// This prevents attackers from distinguishing between "user doesn't exist" and "wrong password",
 		// which would allow user enumeration attacks.
-		s.logger.Warn().
+		s.logger.WarnWithContext(ctx).
 			Str("user_id", user.ID).
 			Str("email", s.logger.RedactEmail(email)).
 			Str("operation", "login").
 			Str("error_type", "invalid_password").
+			Str("password_redacted", s.logger.RedactPassword(password)).
 			Msg("login attempt with invalid password")
 		return nil, nil, fmt.Errorf("invalid credentials")
 	}
@@ -184,7 +202,7 @@ func (s *UserService) Login(ctx context.Context, email, password string) (*model
 	// Generate tokens
 	tokens, err := s.generateTokens(user)
 	if err != nil {
-		s.logger.Error().
+		s.logger.ErrorWithContext(ctx).
 			Str("user_id", user.ID).
 			Str("operation", "login").
 			Str("error_type", "token_generation_failed").
@@ -193,7 +211,7 @@ func (s *UserService) Login(ctx context.Context, email, password string) (*model
 		return nil, nil, err
 	}
 
-	s.logger.Info().
+	s.logger.WithContext(ctx).
 		Str("user_id", user.ID).
 		Str("email", s.logger.RedactEmail(user.Email)).
 		Str("operation", "login").
@@ -209,9 +227,10 @@ func (s *UserService) Logout(ctx context.Context, token string) error {
 	claims, err := s.tokenSvc.ValidateAccessToken(token)
 	if err != nil {
 		// Token is already invalid, no need to blacklist
-		s.logger.Warn().
+		s.logger.WarnWithContext(ctx).
 			Str("operation", "logout").
 			Str("error_type", "invalid_token").
+			Str("token_redacted", s.logger.RedactToken(token)).
 			Err(err).
 			Msg("logout attempt with invalid token")
 		return nil
@@ -223,21 +242,21 @@ func (s *UserService) Logout(ctx context.Context, token string) error {
 		err = s.tokenBlacklist.BlacklistToken(ctx, token, expiresAt)
 		if err != nil {
 			// Log error but don't fail logout (fail-open for logout)
-			s.logger.Error().
+			s.logger.ErrorWithContext(ctx).
 				Str("user_id", claims.UserID).
 				Str("operation", "logout").
 				Str("error_type", "blacklist_failed").
 				Err(err).
 				Msg("failed to blacklist token, but allowing logout to proceed")
 		} else {
-			s.logger.Info().
+			s.logger.WithContext(ctx).
 				Str("user_id", claims.UserID).
 				Str("operation", "logout").
 				Msg("token blacklisted successfully")
 		}
 	}
 
-	s.logger.Info().
+	s.logger.WithContext(ctx).
 		Str("user_id", claims.UserID).
 		Str("operation", "logout").
 		Msg("user logged out successfully")
@@ -256,7 +275,7 @@ func (s *UserService) ValidateToken(ctx context.Context, token string) (string, 
 	if s.tokenBlacklist != nil {
 		isBlacklisted, err := s.tokenBlacklist.IsTokenBlacklisted(ctx, token, claims.UserID, claims.IssuedAt.Time)
 		if err != nil {
-			s.logger.Error().
+			s.logger.ErrorWithContext(ctx).
 				Str("user_id", claims.UserID).
 				Str("operation", "validate_token").
 				Str("error_type", "blacklist_check_failed").
@@ -267,10 +286,11 @@ func (s *UserService) ValidateToken(ctx context.Context, token string) (string, 
 		}
 
 		if isBlacklisted {
-			s.logger.Warn().
+			s.logger.WarnWithContext(ctx).
 				Str("user_id", claims.UserID).
 				Str("operation", "validate_token").
 				Str("error_type", "token_blacklisted").
+				Str("token_redacted", s.logger.RedactToken(token)).
 				Msg("attempt to use blacklisted token")
 			return "", nil, fmt.Errorf("token revoked")
 		}
@@ -437,7 +457,7 @@ func (s *UserService) GetProfile(ctx context.Context, userID string) (*models.Pr
 }
 
 // UpdateProfile updates a user's profile
-func (s *UserService) UpdateProfile(ctx context.Context, userID string, firstName, lastName, phone, avatarURL, bio *string) (*models.Profile, error) {
+func (s *UserService) UpdateProfile(ctx context.Context, userID string, firstName, lastName, phone, avatarURL, bio, timezone *string) (*models.Profile, error) {
 	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -463,7 +483,15 @@ func (s *UserService) UpdateProfile(ctx context.Context, userID string, firstNam
 		}
 		user.Phone = *phone
 	}
-	// Note: avatarURL and bio would need additional fields in the User model/table
+	if avatarURL != nil {
+		user.AvatarURL = *avatarURL
+	}
+	if bio != nil {
+		user.Bio = *bio
+	}
+	if timezone != nil {
+		user.Timezone = *timezone
+	}
 
 	user.UpdatedAt = time.Now()
 
@@ -521,21 +549,21 @@ func (s *UserService) ChangePassword(ctx context.Context, userID, oldPassword, n
 		if err != nil {
 			// Log error but don't fail the password change
 			// Password change is more critical than token invalidation
-			s.logger.Error().
+			s.logger.ErrorWithContext(ctx).
 				Str("user_id", userID).
 				Str("operation", "change_password").
 				Str("error_type", "token_invalidation_failed").
 				Err(err).
 				Msg("failed to invalidate user tokens after password change")
 		} else {
-			s.logger.Info().
+			s.logger.WithContext(ctx).
 				Str("user_id", userID).
 				Str("operation", "change_password").
 				Msg("all user tokens invalidated after password change")
 		}
 	}
 
-	s.logger.Info().
+	s.logger.WithContext(ctx).
 		Str("user_id", userID).
 		Str("operation", "change_password").
 		Msg("password changed successfully")
@@ -585,4 +613,115 @@ func (s *UserService) generateTokens(user *models.User) (*models.TokenPair, erro
 		RefreshToken: refreshToken,
 		ExpiresIn:    expiresIn,
 	}, nil
+}
+
+// LoginWithAuthType initiates authentication using the specified authentication type.
+// For normal authentication, it returns user and tokens immediately.
+// For OAuth/SAML, it returns initiation data (authorization URL or SAML request).
+func (s *UserService) LoginWithAuthType(ctx context.Context, authType AuthType, req *AuthRequest) (*AuthResult, error) {
+	if s.strategyManager == nil {
+		return nil, fmt.Errorf("authentication strategies not configured")
+	}
+
+	s.logger.WithContext(ctx).
+		Str("auth_type", string(authType)).
+		Str("operation", "login_with_auth_type").
+		Msg("initiating authentication with strategy")
+
+	strategy, err := s.strategyManager.GetStrategy(authType)
+	if err != nil {
+		s.logger.ErrorWithContext(ctx).
+			Str("auth_type", string(authType)).
+			Str("operation", "login_with_auth_type").
+			Err(err).
+			Msg("failed to get authentication strategy")
+		return nil, fmt.Errorf("auth type not supported: %w", err)
+	}
+
+	result, err := strategy.Authenticate(ctx, req)
+	if err != nil {
+		s.logger.ErrorWithContext(ctx).
+			Str("auth_type", string(authType)).
+			Str("operation", "login_with_auth_type").
+			Err(err).
+			Msg("authentication failed")
+		return nil, err
+	}
+
+	if result.Success {
+		s.logger.WithContext(ctx).
+			Str("auth_type", string(authType)).
+			Str("user_id", result.User.ID).
+			Str("operation", "login_with_auth_type").
+			Msg("authentication successful")
+	} else {
+		s.logger.WithContext(ctx).
+			Str("auth_type", string(authType)).
+			Str("operation", "login_with_auth_type").
+			Msg("authentication initiated, awaiting callback")
+	}
+
+	return result, nil
+}
+
+// HandleAuthCallback processes authentication callbacks from OAuth or SAML providers.
+// This method completes the authentication flow after the user has been redirected
+// back from the external identity provider.
+func (s *UserService) HandleAuthCallback(ctx context.Context, authType AuthType, req *CallbackRequest) (*AuthResult, error) {
+	if s.strategyManager == nil {
+		return nil, fmt.Errorf("authentication strategies not configured")
+	}
+
+	s.logger.WithContext(ctx).
+		Str("auth_type", string(authType)).
+		Str("operation", "handle_auth_callback").
+		Msg("processing authentication callback")
+
+	strategy, err := s.strategyManager.GetStrategy(authType)
+	if err != nil {
+		s.logger.ErrorWithContext(ctx).
+			Str("auth_type", string(authType)).
+			Str("operation", "handle_auth_callback").
+			Err(err).
+			Msg("failed to get authentication strategy")
+		return nil, fmt.Errorf("auth type not supported: %w", err)
+	}
+
+	result, err := strategy.HandleCallback(ctx, req)
+	if err != nil {
+		s.logger.ErrorWithContext(ctx).
+			Str("auth_type", string(authType)).
+			Str("operation", "handle_auth_callback").
+			Err(err).
+			Msg("callback processing failed")
+		return nil, err
+	}
+
+	if result.Success && result.User != nil {
+		s.logger.WithContext(ctx).
+			Str("auth_type", string(authType)).
+			Str("user_id", result.User.ID).
+			Str("email", s.logger.RedactEmail(result.User.Email)).
+			Str("operation", "handle_auth_callback").
+			Msg("callback processed successfully")
+	}
+
+	return result, nil
+}
+
+// GetSupportedAuthTypes returns the list of authentication types that are currently
+// registered and available for use. This is useful for clients to discover which
+// authentication methods they can use.
+func (s *UserService) GetSupportedAuthTypes() []AuthType {
+	if s.strategyManager == nil {
+		// If no strategy manager, only normal auth is supported
+		return []AuthType{AuthTypeNormal}
+	}
+
+	// Get the active auth type from configuration
+	activeAuthType := s.strategyManager.GetActiveAuthType()
+
+	// Return the active auth type
+	// Note: In the current implementation, only one auth type is active at a time
+	return []AuthType{activeAuthType}
 }

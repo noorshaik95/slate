@@ -26,12 +26,43 @@ impl ConventionMapper {
         method_name: &str,
         full_method: &str,
     ) -> Option<RouteMapping> {
+        tracing::info!(
+            method_name = %method_name,
+            full_method = %full_method,
+            "🔍 CONVENTION: Attempting to map gRPC method to HTTP route"
+        );
+
         // Parse the method name to extract operation and resource
-        let (method_type, resource) = self.parse_method_name(method_name)?;
+        let (method_type, resource) = match self.parse_method_name(method_name) {
+            Some((mt, res)) => {
+                tracing::info!(
+                    method_name = %method_name,
+                    method_type = ?mt,
+                    resource = %res,
+                    "✅ CONVENTION: Successfully parsed method name"
+                );
+                (mt, res)
+            }
+            None => {
+                tracing::warn!(
+                    method_name = %method_name,
+                    "❌ CONVENTION: Method name does not match any convention pattern"
+                );
+                return None;
+            }
+        };
 
         // Generate HTTP method and path based on the method type
         let http_method = self.determine_http_method(&method_type);
         let http_path = self.generate_path(&resource, &method_type);
+
+        tracing::info!(
+            method_name = %method_name,
+            http_method = %http_method,
+            http_path = %http_path,
+            grpc_method = %full_method,
+            "✅ CONVENTION: Generated HTTP route mapping"
+        );
 
         Some(RouteMapping {
             http_method: http_method.to_string(),
@@ -49,12 +80,30 @@ impl ConventionMapper {
     /// * `Some((MethodType, resource_name))` if the method matches a convention
     /// * `None` if the method doesn't match any convention
     fn parse_method_name(&self, method_name: &str) -> Option<(MethodType, String)> {
+        tracing::debug!(
+            method_name = %method_name,
+            patterns = ?CONVENTION_PATTERNS,
+            "🔍 CONVENTION: Parsing method name against patterns"
+        );
+
         for pattern in CONVENTION_PATTERNS {
             if method_name.starts_with(pattern) {
                 let resource = method_name.strip_prefix(pattern)?;
                 
+                tracing::debug!(
+                    method_name = %method_name,
+                    pattern = %pattern,
+                    resource = %resource,
+                    "🔍 CONVENTION: Method matches pattern"
+                );
+
                 // Resource must not be empty
                 if resource.is_empty() {
+                    tracing::warn!(
+                        method_name = %method_name,
+                        pattern = %pattern,
+                        "❌ CONVENTION: Resource name is empty after stripping pattern"
+                    );
                     return None;
                 }
 
@@ -70,9 +119,21 @@ impl ConventionMapper {
                 // Extract and normalize the resource name
                 let resource_name = self.extract_resource(resource, &method_type);
                 
+                tracing::debug!(
+                    method_name = %method_name,
+                    method_type = ?method_type,
+                    resource_name = %resource_name,
+                    "✅ CONVENTION: Extracted resource name"
+                );
+
                 return Some((method_type, resource_name));
             }
         }
+
+        tracing::warn!(
+            method_name = %method_name,
+            "❌ CONVENTION: No pattern matched"
+        );
 
         None
     }

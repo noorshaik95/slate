@@ -11,7 +11,7 @@ COPY proto ./proto
 COPY services/api-gateway/build.rs ./build.rs
 
 # Copy Cargo files, source code, and benches
-COPY services/api-gateway/Cargo.toml services/api-gateway/Cargo.lock ./
+COPY services/api-gateway/Cargo.toml ./
 COPY services/api-gateway/src ./src
 COPY services/api-gateway/benches ./benches
 

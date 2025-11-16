@@ -1,0 +1,111 @@
+version: "2"
+
+# Linter configuration for assignment grading service
+run:
+  timeout: 5m
+  tests: false
+  modules-download-mode: readonly
+
+linters-settings:
+  govet:
+    enable-all: true
+
+  gocyclo:
+    min-complexity: 15
+
+  goconst:
+    min-len: 3
+    min-occurrences: 3
+
+  misspell:
+    locale: US
+
+  lll:
+    line-length: 140
+
+  goimports:
+    local-prefixes: slate/services/assignment-grading-service
+
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+
+  funlen:
+    lines: 100
+    statements: 50
+
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+
+linters:
+  disable-all: true
+  enable:
+    - errcheck        # Check for unchecked errors
+    - govet           # Vet examines Go source code
+    - ineffassign     # Detect ineffectual assignments
+    - staticcheck     # Static analysis (includes gosimple)
+    - unused          # Check for unused constants, variables, functions and types
+    - misspell        # Check for misspelled English words
+    - goconst         # Find repeated strings that could be constants
+    - gocyclo         # Check cyclomatic complexity
+    - gosec           # Security checks
+    - unconvert       # Remove unnecessary type conversions
+    - dupl            # Code clone detection
+    - gocritic        # Comprehensive Go linter
+    - prealloc        # Find slice declarations that could potentially be pre-allocated
+    - revive          # Fast, configurable, extensive, flexible linter
+    - predeclared     # Find code that shadows predeclared identifiers
+
+issues:
+  exclude-dirs:
+    - vendor
+  exclude-rules:
+    # Exclude some linters from running on tests files
+    - path: _test\.go
+      linters:
+        - gocyclo
+        - errcheck
+        - dupl
+        - gosec
+        - goconst
+        - funlen
+
+    # Exclude generated protobuf files
+    - path: '\.pb\.go$'
+      linters:
+        - all
+
+    # Exclude mock files
+    - path: 'mock_.*\.go'
+      linters:
+        - all
+
+    # Exclude main.go from complexity and exitAfterDefer checks
+    - path: cmd/server/main\.go
+      linters:
+        - gocyclo
+      text: "cyclomatic complexity.*of func `main`"
+
+    - path: cmd/server/main\.go
+      linters:
+        - gocritic
+      text: "exitAfterDefer"
+
+    # Disable micro-optimizations
+    - linters:
+        - prealloc
+        - govet
+      text: "fieldalignment"
+
+    # Allow naming patterns that are clearer even if they "stutter"
+    - linters:
+        - revive
+      text: "stutters"
+
+  max-issues-per-linter: 50
+  max-same-issues: 3

@@ -1,7 +1,6 @@
 package validation
 
 import (
-	"fmt"
 	"regexp"
 	"strings"
 	"unicode"
@@ -22,7 +21,7 @@ type ValidationError struct {
 
 // Error implements the error interface
 func (e *ValidationError) Error() string {
-	return fmt.Sprintf("%s: %s", e.Field, e.Message)
+	return e.Field + ": " + e.Message
 }
 
 // NewValidator creates a new Validator instance with compiled regex patterns

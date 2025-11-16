@@ -153,6 +153,14 @@ impl RequestRouter {
 
     /// Route an incoming request to the appropriate backend service
     pub fn route(&self, path: &str, method: &str) -> Result<RoutingDecision, RouterError> {
+        tracing::info!(
+            path = %path,
+            method = %method,
+            static_routes = self.routes.len(),
+            dynamic_routes = self.dynamic_routes.len(),
+            "🔍 ROUTER: Attempting to route request"
+        );
+
         // First try exact match for static routes (fast path)
         let key = RouteKey {
             path_pattern: path.to_string(),
@@ -160,12 +168,25 @@ impl RequestRouter {
         };
 
         if let Some(route) = self.routes.get(&key) {
+            tracing::info!(
+                path = %path,
+                method = %method,
+                service = %route.service,
+                grpc_method = %route.grpc_method,
+                "✅ ROUTER: Matched static route"
+            );
             return Ok(RoutingDecision {
                 service: Arc::from(route.service.as_str()),
                 grpc_method: Arc::from(route.grpc_method.as_str()),
                 path_params: HashMap::new(),
             });
         }
+
+        tracing::debug!(
+            path = %path,
+            method = %method,
+            "🔍 ROUTER: No static route match, trying dynamic routes"
+        );
 
         // Try dynamic routes with pattern matching
         for (pattern, route) in &self.dynamic_routes {
@@ -174,6 +195,14 @@ impl RequestRouter {
             }
 
             if let Some(params) = pattern.matches(path) {
+                tracing::info!(
+                    path = %path,
+                    method = %method,
+                    service = %route.service,
+                    grpc_method = %route.grpc_method,
+                    params = ?params,
+                    "✅ ROUTER: Matched dynamic route"
+                );
                 return Ok(RoutingDecision {
                     service: Arc::from(route.service.as_str()),
                     grpc_method: Arc::from(route.grpc_method.as_str()),
@@ -181,6 +210,12 @@ impl RequestRouter {
                 });
             }
         }
+
+        tracing::warn!(
+            path = %path,
+            method = %method,
+            "❌ ROUTER: No route found"
+        );
 
         Err(RouterError::RouteNotFound {
             path: path.to_string(),

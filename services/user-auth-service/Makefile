@@ -7,8 +7,11 @@ proto:
 	PATH=$$PATH:$(shell go env GOPATH)/bin protoc --go_out=. --go_opt=paths=source_relative \
 		--go-grpc_out=. --go-grpc_opt=paths=source_relative \
 		-I ../../proto \
-		../../proto/user.proto
+		../../proto/user.proto \
+		../../proto/auth.proto
+	@mkdir -p api/proto/authpb
 	@mv -f user.pb.go user_grpc.pb.go api/proto/ 2>/dev/null || true
+	@mv -f auth.pb.go auth_grpc.pb.go api/proto/authpb/ 2>/dev/null || true
 
 # Build the service
 build: proto
