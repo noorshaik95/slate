@@ -61,9 +61,14 @@ pub struct MethodDescriptor {
 /// Type of gRPC method based on naming convention
 #[derive(Debug, Clone, PartialEq)]
 pub enum MethodType {
+    // Simple resource operations
     Get,    // GET /api/{resources}/:id
     List,   // GET /api/{resources}
     Create, // POST /api/{resources}
     Update, // PUT /api/{resources}/:id
     Delete, // DELETE /api/{resources}/:id
+
+    // Nested resource operations
+    Add,    // POST /api/{parent_resources}/:id/{child_resources}
+    Remove, // DELETE /api/{parent_resources}/:id/{child_resources}/:child_id
 }
