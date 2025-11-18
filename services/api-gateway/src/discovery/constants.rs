@@ -10,6 +10,9 @@ pub const MAX_REFRESH_INTERVAL_SECONDS: u64 = 3600;
 /// Naming convention patterns for gRPC method names
 /// Order matters: more specific patterns should come first
 pub const CONVENTION_PATTERNS: &[&str] = &[
+    // Custom action operations (check before simple operations)
+    "Publish",
+    "Unpublish",
     // Nested resource operations (must be checked before simple operations)
     "Add",
     "Remove",

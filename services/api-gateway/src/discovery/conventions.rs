@@ -116,6 +116,8 @@ impl ConventionMapper {
                     "Delete" => MethodType::Delete,
                     "Add" => MethodType::Add,
                     "Remove" => MethodType::Remove,
+                    "Publish" => MethodType::Publish,
+                    "Unpublish" => MethodType::Unpublish,
                     _ => return None,
                 };
 
@@ -209,6 +211,11 @@ impl ConventionMapper {
                     (resource.to_lowercase(), None)
                 }
             }
+            MethodType::Publish | MethodType::Unpublish => {
+                // Custom actions operate on a single resource
+                // PublishCourse -> "course"
+                (resource.to_lowercase(), None)
+            }
             _ => {
                 // Create, Update, Delete are typically simple resources
                 // But we still try to split in case of nested patterns
@@ -284,6 +291,8 @@ impl ConventionMapper {
             MethodType::Delete => "DELETE",
             MethodType::Add => "POST",
             MethodType::Remove => "DELETE",
+            MethodType::Publish => "POST",
+            MethodType::Unpublish => "POST",
         }
     }
 
@@ -349,6 +358,16 @@ impl ConventionMapper {
                 // These should have a child resource, but if not, treat as simple
                 let plural = self.pluralize(resource);
                 format!("{}/{}/:id", DEFAULT_API_PREFIX, plural)
+            }
+            MethodType::Publish => {
+                // POST /api/{resources}/:id/publish
+                let plural = self.pluralize(resource);
+                format!("{}/{}/:id/publish", DEFAULT_API_PREFIX, plural)
+            }
+            MethodType::Unpublish => {
+                // POST /api/{resources}/:id/unpublish
+                let plural = self.pluralize(resource);
+                format!("{}/{}/:id/unpublish", DEFAULT_API_PREFIX, plural)
             }
         }
     }

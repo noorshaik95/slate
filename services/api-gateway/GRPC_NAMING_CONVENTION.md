@@ -38,7 +38,31 @@ rpc DeleteUser(DeleteUserRequest) returns (google.protobuf.Empty);
 // Maps to: DELETE /api/users/:id
 ```
 
-### Tier 2: Nested Resources (Sub-resources)
+### Tier 2: Custom Action Operations
+
+For special actions on resources that don't fit CRUD patterns:
+
+| gRPC Method Pattern | HTTP Method | HTTP Path | Description |
+|-------------------|-------------|-----------|-------------|
+| `Publish{Resource}` | POST | `/api/{resources}/:id/publish` | Publish a resource |
+| `Unpublish{Resource}` | POST | `/api/{resources}/:id/unpublish` | Unpublish a resource |
+
+**Examples:**
+```protobuf
+rpc PublishCourse(PublishCourseRequest) returns (google.protobuf.Empty);
+// Maps to: POST /api/courses/:id/publish
+
+rpc UnpublishCourse(UnpublishCourseRequest) returns (google.protobuf.Empty);
+// Maps to: POST /api/courses/:id/unpublish
+
+rpc PublishGrade(PublishGradeRequest) returns (google.protobuf.Empty);
+// Maps to: POST /api/grades/:id/publish
+
+rpc PublishContent(PublishContentRequest) returns (google.protobuf.Empty);
+// Maps to: POST /api/contents/:id/publish
+```
+
+### Tier 3: Nested Resources (Sub-resources)
 
 For operations on resources that belong to a parent resource:
 

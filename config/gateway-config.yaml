@@ -46,6 +46,14 @@ discovery:
   refresh_interval_seconds: 300
 
 # Optional: Override specific routes when convention doesn't fit
+#
+# NOTE: Auto-discovery conventions now support:
+#   • Simple CRUD: Get/List/Create/Update/Delete{Resource}
+#   • Nested resources: Add/Remove{Parent}{Child}, Get{Parent}{Children}
+#   • Actions: Publish/Unpublish{Resource}
+#
+# Many routes that were previously manually configured are now auto-discovered!
+# Only non-conventional routes (auth, custom actions, special hierarchies) need overrides.
 route_overrides:
   # Authentication
   - grpc_method: "user.UserService/Login"
@@ -147,32 +155,14 @@ route_overrides:
     http_method: "POST"
     service: "user-auth-service"
 
-  # User CRUD
+  # User CRUD (using :user_id instead of :id for clarity)
   - grpc_method: "user.UserService/GetUser"
     http_path: "/api/users/:user_id"
     http_method: "GET"
     service: "user-auth-service"
 
-  # User Groups (member management - CRUD methods auto-discover)
-  - grpc_method: "user.UserService/AddGroupMember"
-    http_path: "/api/groups/:id/members"
-    http_method: "POST"
-    service: "user-auth-service"
-
-  - grpc_method: "user.UserService/RemoveGroupMember"
-    http_path: "/api/groups/:id/members/:user_id"
-    http_method: "DELETE"
-    service: "user-auth-service"
-
-  - grpc_method: "user.UserService/GetGroupMembers"
-    http_path: "/api/groups/:id/members"
-    http_method: "GET"
-    service: "user-auth-service"
-
-  - grpc_method: "user.UserService/GetUserGroups"
-    http_path: "/api/users/:id/groups"
-    http_method: "GET"
-    service: "user-auth-service"
+  # Note: User Groups (AddGroupMember, RemoveGroupMember, GetGroupMembers, GetUserGroups)
+  # are now auto-discovered via nested resource convention
 
   # Parent-Child Account Management
   - grpc_method: "user.UserService/CreateParentChildLink"
@@ -199,42 +189,12 @@ route_overrides:
     http_path: "/api/parent-child/permissions"
     http_method: "PUT"
     service: "user-auth-service"
-  # Course Service - CRUD operations (basic)
-  - grpc_method: "course.CourseService/CreateCourse"
-    http_path: "/api/courses"
-    http_method: "POST"
-    service: "course-service"
 
-  - grpc_method: "course.CourseService/GetCourse"
-    http_path: "/api/courses/:id"
-    http_method: "GET"
-    service: "course-service"
+  # Note: Course Service CRUD operations (CreateCourse, GetCourse, UpdateCourse,
+  # DeleteCourse, ListCourses) are now auto-discovered via simple resource convention
 
-  - grpc_method: "course.CourseService/UpdateCourse"
-    http_path: "/api/courses/:id"
-    http_method: "PUT"
-    service: "course-service"
-
-  - grpc_method: "course.CourseService/DeleteCourse"
-    http_path: "/api/courses/:id"
-    http_method: "DELETE"
-    service: "course-service"
-
-  - grpc_method: "course.CourseService/ListCourses"
-    http_path: "/api/courses"
-    http_method: "GET"
-    service: "course-service"
-
-  # Course Service - Publishing
-  - grpc_method: "course.CourseService/PublishCourse"
-    http_path: "/api/courses/:id/publish"
-    http_method: "POST"
-    service: "course-service"
-
-  - grpc_method: "course.CourseService/UnpublishCourse"
-    http_path: "/api/courses/:id/unpublish"
-    http_method: "POST"
-    service: "course-service"
+  # Note: Course Service Publishing (PublishCourse, UnpublishCourse) are now
+  # auto-discovered via Publish/Unpublish action convention
 
   # Course Service - Enrollment
   - grpc_method: "course.CourseService/SelfEnroll"
@@ -316,31 +276,10 @@ route_overrides:
     http_path: "/api/courses/:id/cross-listed"
     http_method: "GET"
     service: "course-service"
-  # Assignment-Grading Service - CRUD operations
-  - grpc_method: "assignment.AssignmentService/CreateAssignment"
-    http_path: "/api/assignments"
-    http_method: "POST"
-    service: "assignment-grading-service"
 
-  - grpc_method: "assignment.AssignmentService/GetAssignment"
-    http_path: "/api/assignments/:id"
-    http_method: "GET"
-    service: "assignment-grading-service"
-
-  - grpc_method: "assignment.AssignmentService/UpdateAssignment"
-    http_path: "/api/assignments/:id"
-    http_method: "PUT"
-    service: "assignment-grading-service"
-
-  - grpc_method: "assignment.AssignmentService/DeleteAssignment"
-    http_path: "/api/assignments/:id"
-    http_method: "DELETE"
-    service: "assignment-grading-service"
-
-  - grpc_method: "assignment.AssignmentService/ListAssignments"
-    http_path: "/api/assignments"
-    http_method: "GET"
-    service: "assignment-grading-service"
+  # Note: Assignment-Grading Service CRUD operations (CreateAssignment, GetAssignment,
+  # UpdateAssignment, DeleteAssignment, ListAssignments) are now auto-discovered via
+  # simple resource convention
 
   # Custom: SubmitAssignment doesn't follow Get/List/Create/Update/Delete convention
   - grpc_method: "assignment.SubmissionService/SubmitAssignment"
@@ -348,11 +287,7 @@ route_overrides:
     http_method: "POST"
     service: "assignment-grading-service"
 
-  # Custom: PublishGrade is a special action, not a standard CRUD operation
-  - grpc_method: "assignment.GradingService/PublishGrade"
-    http_path: "/api/grades/:id/publish"
-    http_method: "POST"
-    service: "assignment-grading-service"
+  # Note: PublishGrade is now auto-discovered via Publish action convention
 
   # Custom: Gradebook endpoints have specific resource hierarchies
   - grpc_method: "assignment.GradebookService/GetStudentGradebook"
@@ -395,15 +330,8 @@ route_overrides:
     http_method: "POST"
     service: "content-management-service"
 
-  - grpc_method: "content.ContentService/PublishContent"
-    http_path: "/api/content/publish"
-    http_method: "POST"
-    service: "content-management-service"
-
-  - grpc_method: "content.ContentService/UnpublishContent"
-    http_path: "/api/content/unpublish"
-    http_method: "POST"
-    service: "content-management-service"
+  # Note: PublishContent and UnpublishContent are now auto-discovered via
+  # Publish/Unpublish action convention
 
   # Upload Service Routes
   - grpc_method: "content.UploadService/InitiateUpload"

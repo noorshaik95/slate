@@ -71,4 +71,8 @@ pub enum MethodType {
     // Nested resource operations
     Add,    // POST /api/{parent_resources}/:id/{child_resources}
     Remove, // DELETE /api/{parent_resources}/:id/{child_resources}/:child_id
+
+    // Custom action operations
+    Publish,   // POST /api/{resources}/:id/publish
+    Unpublish, // POST /api/{resources}/:id/unpublish
 }
