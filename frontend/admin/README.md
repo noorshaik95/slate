@@ -249,6 +249,47 @@ The dashboard uses a custom design system built on:
 - XSS and CSRF protection
 - Security headers configured
 
+## Testing
+
+The admin dashboard includes comprehensive unit and integration tests.
+
+### Running Tests
+
+```bash
+# Run all tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run tests with coverage
+npm run test:coverage
+```
+
+### Test Coverage
+
+The project maintains 70%+ coverage across:
+- Utility functions
+- API services (auth, onboarding, admin, IAM)
+- React hooks
+- UI components (button, card, input, badge, etc.)
+- Authentication flows
+- Page components
+- Integration tests
+
+### Test Structure
+
+```
+__tests__/
+├── lib/                    # Utility and API service tests
+├── hooks/                  # Custom hooks tests
+├── components/             # Component tests
+├── app/                    # Page tests
+└── integration/            # Integration tests
+```
+
+For detailed testing documentation, see [TESTING.md](./TESTING.md).
+
 ## Contributing
 
 1. Follow the existing code structure
