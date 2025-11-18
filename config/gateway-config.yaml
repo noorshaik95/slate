@@ -217,10 +217,8 @@ route_overrides:
     http_method: "GET"
     service: "course-service"
 
-  - grpc_method: "course.CourseService/GetStudentEnrollments"
-    http_path: "/api/students/:id/enrollments"
-    http_method: "GET"
-    service: "course-service"
+  # Note: GetStudentEnrollments is now auto-discovered via nested resource convention
+  # Maps to: GET /api/students/:id/enrollments
 
   # Course Service - Templates
   - grpc_method: "course.CourseService/CreateCourseFromTemplate"
@@ -255,11 +253,8 @@ route_overrides:
     http_method: "DELETE"
     service: "course-service"
 
-  # Course Service - Sections
-  - grpc_method: "course.CourseService/ListCourseSections"
-    http_path: "/api/courses/:id/sections"
-    http_method: "GET"
-    service: "course-service"
+  # Note: ListCourseSections is now auto-discovered via nested resource convention
+  # Maps to: GET /api/courses/:id/sections
 
   # Course Service - Cross-listing
   - grpc_method: "course.CourseService/CrossListCourses"
