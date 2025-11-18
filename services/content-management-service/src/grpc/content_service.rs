@@ -1,4 +1,5 @@
 use crate::content::{ContentManager, ContentError};
+use crate::db::DatabasePool;
 use crate::models::ContentType;
 use crate::proto::content::{
     content_service_server::ContentService,
@@ -15,19 +16,23 @@ use crate::proto::content::{
     GetContentStructureRequest, ContentStructure, ModuleWithContent, LessonWithContent,
     // Reorder and publication messages
     ReorderContentRequest, PublishContentRequest, UnpublishContentRequest,
+    // Health check and connectivity test messages
+    HealthRequest, HealthResponse, PingRequest, PingResponse,
 };
 use std::sync::Arc;
+use std::collections::HashMap;
 use tonic::{Request, Response, Status};
 use uuid::Uuid;
 
 /// ContentService gRPC implementation
 pub struct ContentServiceImpl {
     content_manager: Arc<ContentManager>,
+    db_pool: Arc<DatabasePool>,
 }
 
 impl ContentServiceImpl {
-    pub fn new(content_manager: Arc<ContentManager>) -> Self {
-        Self { content_manager }
+    pub fn new(content_manager: Arc<ContentManager>, db_pool: Arc<DatabasePool>) -> Self {
+        Self { content_manager, db_pool }
     }
 
     /// Extracts user ID from request metadata
@@ -57,6 +62,48 @@ impl ContentServiceImpl {
 
 #[tonic::async_trait]
 impl ContentService for ContentServiceImpl {
+    // ========================================================================
+    // Health check and connectivity test
+    // ========================================================================
+
+    async fn health(
+        &self,
+        _request: Request<HealthRequest>,
+    ) -> Result<Response<HealthResponse>, Status> {
+        // Check database health
+        let db_status = match self.db_pool.health_check().await {
+            Ok(_) => "healthy",
+            Err(_) => "unhealthy",
+        };
+
+        let mut checks = HashMap::new();
+        checks.insert("database".to_string(), db_status.to_string());
+
+        Ok(Response::new(HealthResponse {
+            status: db_status.to_string(),
+            service: "content-management-service".to_string(),
+            timestamp: Some(prost_types::Timestamp::from(std::time::SystemTime::now())),
+            checks,
+        }))
+    }
+
+    async fn ping(
+        &self,
+        request: Request<PingRequest>,
+    ) -> Result<Response<PingResponse>, Status> {
+        let req = request.into_inner();
+
+        Ok(Response::new(PingResponse {
+            message: if req.message.is_empty() {
+                "pong".to_string()
+            } else {
+                req.message
+            },
+            service: "content-management-service".to_string(),
+            timestamp: Some(prost_types::Timestamp::from(std::time::SystemTime::now())),
+        }))
+    }
+
     // ========================================================================
     // Module Operations
     // ========================================================================

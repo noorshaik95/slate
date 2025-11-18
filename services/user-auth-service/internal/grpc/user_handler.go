@@ -64,6 +64,20 @@ func getClientIP(ctx context.Context) string {
 	return "unknown"
 }
 
+// Ping tests connectivity to the service
+func (s *UserServiceServer) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PingResponse, error) {
+	message := req.Message
+	if message == "" {
+		message = "pong"
+	}
+
+	return &pb.PingResponse{
+		Message:   message,
+		Service:   "user-auth-service",
+		Timestamp: timestamppb.Now(),
+	}, nil
+}
+
 // Login authenticates a user
 // Security: Rate limited to prevent brute-force attacks (5 attempts per 15 minutes per IP)
 // This prevents attackers from trying thousands of password combinations to guess credentials.

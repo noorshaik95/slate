@@ -10,6 +10,10 @@ import "google/protobuf/timestamp.proto";
 // ============================================================================
 
 service ContentService {
+  // Health check and connectivity test
+  rpc Health(HealthRequest) returns (HealthResponse);
+  rpc Ping(PingRequest) returns (PingResponse);
+
   // Module management (auto-discovered routes)
   rpc CreateModule(CreateModuleRequest) returns (Module);
   rpc UpdateModule(UpdateModuleRequest) returns (Module);
@@ -425,4 +429,27 @@ message DownloadUrlResponse {
   string download_url = 1;
   google.protobuf.Timestamp expires_at = 2;
   string copyright_notice = 3;
+}
+
+// ============================================================================
+// Health check and connectivity test messages
+// ============================================================================
+
+message HealthRequest {}
+
+message HealthResponse {
+  string status = 1; // "healthy", "unhealthy", "degraded"
+  string service = 2;
+  google.protobuf.Timestamp timestamp = 3;
+  map<string, string> checks = 4; // Component health details
+}
+
+message PingRequest {
+  string message = 1;
+}
+
+message PingResponse {
+  string message = 1;
+  string service = 2;
+  google.protobuf.Timestamp timestamp = 3;
 }

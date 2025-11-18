@@ -184,7 +184,7 @@ async fn main() -> Result<()> {
     info!("Service components initialized");
 
     // Create gRPC service implementations
-    let content_service = content_management_service::grpc::ContentServiceImpl::new(content_manager.clone());
+    let content_service = content_management_service::grpc::ContentServiceImpl::new(content_manager.clone(), db_pool.clone());
     let upload_service = content_management_service::grpc::UploadServiceImpl::new(upload_handler.clone());
     let streaming_service_impl = content_management_service::grpc::StreamingServiceImpl::new(streaming_service.clone());
     let progress_service = content_management_service::grpc::ProgressServiceImpl::new(progress_tracker.clone());

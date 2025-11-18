@@ -11,7 +11,9 @@ import (
 	"syscall"
 	"time"
 
+	pb "slate/services/assignment-grading-service/api/proto"
 	"slate/services/assignment-grading-service/internal/config"
+	grpchandler "slate/services/assignment-grading-service/internal/grpc"
 	"slate/services/assignment-grading-service/internal/health"
 	"slate/services/assignment-grading-service/internal/repository"
 	"slate/services/assignment-grading-service/internal/service"
@@ -150,9 +152,8 @@ func main() {
 
 	log.Info().Msg("Services initialized")
 
-	// TODO: Initialize gRPC handlers when proto code is generated
-	// For now, create a basic gRPC server
-	_ = assignmentService
+	// Initialize gRPC handlers
+	assignmentHandler := grpchandler.NewAssignmentServiceServer(assignmentService)
 	_ = submissionService
 	_ = gradingService
 	_ = gradebookService
@@ -165,6 +166,10 @@ func main() {
 			tracing.LoggingUnaryInterceptor(),
 		),
 	)
+
+	// Register Assignment service
+	pb.RegisterAssignmentServiceServer(grpcServer, assignmentHandler)
+	log.Info().Msg("gRPC Assignment service registered")
 
 	// Register health check service
 	healthChecker := health.NewHealthChecker(db.DB)

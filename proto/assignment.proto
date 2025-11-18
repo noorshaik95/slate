@@ -8,6 +8,9 @@ import "google/protobuf/timestamp.proto";
 
 // Assignment Service - manages assignment CRUD operations
 service AssignmentService {
+  // Health check and connectivity test
+  rpc Ping(PingRequest) returns (PingResponse);
+
   rpc CreateAssignment(CreateAssignmentRequest) returns (CreateAssignmentResponse);
   rpc GetAssignment(GetAssignmentRequest) returns (GetAssignmentResponse);
   rpc UpdateAssignment(UpdateAssignmentRequest) returns (UpdateAssignmentResponse);
@@ -297,4 +300,15 @@ message ExportGradesRequest {
 message ExportGradesResponse {
   bytes data = 1;
   string format = 2;
+}
+
+// Health check and connectivity test messages
+message PingRequest {
+  string message = 1;
+}
+
+message PingResponse {
+  string message = 1;
+  string service = 2;
+  google.protobuf.Timestamp timestamp = 3;
 }

@@ -9,6 +9,10 @@ import "google/protobuf/empty.proto";
 
 // Course Management Service
 service CourseService {
+  // Health check and connectivity test
+  rpc Health(HealthRequest) returns (HealthResponse);
+  rpc Ping(PingRequest) returns (PingResponse);
+
   // Course CRUD
   rpc CreateCourse(CreateCourseRequest) returns (CourseResponse);
   rpc GetCourse(GetCourseRequest) returns (CourseResponse);
@@ -377,4 +381,24 @@ message CrossListedCoursesResponse {
 
 message CrossListingResponse {
   CrossListing cross_listing = 1;
+}
+
+// Health check and connectivity test messages
+message HealthRequest {}
+
+message HealthResponse {
+  string status = 1; // "healthy", "unhealthy", "degraded"
+  string service = 2;
+  google.protobuf.Timestamp timestamp = 3;
+  map<string, string> checks = 4; // Component health details
+}
+
+message PingRequest {
+  string message = 1;
+}
+
+message PingResponse {
+  string message = 1;
+  string service = 2;
+  google.protobuf.Timestamp timestamp = 3;
 }

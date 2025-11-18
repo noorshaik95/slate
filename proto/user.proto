@@ -9,6 +9,9 @@ import "google/protobuf/empty.proto";
 
 // User service for CRUD operations and authentication
 service UserService {
+  // Health check and connectivity test
+  rpc Ping(PingRequest) returns (PingResponse);
+
   // Authentication
   rpc Login(LoginRequest) returns (LoginResponse);
   rpc Register(RegisterRequest) returns (RegisterResponse);
@@ -505,4 +508,15 @@ message ParentChildRelationship {
   string relationship_type = 3;
   map<string, string> permissions = 4;
   google.protobuf.Timestamp created_at = 5;
+}
+
+// Health check and connectivity test messages
+message PingRequest {
+  string message = 1;
+}
+
+message PingResponse {
+  string message = 1;
+  string service = 2;
+  google.protobuf.Timestamp timestamp = 3;
 }

@@ -3,6 +3,8 @@ import { GrpcMethod } from '@nestjs/microservices';
 import { CourseService } from './course.service';
 import { EnrollmentService } from '../enrollment/enrollment.service';
 import { MetricsInterceptor } from '../common/interceptors/metrics.interceptor';
+import { InjectConnection } from '@nestjs/mongoose';
+import { Connection } from 'mongoose';
 
 @Controller()
 @UseInterceptors(MetricsInterceptor)
@@ -10,7 +12,32 @@ export class CourseController {
   constructor(
     private readonly courseService: CourseService,
     private readonly enrollmentService: EnrollmentService,
+    @InjectConnection() private readonly connection: Connection,
   ) {}
+
+  // Health check and connectivity test
+  @GrpcMethod('CourseService', 'Health')
+  async health() {
+    const dbStatus = this.connection.readyState === 1 ? 'healthy' : 'unhealthy';
+
+    return {
+      status: dbStatus,
+      service: 'course-service',
+      timestamp: new Date().toISOString(),
+      checks: {
+        database: dbStatus,
+      },
+    };
+  }
+
+  @GrpcMethod('CourseService', 'Ping')
+  async ping(data: { message?: string }) {
+    return {
+      message: data.message || 'pong',
+      service: 'course-service',
+      timestamp: new Date().toISOString(),
+    };
+  }
 
   // Course CRUD
   @GrpcMethod('CourseService', 'CreateCourse')

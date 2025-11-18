@@ -47,6 +47,37 @@ discovery:
 
 # Optional: Override specific routes when convention doesn't fit
 route_overrides:
+  # Health and Ping endpoints
+  - grpc_method: "user.UserService/Ping"
+    http_path: "/api/ping/user"
+    http_method: "GET"
+    service: "user-auth-service"
+
+  - grpc_method: "course.CourseService/Health"
+    http_path: "/api/health/course"
+    http_method: "GET"
+    service: "course-service"
+
+  - grpc_method: "course.CourseService/Ping"
+    http_path: "/api/ping/course"
+    http_method: "GET"
+    service: "course-service"
+
+  - grpc_method: "assignment.AssignmentService/Ping"
+    http_path: "/api/ping/assignment"
+    http_method: "GET"
+    service: "assignment-grading-service"
+
+  - grpc_method: "content.ContentService/Health"
+    http_path: "/api/health/content"
+    http_method: "GET"
+    service: "content-management-service"
+
+  - grpc_method: "content.ContentService/Ping"
+    http_path: "/api/ping/content"
+    http_method: "GET"
+    service: "content-management-service"
+
   # Authentication
   - grpc_method: "user.UserService/Login"
     http_path: "/api/auth/login"
@@ -439,6 +470,24 @@ auth:
     - path: "/auth/saml/acs"
       method: "POST"
     - path: "/auth/saml/metadata"
+      method: "GET"
+
+    # Health check and ping endpoints (public for monitoring)
+    - path: "/api/health/user"
+      method: "GET"
+    - path: "/api/ping/user"
+      method: "GET"
+    - path: "/api/health/course"
+      method: "GET"
+    - path: "/api/ping/course"
+      method: "GET"
+    - path: "/api/health/assignment"
+      method: "GET"
+    - path: "/api/ping/assignment"
+      method: "GET"
+    - path: "/api/health/content"
+      method: "GET"
+    - path: "/api/ping/content"
       method: "GET"
 
 rate_limit:
