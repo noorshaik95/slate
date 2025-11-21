@@ -13,6 +13,7 @@ service AssignmentService {
   rpc UpdateAssignment(UpdateAssignmentRequest) returns (UpdateAssignmentResponse);
   rpc DeleteAssignment(DeleteAssignmentRequest) returns (DeleteAssignmentResponse);
   rpc ListAssignments(ListAssignmentsRequest) returns (ListAssignmentsResponse);
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
 }
 
 // Submission Service - manages assignment submissions
@@ -297,4 +298,13 @@ message ExportGradesRequest {
 message ExportGradesResponse {
   bytes data = 1;
   string format = 2;
+}
+
+// Health Check
+message HealthCheckRequest {}
+
+message HealthCheckResponse {
+  string status = 1;
+  string service = 2;
+  string timestamp = 3;
 }

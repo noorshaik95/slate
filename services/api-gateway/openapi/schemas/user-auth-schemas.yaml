@@ -1,0 +1,490 @@
+# User Auth Service Schemas
+# Generated from proto/user.proto
+
+# Authentication Request/Response Schemas
+
+LoginRequest:
+  type: object
+  required:
+    - email
+    - password
+  properties:
+    email:
+      type: string
+      format: email
+      example: "user@example.com"
+    password:
+      type: string
+      format: password
+      example: "SecurePassword123!"
+
+LoginResponse:
+  type: object
+  properties:
+    access_token:
+      type: string
+      example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    refresh_token:
+      type: string
+      example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    user:
+      $ref: '../openapi.yaml#/components/schemas/User'
+    expires_in:
+      type: integer
+      format: int64
+      example: 900
+      description: Token expiration time in seconds
+
+RegisterRequest:
+  type: object
+  required:
+    - email
+    - password
+    - first_name
+    - last_name
+  properties:
+    email:
+      type: string
+      format: email
+      example: "newuser@example.com"
+    password:
+      type: string
+      format: password
+      example: "SecurePassword123!"
+    first_name:
+      type: string
+      example: "Jane"
+    last_name:
+      type: string
+      example: "Smith"
+    phone:
+      type: string
+      example: "+1234567890"
+
+RegisterResponse:
+  type: object
+  properties:
+    access_token:
+      type: string
+      example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    refresh_token:
+      type: string
+      example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    user:
+      $ref: '../openapi.yaml#/components/schemas/User'
+
+RefreshTokenRequest:
+  type: object
+  required:
+    - refresh_token
+  properties:
+    refresh_token:
+      type: string
+      example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+RefreshTokenResponse:
+  type: object
+  properties:
+    access_token:
+      type: string
+      example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    refresh_token:
+      type: string
+      example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    expires_in:
+      type: integer
+      format: int64
+      example: 900
+      description: Token expiration time in seconds
+
+ValidateTokenRequest:
+  type: object
+  required:
+    - token
+  properties:
+    token:
+      type: string
+      example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+ValidateTokenResponse:
+  type: object
+  properties:
+    valid:
+      type: boolean
+      example: true
+    user_id:
+      type: string
+      format: uuid
+      example: "550e8400-e29b-41d4-a716-446655440000"
+    roles:
+      type: array
+      items:
+        type: string
+      example: ["user", "instructor"]
+    error:
+      type: string
+      example: ""
+      description: Error message if token is invalid
+
+# OAuth Schemas
+
+OAuthProviderInfo:
+  type: object
+  properties:
+    provider:
+      type: string
+      example: "google"
+      description: OAuth provider name (google, microsoft, github, etc.)
+    provider_user_id:
+      type: string
+      example: "1234567890"
+      description: User ID from the OAuth provider
+    linked_at:
+      type: string
+      format: date-time
+      example: "2024-01-15T10:30:00Z"
+
+OAuthAuthRequest:
+  type: object
+  required:
+    - provider
+  properties:
+    provider:
+      type: string
+      example: "google"
+      description: OAuth provider (google, microsoft, custom)
+
+OAuthAuthResponse:
+  type: object
+  properties:
+    authorization_url:
+      type: string
+      format: uri
+      example: "https://accounts.google.com/o/oauth2/v2/auth?client_id=..."
+      description: URL to redirect user for OAuth authorization
+    state:
+      type: string
+      example: "random_state_string_for_csrf_protection"
+      description: CSRF protection state parameter
+
+OAuthCallbackRequest:
+  type: object
+  required:
+    - provider
+    - code
+  properties:
+    provider:
+      type: string
+      example: "google"
+    code:
+      type: string
+      example: "4/0AX4XfWh..."
+      description: Authorization code from OAuth provider
+    state:
+      type: string
+      example: "random_state_string_for_csrf_protection"
+      description: CSRF protection state parameter
+
+OAuthCallbackResponse:
+  type: object
+  properties:
+    access_token:
+      type: string
+      example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    refresh_token:
+      type: string
+      example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    user:
+      $ref: '../openapi.yaml#/components/schemas/User'
+    is_new_user:
+      type: boolean
+      example: false
+      description: Whether this is a newly created user account
+
+# SAML Schemas
+
+SAMLAuthRequest:
+  type: object
+  required:
+    - organization_id
+  properties:
+    organization_id:
+      type: string
+      format: uuid
+      example: "org-123e4567-e89b-12d3-a456-426614174000"
+      description: Organization identifier for SAML configuration
+
+SAMLAuthResponse:
+  type: object
+  properties:
+    saml_request:
+      type: string
+      example: "PHNhbWxwOkF1dGhuUmVxdWVzdC4uLg=="
+      description: Base64-encoded SAML authentication request
+    sso_url:
+      type: string
+      format: uri
+      example: "https://idp.example.com/sso"
+      description: Identity Provider SSO URL to redirect user
+
+SAMLAssertionRequest:
+  type: object
+  required:
+    - saml_response
+  properties:
+    saml_response:
+      type: string
+      example: "PHNhbWxwOlJlc3BvbnNlLi4u"
+      description: Base64-encoded SAML assertion from IdP
+
+SAMLMetadataRequest:
+  type: object
+  description: Empty request - no parameters needed for metadata request
+
+SAMLMetadataResponse:
+  type: object
+  properties:
+    metadata_xml:
+      type: string
+      example: "<?xml version=\"1.0\"?><md:EntityDescriptor..."
+      description: Service Provider metadata XML
+
+# MFA Schemas
+
+SetupMFARequest:
+  type: object
+  required:
+    - user_id
+    - mfa_type
+  properties:
+    user_id:
+      type: string
+      format: uuid
+      example: "550e8400-e29b-41d4-a716-446655440000"
+    mfa_type:
+      type: string
+      enum: [totp, sms, email]
+      example: "totp"
+      description: Type of MFA to set up
+
+SetupMFAResponse:
+  type: object
+  properties:
+    secret:
+      type: string
+      example: "JBSWY3DPEHPK3PXP"
+      description: Secret key for TOTP
+    qr_code_url:
+      type: string
+      format: uri
+      example: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."
+      description: QR code image URL for easy setup
+    backup_codes:
+      type: array
+      items:
+        type: string
+      example: ["12345678", "87654321", "11223344"]
+      description: Backup codes for account recovery
+
+MFAStatus:
+  type: object
+  properties:
+    mfa_type:
+      type: string
+      enum: [totp, sms, email]
+      example: "totp"
+    is_enabled:
+      type: boolean
+      example: true
+    last_used_at:
+      type: string
+      format: date-time
+      example: "2024-01-15T10:30:00Z"
+
+ValidateMFACodeRequest:
+  type: object
+  required:
+    - user_id
+    - code
+    - mfa_type
+  properties:
+    user_id:
+      type: string
+      format: uuid
+      example: "550e8400-e29b-41d4-a716-446655440000"
+    code:
+      type: string
+      example: "123456"
+      description: MFA code to validate
+    mfa_type:
+      type: string
+      enum: [totp, sms, email]
+      example: "totp"
+
+ValidateMFACodeResponse:
+  type: object
+  properties:
+    valid:
+      type: boolean
+      example: true
+
+# Group Schemas
+
+Group:
+  type: object
+  properties:
+    id:
+      type: string
+      format: uuid
+      example: "grp-123e4567-e89b-12d3-a456-426614174000"
+    name:
+      type: string
+      example: "CS101 Study Group"
+    description:
+      type: string
+      example: "Study group for Computer Science 101"
+    organization_id:
+      type: string
+      format: uuid
+      example: "org-123e4567-e89b-12d3-a456-426614174000"
+    is_active:
+      type: boolean
+      example: true
+    created_at:
+      type: string
+      format: date-time
+      example: "2024-01-15T10:30:00Z"
+    updated_at:
+      type: string
+      format: date-time
+      example: "2024-01-20T14:45:00Z"
+    created_by:
+      type: string
+      format: uuid
+      example: "550e8400-e29b-41d4-a716-446655440000"
+
+GroupMember:
+  type: object
+  properties:
+    group_id:
+      type: string
+      format: uuid
+      example: "grp-123e4567-e89b-12d3-a456-426614174000"
+    user_id:
+      type: string
+      format: uuid
+      example: "550e8400-e29b-41d4-a716-446655440000"
+    role:
+      type: string
+      enum: [owner, admin, member]
+      example: "member"
+      description: Role within the group
+    joined_at:
+      type: string
+      format: date-time
+      example: "2024-01-15T10:30:00Z"
+    email:
+      type: string
+      format: email
+      example: "user@example.com"
+    first_name:
+      type: string
+      example: "John"
+    last_name:
+      type: string
+      example: "Doe"
+
+CreateGroupRequest:
+  type: object
+  required:
+    - name
+    - organization_id
+    - created_by
+  properties:
+    name:
+      type: string
+      example: "CS101 Study Group"
+    description:
+      type: string
+      example: "Study group for Computer Science 101"
+    organization_id:
+      type: string
+      format: uuid
+      example: "org-123e4567-e89b-12d3-a456-426614174000"
+    created_by:
+      type: string
+      format: uuid
+      example: "550e8400-e29b-41d4-a716-446655440000"
+
+UpdateGroupRequest:
+  type: object
+  properties:
+    name:
+      type: string
+      example: "CS101 Study Group - Updated"
+    description:
+      type: string
+      example: "Updated description"
+    is_active:
+      type: boolean
+      example: true
+
+ListGroupsRequest:
+  type: object
+  required:
+    - organization_id
+  properties:
+    organization_id:
+      type: string
+      format: uuid
+      example: "org-123e4567-e89b-12d3-a456-426614174000"
+    page:
+      type: integer
+      format: int32
+      example: 1
+      default: 1
+    page_size:
+      type: integer
+      format: int32
+      example: 20
+      default: 20
+
+ListGroupsResponse:
+  type: object
+  properties:
+    groups:
+      type: array
+      items:
+        $ref: '#/Group'
+    total:
+      type: integer
+      format: int32
+      example: 42
+
+# Parent-Child Relationship Schema
+
+ParentChildRelationship:
+  type: object
+  properties:
+    parent_user:
+      $ref: '../openapi.yaml#/components/schemas/User'
+    child_user:
+      $ref: '../openapi.yaml#/components/schemas/User'
+    relationship_type:
+      type: string
+      enum: [parent, guardian, administrator]
+      example: "parent"
+      description: Type of relationship
+    permissions:
+      type: object
+      additionalProperties:
+        type: string
+      example:
+        view_grades: "true"
+        view_attendance: "true"
+        manage_enrollment: "false"
+      description: Permission mappings for the parent account
+    created_at:
+      type: string
+      format: date-time
+      example: "2024-01-15T10:30:00Z"

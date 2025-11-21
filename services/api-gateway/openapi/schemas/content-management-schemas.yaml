@@ -1,0 +1,468 @@
+components:
+  schemas:
+    Module:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        course_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        display_order:
+          type: integer
+          format: int32
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+          format: uuid
+
+    Lesson:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        module_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        display_order:
+          type: integer
+          format: int32
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Resource:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        lesson_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        content_type:
+          type: string
+        file_size:
+          type: integer
+          format: int64
+        storage_key:
+          type: string
+        manifest_url:
+          type: string
+        duration_seconds:
+          type: integer
+          format: int32
+        published:
+          type: boolean
+        downloadable:
+          type: boolean
+        copyright_setting:
+          type: string
+        display_order:
+          type: integer
+          format: int32
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateModuleRequest:
+      type: object
+      properties:
+        course_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        display_order:
+          type: integer
+          format: int32
+
+    UpdateModuleRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        display_order:
+          type: integer
+          format: int32
+
+    CreateLessonRequest:
+      type: object
+      properties:
+        module_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        display_order:
+          type: integer
+          format: int32
+
+    UpdateLessonRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        display_order:
+          type: integer
+          format: int32
+
+    CreateResourceRequest:
+      type: object
+      properties:
+        lesson_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        content_type:
+          type: string
+        file_size:
+          type: integer
+          format: int64
+        storage_key:
+          type: string
+        display_order:
+          type: integer
+          format: int32
+
+    UpdateResourceRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        downloadable:
+          type: boolean
+        copyright_setting:
+          type: string
+        display_order:
+          type: integer
+          format: int32
+
+    ContentStructure:
+      type: object
+      properties:
+        modules:
+          type: array
+          items:
+            $ref: '#/components/schemas/ModuleWithContent'
+
+    ModuleWithContent:
+      type: object
+      properties:
+        module:
+          $ref: '#/components/schemas/Module'
+        lessons:
+          type: array
+          items:
+            $ref: '#/components/schemas/LessonWithContent'
+
+    LessonWithContent:
+      type: object
+      properties:
+        lesson:
+          $ref: '#/components/schemas/Lesson'
+        resources:
+          type: array
+          items:
+            $ref: '#/components/schemas/Resource'
+
+    ReorderItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        new_position:
+          type: integer
+          format: int32
+
+    ReorderContentRequest:
+      type: object
+      properties:
+        content_type:
+          type: string
+          enum: [module, lesson, resource]
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReorderItem'
+
+    UploadSession:
+      type: object
+      properties:
+        session_id:
+          type: string
+        storage_key:
+          type: string
+        chunk_size:
+          type: integer
+          format: int32
+        total_chunks:
+          type: integer
+          format: int32
+        uploaded_chunks:
+          type: integer
+          format: int32
+        expires_at:
+          type: string
+          format: date-time
+
+    InitiateUploadRequest:
+      type: object
+      properties:
+        lesson_id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        content_type:
+          type: string
+        total_size:
+          type: integer
+          format: int64
+
+    CompleteUploadRequest:
+      type: object
+      properties:
+        session_id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+
+    VideoManifest:
+      type: object
+      properties:
+        hls_url:
+          type: string
+        dash_url:
+          type: string
+        quality_levels:
+          type: array
+          items:
+            $ref: '#/components/schemas/QualityLevel'
+
+    QualityLevel:
+      type: object
+      properties:
+        height:
+          type: integer
+          format: int32
+        bitrate:
+          type: integer
+          format: int32
+
+    PlaybackState:
+      type: object
+      properties:
+        duration_seconds:
+          type: integer
+          format: int32
+        current_position_seconds:
+          type: integer
+          format: int32
+        playback_speeds:
+          type: array
+          items:
+            type: number
+            format: float
+        available_qualities:
+          type: array
+          items:
+            $ref: '#/components/schemas/QualityLevel'
+
+    UpdatePlaybackPositionRequest:
+      type: object
+      properties:
+        video_id:
+          type: string
+          format: uuid
+        position_seconds:
+          type: integer
+          format: int32
+        event_type:
+          type: string
+          enum: [pause, seek, update]
+        old_position_seconds:
+          type: integer
+          format: int32
+        session_id:
+          type: string
+
+    ProgressResponse:
+      type: object
+      properties:
+        overall_percentage:
+          type: integer
+          format: int32
+        modules:
+          type: array
+          items:
+            $ref: '#/components/schemas/ModuleProgress'
+
+    ModuleProgress:
+      type: object
+      properties:
+        module_id:
+          type: string
+          format: uuid
+        module_name:
+          type: string
+        percentage:
+          type: integer
+          format: int32
+        lessons:
+          type: array
+          items:
+            $ref: '#/components/schemas/LessonProgress'
+
+    LessonProgress:
+      type: object
+      properties:
+        lesson_id:
+          type: string
+          format: uuid
+        lesson_name:
+          type: string
+        percentage:
+          type: integer
+          format: int32
+        resources:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceProgress'
+
+    ResourceProgress:
+      type: object
+      properties:
+        resource_id:
+          type: string
+          format: uuid
+        resource_name:
+          type: string
+        completed:
+          type: boolean
+        completed_at:
+          type: string
+          format: date-time
+
+    ProgressReport:
+      type: object
+      properties:
+        total_students:
+          type: integer
+          format: int32
+        average_completion_percentage:
+          type: number
+          format: float
+        students:
+          type: array
+          items:
+            $ref: '#/components/schemas/StudentProgress'
+
+    StudentProgress:
+      type: object
+      properties:
+        student_id:
+          type: string
+          format: uuid
+        completion_percentage:
+          type: integer
+          format: int32
+        resources:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceCompletion'
+
+    ResourceCompletion:
+      type: object
+      properties:
+        resource_id:
+          type: string
+          format: uuid
+        resource_name:
+          type: string
+        completed:
+          type: boolean
+        completed_at:
+          type: string
+          format: date-time
+        time_spent_seconds:
+          type: integer
+          format: int32
+
+    SearchResult:
+      type: object
+      properties:
+        resource_id:
+          type: string
+          format: uuid
+        resource_name:
+          type: string
+        resource_type:
+          type: string
+        description:
+          type: string
+        module_name:
+          type: string
+        lesson_name:
+          type: string
+        hierarchical_path:
+          type: string
+        relevance_score:
+          type: number
+          format: float
+        highlighted_snippets:
+          type: array
+          items:
+            type: string
+
+    DownloadUrlResponse:
+      type: object
+      properties:
+        download_url:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+        copyright_notice:
+          type: string

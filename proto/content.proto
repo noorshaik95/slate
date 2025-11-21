@@ -36,6 +36,9 @@ service ContentService {
   rpc ReorderContent(ReorderContentRequest) returns (google.protobuf.Empty);
   rpc PublishContent(PublishContentRequest) returns (google.protobuf.Empty);
   rpc UnpublishContent(UnpublishContentRequest) returns (google.protobuf.Empty);
+  
+  // Health Check
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
 }
 
 // Module messages
@@ -425,4 +428,16 @@ message DownloadUrlResponse {
   string download_url = 1;
   google.protobuf.Timestamp expires_at = 2;
   string copyright_notice = 3;
+}
+
+// ============================================================================
+// Health Check
+// ============================================================================
+
+message HealthCheckRequest {}
+
+message HealthCheckResponse {
+  string status = 1;
+  string service = 2;
+  string timestamp = 3;
 }

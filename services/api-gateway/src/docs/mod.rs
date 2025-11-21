@@ -81,6 +81,48 @@ async fn openapi_spec() -> Response {
     }
 }
 
+/// Handler for OpenAPI path files
+async fn openapi_path_file(axum::extract::Path(filename): axum::extract::Path<String>) -> Response {
+    let file_path = format!("services/api-gateway/openapi/paths/{}", filename);
+    match std::fs::read_to_string(&file_path) {
+        Ok(content) => (
+            StatusCode::OK,
+            [("content-type", "application/x-yaml")],
+            content,
+        )
+            .into_response(),
+        Err(e) => {
+            tracing::error!("Failed to read OpenAPI path file {}: {}", filename, e);
+            (
+                StatusCode::NOT_FOUND,
+                "Path file not found",
+            )
+                .into_response()
+        }
+    }
+}
+
+/// Handler for OpenAPI schema files
+async fn openapi_schema_file(axum::extract::Path(filename): axum::extract::Path<String>) -> Response {
+    let file_path = format!("services/api-gateway/openapi/schemas/{}", filename);
+    match std::fs::read_to_string(&file_path) {
+        Ok(content) => (
+            StatusCode::OK,
+            [("content-type", "application/x-yaml")],
+            content,
+        )
+            .into_response(),
+        Err(e) => {
+            tracing::error!("Failed to read OpenAPI schema file {}: {}", filename, e);
+            (
+                StatusCode::NOT_FOUND,
+                "Schema file not found",
+            )
+                .into_response()
+        }
+    }
+}
+
 /// Handler for API documentation redirect
 async fn docs_redirect() -> impl IntoResponse {
     axum::response::Redirect::permanent("/docs/ui")
@@ -93,6 +135,8 @@ pub fn create_docs_router() -> Router {
         .route("/docs/", get(docs_redirect))
         .route("/docs/ui", get(swagger_ui))
         .route("/docs/openapi.yaml", get(openapi_spec))
+        .route("/docs/paths/:filename", get(openapi_path_file))
+        .route("/docs/schemas/:filename", get(openapi_schema_file))
 }
 
 #[cfg(test)]

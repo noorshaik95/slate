@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"slate/services/assignment-grading-service/internal/config"
+	grpchandler "slate/services/assignment-grading-service/internal/grpc"
 	"slate/services/assignment-grading-service/internal/health"
 	"slate/services/assignment-grading-service/internal/repository"
 	"slate/services/assignment-grading-service/internal/service"
@@ -29,6 +30,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
+
+	pb "slate/services/assignment-grading-service/api/proto"
 )
 
 func main() {
@@ -150,13 +153,14 @@ func main() {
 
 	log.Info().Msg("Services initialized")
 
-	// TODO: Initialize gRPC handlers when proto code is generated
-	// For now, create a basic gRPC server
-	_ = assignmentService
-	_ = submissionService
-	_ = gradingService
-	_ = gradebookService
+	// Initialize gRPC handlers with service dependencies
+	assignmentHandler := grpchandler.NewAssignmentServiceServer(assignmentService)
+	submissionHandler := grpchandler.NewSubmissionServiceServer(submissionService)
+	gradingHandler := grpchandler.NewGradingServiceServer(gradingService)
+	gradebookHandler := grpchandler.NewGradebookServiceServer(gradebookService)
 	_ = metricsCollector
+
+	log.Info().Msg("gRPC handlers initialized")
 
 	// Initialize gRPC server with OpenTelemetry interceptors
 	grpcServer := grpc.NewServer(
@@ -165,6 +169,19 @@ func main() {
 			tracing.LoggingUnaryInterceptor(),
 		),
 	)
+
+	// Register all gRPC services
+	pb.RegisterAssignmentServiceServer(grpcServer, assignmentHandler)
+	log.Info().Msg("gRPC AssignmentService registered")
+
+	pb.RegisterSubmissionServiceServer(grpcServer, submissionHandler)
+	log.Info().Msg("gRPC SubmissionService registered")
+
+	pb.RegisterGradingServiceServer(grpcServer, gradingHandler)
+	log.Info().Msg("gRPC GradingService registered")
+
+	pb.RegisterGradebookServiceServer(grpcServer, gradebookHandler)
+	log.Info().Msg("gRPC GradebookService registered")
 
 	// Register health check service
 	healthChecker := health.NewHealthChecker(db.DB)

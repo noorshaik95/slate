@@ -1,0 +1,596 @@
+/api/courses/{course_id}/enroll:
+  post:
+    tags:
+      - Enrollments
+    summary: Self-enroll in course
+    description: |
+      Enroll the authenticated student in a course.
+      
+      **Enrollment Requirements:**
+      - Course must be published
+      - Course must not be full (unless waitlisting is enabled)
+      - Student must meet prerequisites (if any)
+      - Student must not already be enrolled
+      - Student must have student role
+      
+      **Enrollment Process:**
+      - Creates enrollment record with type SELF
+      - Sets status to ACTIVE (or WAITLISTED if course is full)
+      - Optionally assigns student to a specific section
+      - Grants student access to course content
+      
+      **Authorization:**
+      - Requires authentication
+      - Student can only enroll themselves
+      - Enrollment type is automatically set to SELF
+      
+      **Business Rules:**
+      - If course is full and waitlisting is enabled, student is added to waitlist
+      - If prerequisites are not met, enrollment is rejected
+      - If student is already enrolled, returns existing enrollment
+      - Section assignment is optional; if not specified, student is enrolled in course without section
+    operationId: selfEnroll
+    parameters:
+      - name: course_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Unique course identifier
+        example: "c7f8e9d0-1234-5678-90ab-cdef12345678"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - student_id
+            properties:
+              student_id:
+                type: string
+                format: uuid
+                description: Student user ID (must match authenticated user)
+                example: "550e8400-e29b-41d4-a716-446655440000"
+              section_id:
+                type: string
+                format: uuid
+                description: Optional section ID to enroll in specific section
+                example: "s1e2c3t4-i5o6-n7i8-d9e0-123456789012"
+          example:
+            student_id: "550e8400-e29b-41d4-a716-446655440000"
+            section_id: "s1e2c3t4-i5o6-n7i8-d9e0-123456789012"
+    responses:
+      '201':
+        description: Enrollment created successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enrollment:
+                  $ref: '../openapi.yaml#/components/schemas/Enrollment'
+            example:
+              enrollment:
+                id: "e1n2r3o4-l5l6-m7e8-n9t0-123456789012"
+                course_id: "c7f8e9d0-1234-5678-90ab-cdef12345678"
+                student_id: "550e8400-e29b-41d4-a716-446655440000"
+                enrollment_type: "SELF"
+                status: "ACTIVE"
+                enrolled_by: "550e8400-e29b-41d4-a716-446655440000"
+                enrolled_at: "2024-01-22T14:30:00Z"
+                section_id: "s1e2c3t4-i5o6-n7i8-d9e0-123456789012"
+      '400':
+        description: Invalid request or prerequisites not met
+        content:
+          application/json:
+            schema:
+              $ref: '../openapi.yaml#/components/schemas/Error'
+            examples:
+              prerequisites_not_met:
+                value:
+                  error: "Prerequisites not met for this course"
+                  code: "PREREQUISITES_NOT_MET"
+                  details:
+                    - field: "prerequisites"
+                      message: "Must complete CS100 before enrolling"
+              already_enrolled:
+                value:
+                  error: "Student is already enrolled in this course"
+                  code: "ALREADY_ENROLLED"
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        description: Course not published or enrollment not allowed
+        content:
+          application/json:
+            schema:
+              $ref: '../openapi.yaml#/components/schemas/Error'
+            examples:
+              not_published:
+                value:
+                  error: "Course is not published"
+                  code: "COURSE_NOT_PUBLISHED"
+              course_full:
+                value:
+                  error: "Course is full and waitlisting is not enabled"
+                  code: "COURSE_FULL"
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'
+      '429':
+        $ref: '../openapi.yaml#/components/responses/RateLimitError'
+
+/api/courses/{course_id}/students:
+  post:
+    tags:
+      - Enrollments
+    summary: Instructor add student to course
+    description: |
+      Enroll a student in a course as an instructor or admin.
+      
+      **Enrollment Capabilities:**
+      - Bypass course capacity limits
+      - Bypass prerequisite requirements
+      - Enroll students in unpublished courses
+      - Assign students to specific sections
+      - Override waitlist status
+      
+      **Enrollment Process:**
+      - Creates enrollment record with type INSTRUCTOR or ADMIN
+      - Sets status to ACTIVE regardless of course capacity
+      - Records the instructor/admin who performed the enrollment
+      - Optionally assigns student to a specific section
+      - Grants student immediate access to course content
+      
+      **Authorization:**
+      - Instructors can add students to courses they teach
+      - Co-instructors can add students to courses they co-teach
+      - Admins can add students to any course
+      
+      **Business Rules:**
+      - Instructor-added students bypass capacity limits
+      - Instructor-added students bypass prerequisite checks
+      - If student is already enrolled, returns existing enrollment
+      - Section assignment is optional
+      - Student must have student role
+    operationId: instructorAddStudent
+    parameters:
+      - name: course_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Unique course identifier
+        example: "c7f8e9d0-1234-5678-90ab-cdef12345678"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - student_id
+              - instructor_id
+            properties:
+              student_id:
+                type: string
+                format: uuid
+                description: Student user ID to enroll
+                example: "550e8400-e29b-41d4-a716-446655440000"
+              instructor_id:
+                type: string
+                format: uuid
+                description: Instructor user ID performing the enrollment (must match authenticated user)
+                example: "660e8400-e29b-41d4-a716-446655440001"
+              section_id:
+                type: string
+                format: uuid
+                description: Optional section ID to enroll student in specific section
+                example: "s1e2c3t4-i5o6-n7i8-d9e0-123456789012"
+          example:
+            student_id: "550e8400-e29b-41d4-a716-446655440000"
+            instructor_id: "660e8400-e29b-41d4-a716-446655440001"
+            section_id: "s1e2c3t4-i5o6-n7i8-d9e0-123456789012"
+    responses:
+      '201':
+        description: Student enrolled successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enrollment:
+                  $ref: '../openapi.yaml#/components/schemas/Enrollment'
+            example:
+              enrollment:
+                id: "e1n2r3o4-l5l6-m7e8-n9t0-123456789012"
+                course_id: "c7f8e9d0-1234-5678-90ab-cdef12345678"
+                student_id: "550e8400-e29b-41d4-a716-446655440000"
+                enrollment_type: "INSTRUCTOR"
+                status: "ACTIVE"
+                enrolled_by: "660e8400-e29b-41d4-a716-446655440001"
+                enrolled_at: "2024-01-22T14:30:00Z"
+                section_id: "s1e2c3t4-i5o6-n7i8-d9e0-123456789012"
+      '400':
+        description: Invalid request
+        content:
+          application/json:
+            schema:
+              $ref: '../openapi.yaml#/components/schemas/Error'
+            examples:
+              invalid_student:
+                value:
+                  error: "User does not have student role"
+                  code: "INVALID_STUDENT"
+              already_enrolled:
+                value:
+                  error: "Student is already enrolled in this course"
+                  code: "ALREADY_ENROLLED"
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        description: Insufficient permissions
+        content:
+          application/json:
+            schema:
+              $ref: '../openapi.yaml#/components/schemas/Error'
+            example:
+              error: "Only instructors and admins can add students to courses"
+              code: "FORBIDDEN"
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'
+      '429':
+        $ref: '../openapi.yaml#/components/responses/RateLimitError'
+
+/api/enrollments/{enrollment_id}:
+  delete:
+    tags:
+      - Enrollments
+    summary: Remove enrollment
+    description: |
+      Remove a student's enrollment from a course (drop the course).
+      
+      **Removal Effects:**
+      - Sets enrollment status to DROPPED
+      - Removes student access to course content
+      - Frees up course capacity for other students
+      - Preserves enrollment record for historical purposes
+      - Does not delete student's work or grades
+      
+      **Authorization:**
+      - Students can drop their own enrollments
+      - Instructors can remove students from courses they teach
+      - Co-instructors can remove students from courses they co-teach
+      - Admins can remove any enrollment
+      
+      **Business Rules:**
+      - Cannot remove enrollment after course completion
+      - Cannot remove enrollment if final grades are posted
+      - Removal may be subject to institutional drop deadlines
+      - Student's work and grades are preserved but marked as dropped
+      
+      **Note:** This operation sets status to DROPPED rather than deleting the enrollment record.
+      This preserves audit trail and allows for grade history.
+    operationId: removeEnrollment
+    parameters:
+      - name: enrollment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Unique enrollment identifier
+        example: "e1n2r3o4-l5l6-m7e8-n9t0-123456789012"
+    responses:
+      '204':
+        description: Enrollment removed successfully (no content returned)
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        description: Cannot remove enrollment
+        content:
+          application/json:
+            schema:
+              $ref: '../openapi.yaml#/components/schemas/Error'
+            examples:
+              course_completed:
+                value:
+                  error: "Cannot drop enrollment after course completion"
+                  code: "COURSE_COMPLETED"
+              grades_posted:
+                value:
+                  error: "Cannot drop enrollment after final grades are posted"
+                  code: "GRADES_POSTED"
+              insufficient_permissions:
+                value:
+                  error: "Insufficient permissions to remove this enrollment"
+                  code: "FORBIDDEN"
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'
+      '429':
+        $ref: '../openapi.yaml#/components/responses/RateLimitError'
+
+/api/courses/{course_id}/roster:
+  get:
+    tags:
+      - Enrollments
+    summary: Get course roster
+    description: |
+      Retrieve the list of students enrolled in a course with optional filtering.
+      
+      **Roster Information:**
+      - Complete enrollment records for all students
+      - Enrollment type (self, instructor, admin)
+      - Enrollment status (active, dropped, completed, waitlisted)
+      - Enrollment date and enrolled_by information
+      - Section assignment (if applicable)
+      
+      **Filtering Options:**
+      - Filter by section to see students in specific section
+      - Filter by status to see active, dropped, completed, or waitlisted students
+      - Combine filters to narrow results
+      
+      **Authorization:**
+      - Instructors can view roster for courses they teach
+      - Co-instructors can view roster for courses they co-teach
+      - TAs can view roster for courses they assist
+      - Admins can view roster for any course
+      - Students cannot view course roster
+      
+      **Use Cases:**
+      - View all active students in a course
+      - View waitlisted students
+      - View students in a specific section
+      - Export roster for attendance or grading
+    operationId: getCourseRoster
+    parameters:
+      - name: course_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Unique course identifier
+        example: "c7f8e9d0-1234-5678-90ab-cdef12345678"
+      - name: section_id
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+        description: Filter by section ID to see students in specific section
+        example: "s1e2c3t4-i5o6-n7i8-d9e0-123456789012"
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+            - ACTIVE
+            - DROPPED
+            - COMPLETED
+            - WAITLISTED
+        description: Filter by enrollment status
+        example: "ACTIVE"
+    responses:
+      '200':
+        description: Course roster retrieved successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enrollments:
+                  type: array
+                  items:
+                    $ref: '../openapi.yaml#/components/schemas/Enrollment'
+                  description: List of enrollment records
+                total_count:
+                  type: integer
+                  description: Total number of enrollments matching filter criteria
+                  example: 28
+            example:
+              enrollments:
+                - id: "e1n2r3o4-l5l6-m7e8-n9t0-123456789012"
+                  course_id: "c7f8e9d0-1234-5678-90ab-cdef12345678"
+                  student_id: "550e8400-e29b-41d4-a716-446655440000"
+                  enrollment_type: "SELF"
+                  status: "ACTIVE"
+                  enrolled_by: "550e8400-e29b-41d4-a716-446655440000"
+                  enrolled_at: "2024-01-15T10:30:00Z"
+                  section_id: "s1e2c3t4-i5o6-n7i8-d9e0-123456789012"
+                - id: "e2n3r4o5-l6l7-m8e9-n0t1-234567890123"
+                  course_id: "c7f8e9d0-1234-5678-90ab-cdef12345678"
+                  student_id: "660e8400-e29b-41d4-a716-446655440002"
+                  enrollment_type: "INSTRUCTOR"
+                  status: "ACTIVE"
+                  enrolled_by: "660e8400-e29b-41d4-a716-446655440001"
+                  enrolled_at: "2024-01-16T09:00:00Z"
+                  section_id: "s1e2c3t4-i5o6-n7i8-d9e0-123456789012"
+                - id: "e3n4r5o6-l7l8-m9e0-n1t2-345678901234"
+                  course_id: "c7f8e9d0-1234-5678-90ab-cdef12345678"
+                  student_id: "770e8400-e29b-41d4-a716-446655440003"
+                  enrollment_type: "SELF"
+                  status: "WAITLISTED"
+                  enrolled_by: "770e8400-e29b-41d4-a716-446655440003"
+                  enrolled_at: "2024-01-20T14:00:00Z"
+                  section_id: null
+              total_count: 28
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        description: Insufficient permissions to view roster
+        content:
+          application/json:
+            schema:
+              $ref: '../openapi.yaml#/components/schemas/Error'
+            example:
+              error: "Only instructors, TAs, and admins can view course roster"
+              code: "FORBIDDEN"
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'
+      '429':
+        $ref: '../openapi.yaml#/components/responses/RateLimitError'
+
+/api/students/{student_id}/enrollments:
+  get:
+    tags:
+      - Enrollments
+    summary: Get student enrollments
+    description: |
+      Retrieve all courses a student is enrolled in with optional filtering.
+      
+      **Enrollment Information:**
+      - Complete enrollment records with course details
+      - Enrollment type and status
+      - Course information (title, term, instructor, etc.)
+      - Section assignment (if applicable)
+      - Enrollment date
+      
+      **Filtering Options:**
+      - Filter by term to see enrollments in specific academic term
+      - Filter by status to see active, dropped, completed, or waitlisted enrollments
+      - Combine filters to narrow results
+      
+      **Authorization:**
+      - Students can view their own enrollments
+      - Instructors can view enrollments for students in their courses
+      - Advisors can view enrollments for their advisees
+      - Admins can view enrollments for any student
+      
+      **Use Cases:**
+      - View current course schedule
+      - View enrollment history
+      - Check waitlisted courses
+      - View completed courses
+      - Generate transcript data
+      
+      **Response Format:**
+      - Returns EnrollmentWithCourse objects containing both enrollment and course details
+      - Sorted by enrollment date (most recent first)
+    operationId: getStudentEnrollments
+    parameters:
+      - name: student_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Student user ID
+        example: "550e8400-e29b-41d4-a716-446655440000"
+      - name: term
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Filter by academic term
+        example: "Fall 2024"
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+            - ACTIVE
+            - DROPPED
+            - COMPLETED
+            - WAITLISTED
+        description: Filter by enrollment status
+        example: "ACTIVE"
+    responses:
+      '200':
+        description: Student enrollments retrieved successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enrollments:
+                  type: array
+                  items:
+                    $ref: '../openapi.yaml#/components/schemas/EnrollmentWithCourse'
+                  description: List of enrollments with course details
+            example:
+              enrollments:
+                - enrollment:
+                    id: "e1n2r3o4-l5l6-m7e8-n9t0-123456789012"
+                    course_id: "c7f8e9d0-1234-5678-90ab-cdef12345678"
+                    student_id: "550e8400-e29b-41d4-a716-446655440000"
+                    enrollment_type: "SELF"
+                    status: "ACTIVE"
+                    enrolled_by: "550e8400-e29b-41d4-a716-446655440000"
+                    enrolled_at: "2024-01-15T10:30:00Z"
+                    section_id: "s1e2c3t4-i5o6-n7i8-d9e0-123456789012"
+                  course:
+                    id: "c7f8e9d0-1234-5678-90ab-cdef12345678"
+                    title: "Introduction to Computer Science"
+                    description: "A comprehensive introduction to computer science fundamentals"
+                    term: "Fall 2024"
+                    syllabus: "Week 1: Introduction to Programming"
+                    instructor_id: "660e8400-e29b-41d4-a716-446655440001"
+                    co_instructor_ids: []
+                    is_published: true
+                    prerequisite_course_ids: []
+                    template_id: null
+                    cross_listing_group_id: null
+                    created_at: "2024-01-10T10:00:00Z"
+                    updated_at: "2024-01-15T10:00:00Z"
+                    metadata:
+                      max_students: 30
+                      department: "Computer Science"
+                      course_code: "CS101"
+                      credits: 3
+                      tags: ["programming", "fundamentals"]
+                - enrollment:
+                    id: "e2n3r4o5-l6l7-m8e9-n0t1-234567890123"
+                    course_id: "c8f9e0d1-2345-6789-01bc-def123456789"
+                    student_id: "550e8400-e29b-41d4-a716-446655440000"
+                    enrollment_type: "SELF"
+                    status: "ACTIVE"
+                    enrolled_by: "550e8400-e29b-41d4-a716-446655440000"
+                    enrolled_at: "2024-01-16T11:00:00Z"
+                    section_id: null
+                  course:
+                    id: "c8f9e0d1-2345-6789-01bc-def123456789"
+                    title: "Calculus I"
+                    description: "Introduction to differential and integral calculus"
+                    term: "Fall 2024"
+                    syllabus: "Week 1: Limits and Continuity"
+                    instructor_id: "770e8400-e29b-41d4-a716-446655440004"
+                    co_instructor_ids: []
+                    is_published: true
+                    prerequisite_course_ids: []
+                    template_id: null
+                    cross_listing_group_id: null
+                    created_at: "2024-01-08T09:00:00Z"
+                    updated_at: "2024-01-12T14:00:00Z"
+                    metadata:
+                      max_students: 40
+                      department: "Mathematics"
+                      course_code: "MATH101"
+                      credits: 4
+                      tags: ["mathematics", "calculus"]
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        description: Insufficient permissions to view enrollments
+        content:
+          application/json:
+            schema:
+              $ref: '../openapi.yaml#/components/schemas/Error'
+            example:
+              error: "Cannot view enrollments for other students"
+              code: "FORBIDDEN"
+      '404':
+        description: Student not found
+        content:
+          application/json:
+            schema:
+              $ref: '../openapi.yaml#/components/schemas/Error'
+            example:
+              error: "Student not found"
+              code: "NOT_FOUND"
+      '429':
+        $ref: '../openapi.yaml#/components/responses/RateLimitError'

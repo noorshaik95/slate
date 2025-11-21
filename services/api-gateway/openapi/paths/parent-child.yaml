@@ -1,0 +1,326 @@
+/api/users/{parent_id}/children:
+  post:
+    tags:
+      - Parent-Child Accounts
+    summary: Create parent-child link
+    description: |
+      Create a parent-child relationship between two user accounts.
+      Allows parents/guardians to manage child accounts with specified permissions.
+    operationId: createParentChildLink
+    parameters:
+      - name: parent_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Parent user identifier
+        example: "550e8400-e29b-41d4-a716-446655440000"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - child_user_id
+              - relationship_type
+            properties:
+              child_user_id:
+                type: string
+                format: uuid
+                description: Child user identifier
+                example: "660e8400-e29b-41d4-a716-446655440001"
+              relationship_type:
+                type: string
+                enum: [parent, guardian, administrator]
+                description: Type of relationship
+                example: "parent"
+              permissions:
+                type: object
+                additionalProperties:
+                  type: string
+                description: Permission mappings for the parent account
+                example:
+                  view_grades: "true"
+                  view_attendance: "true"
+                  manage_enrollment: "false"
+          example:
+            child_user_id: "660e8400-e29b-41d4-a716-446655440001"
+            relationship_type: "parent"
+            permissions:
+              view_grades: "true"
+              view_attendance: "true"
+              manage_enrollment: "false"
+    responses:
+      '201':
+        description: Parent-child link created successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: "Parent-child link created successfully"
+      '400':
+        $ref: '../openapi.yaml#/components/responses/ValidationError'
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'
+      '409':
+        description: Relationship already exists
+        content:
+          application/json:
+            schema:
+              $ref: '../openapi.yaml#/components/schemas/Error'
+            example:
+              error: "Parent-child relationship already exists"
+              code: "RELATIONSHIP_EXISTS"
+
+  get:
+    tags:
+      - Parent-Child Accounts
+    summary: Get child accounts
+    description: |
+      Retrieve all child accounts linked to a parent account.
+      Returns detailed information about each relationship and permissions.
+    operationId: getChildAccounts
+    parameters:
+      - name: parent_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Parent user identifier
+        example: "550e8400-e29b-41d4-a716-446655440000"
+    responses:
+      '200':
+        description: List of child accounts
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                relationships:
+                  type: array
+                  items:
+                    $ref: '../openapi.yaml#/components/schemas/ParentChildRelationship'
+            example:
+              relationships:
+                - parent_user:
+                    id: "550e8400-e29b-41d4-a716-446655440000"
+                    email: "parent@example.com"
+                    first_name: "John"
+                    last_name: "Doe"
+                    phone: "+1234567890"
+                    roles: ["parent"]
+                    is_active: true
+                    created_at: "2024-01-01T00:00:00Z"
+                    updated_at: "2024-01-01T00:00:00Z"
+                  child_user:
+                    id: "660e8400-e29b-41d4-a716-446655440001"
+                    email: "child@example.com"
+                    first_name: "Jane"
+                    last_name: "Doe"
+                    phone: "+1234567891"
+                    roles: ["student"]
+                    is_active: true
+                    created_at: "2024-01-10T00:00:00Z"
+                    updated_at: "2024-01-10T00:00:00Z"
+                  relationship_type: "parent"
+                  permissions:
+                    view_grades: "true"
+                    view_attendance: "true"
+                    manage_enrollment: "false"
+                  created_at: "2024-01-15T10:30:00Z"
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'
+
+/api/users/{parent_id}/children/{child_id}:
+  delete:
+    tags:
+      - Parent-Child Accounts
+    summary: Remove parent-child link
+    description: |
+      Remove the parent-child relationship between two accounts.
+      This action is irreversible.
+    operationId: removeParentChildLink
+    parameters:
+      - name: parent_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Parent user identifier
+        example: "550e8400-e29b-41d4-a716-446655440000"
+      - name: child_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Child user identifier
+        example: "660e8400-e29b-41d4-a716-446655440001"
+    responses:
+      '200':
+        description: Parent-child link removed successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: "Parent-child link removed successfully"
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'
+
+/api/users/{child_id}/parents:
+  get:
+    tags:
+      - Parent-Child Accounts
+    summary: Get parent accounts
+    description: |
+      Retrieve all parent accounts linked to a child account.
+      Returns detailed information about each relationship and permissions.
+    operationId: getParentAccounts
+    parameters:
+      - name: child_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Child user identifier
+        example: "660e8400-e29b-41d4-a716-446655440001"
+    responses:
+      '200':
+        description: List of parent accounts
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                relationships:
+                  type: array
+                  items:
+                    $ref: '../openapi.yaml#/components/schemas/ParentChildRelationship'
+            example:
+              relationships:
+                - parent_user:
+                    id: "550e8400-e29b-41d4-a716-446655440000"
+                    email: "parent@example.com"
+                    first_name: "John"
+                    last_name: "Doe"
+                    phone: "+1234567890"
+                    roles: ["parent"]
+                    is_active: true
+                    created_at: "2024-01-01T00:00:00Z"
+                    updated_at: "2024-01-01T00:00:00Z"
+                  child_user:
+                    id: "660e8400-e29b-41d4-a716-446655440001"
+                    email: "child@example.com"
+                    first_name: "Jane"
+                    last_name: "Doe"
+                    phone: "+1234567891"
+                    roles: ["student"]
+                    is_active: true
+                    created_at: "2024-01-10T00:00:00Z"
+                    updated_at: "2024-01-10T00:00:00Z"
+                  relationship_type: "parent"
+                  permissions:
+                    view_grades: "true"
+                    view_attendance: "true"
+                    manage_enrollment: "false"
+                  created_at: "2024-01-15T10:30:00Z"
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'
+
+/api/users/{parent_id}/children/{child_id}/permissions:
+  put:
+    tags:
+      - Parent-Child Accounts
+    summary: Update parent-child permissions
+    description: |
+      Update the permissions for a parent-child relationship.
+      Allows fine-grained control over what the parent can access.
+    operationId: updateParentChildPermissions
+    parameters:
+      - name: parent_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Parent user identifier
+        example: "550e8400-e29b-41d4-a716-446655440000"
+      - name: child_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Child user identifier
+        example: "660e8400-e29b-41d4-a716-446655440001"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - permissions
+            properties:
+              permissions:
+                type: object
+                additionalProperties:
+                  type: string
+                description: Updated permission mappings
+                example:
+                  view_grades: "true"
+                  view_attendance: "true"
+                  manage_enrollment: "true"
+                  view_assignments: "true"
+          example:
+            permissions:
+              view_grades: "true"
+              view_attendance: "true"
+              manage_enrollment: "true"
+              view_assignments: "true"
+    responses:
+      '200':
+        description: Permissions updated successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: "Permissions updated successfully"
+      '400':
+        $ref: '../openapi.yaml#/components/responses/ValidationError'
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'

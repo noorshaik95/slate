@@ -28,9 +28,9 @@ async function bootstrap() {
   const grpcHost = process.env.GRPC_HOST || '0.0.0.0';
   const grpcPort = process.env.GRPC_PORT || 50052;
 
-  // Create gRPC microservice
   // Use environment variable for proto path, fallback to relative path for local development
   const protoPath = process.env.PROTO_PATH || join(__dirname, '../../../proto/course.proto');
+  const protoDir = process.env.PROTO_DIR || join(__dirname, '../../../proto');
 
   // Load proto for reflection
   const packageDefinition = await protoLoader.load(protoPath, {
@@ -39,6 +39,7 @@ async function bootstrap() {
     enums: String,
     defaults: true,
     oneofs: true,
+    includeDirs: [protoDir],
   });
 
   const grpcApp = await NestFactory.createMicroservice<MicroserviceOptions>(AppModule, {
@@ -53,6 +54,7 @@ async function bootstrap() {
         enums: String,
         defaults: true,
         oneofs: true,
+        includeDirs: [protoDir],
       },
       // Enable reflection by adding it to the server options
       onLoadPackageDefinition: (pkg: any, server: Server) => {

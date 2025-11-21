@@ -1,0 +1,112 @@
+/api/upload/initiate:
+  post:
+    tags:
+      - Upload
+    summary: Initiate a file upload
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/content-management-schemas.yaml#/components/schemas/InitiateUploadRequest'
+    responses:
+      '200':
+        description: Upload session initiated
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/content-management-schemas.yaml#/components/schemas/UploadSession'
+      '400':
+        $ref: '../openapi.yaml#/components/responses/ValidationError'
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+
+/api/upload/chunk:
+  post:
+    tags:
+      - Upload
+    summary: Upload a file chunk
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            properties:
+              session_id:
+                type: string
+              chunk_index:
+                type: integer
+              chunk_data:
+                type: string
+                format: binary
+    responses:
+      '200':
+        description: Chunk uploaded
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                uploaded_chunks:
+                  type: integer
+                total_chunks:
+                  type: integer
+                progress_percentage:
+                  type: number
+                  format: float
+      '400':
+        $ref: '../openapi.yaml#/components/responses/ValidationError'
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'
+
+/api/upload/complete:
+  post:
+    tags:
+      - Upload
+    summary: Complete a file upload
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/content-management-schemas.yaml#/components/schemas/CompleteUploadRequest'
+    responses:
+      '200':
+        description: Upload completed and resource created
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/content-management-schemas.yaml#/components/schemas/Resource'
+      '400':
+        $ref: '../openapi.yaml#/components/responses/ValidationError'
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'
+
+/api/upload/cancel:
+  post:
+    tags:
+      - Upload
+    summary: Cancel a file upload
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              session_id:
+                type: string
+    responses:
+      '204':
+        description: Upload cancelled
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'

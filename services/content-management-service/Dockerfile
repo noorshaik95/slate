@@ -13,14 +13,25 @@ COPY proto /build/proto
 # Set up the service directory structure
 WORKDIR /build/services/content-management-service
 
-# Copy the content-management-service files
-COPY services/content-management-service/Cargo.toml ./
-COPY services/content-management-service/build.rs ./
+# Copy Cargo files first for better caching
+COPY services/content-management-service/Cargo.toml ./Cargo.toml
+COPY services/content-management-service/build.rs ./build.rs
+
+# Create dummy main.rs to build dependencies
+RUN mkdir -p src && \
+    echo "fn main() {}" > src/main.rs && \
+    cargo build --release && \
+    rm -rf src
+
+# Now copy actual source code
 COPY services/content-management-service/src ./src
 COPY services/content-management-service/migrations ./migrations
 
-# Build the application
-RUN cargo build --release
+# Build the application with cache mounts
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/build/target \
+    cargo build --release && \
+    cp target/release/content-management-service /usr/local/bin/content-management-service
 
 # Stage 2: Runtime
 FROM debian:sid-slim
@@ -41,7 +52,7 @@ RUN useradd -m -u 1000 cms && \
 WORKDIR /app
 
 # Copy compiled binary from builder
-COPY --from=builder /build/services/content-management-service/target/release/content-management-service /usr/local/bin/content-management-service
+COPY --from=builder /usr/local/bin/content-management-service /usr/local/bin/content-management-service
 
 # Switch to non-root user
 USER cms

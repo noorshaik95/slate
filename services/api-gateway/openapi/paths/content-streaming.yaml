@@ -1,0 +1,78 @@
+/api/streaming/manifest/{video_id}:
+  get:
+    tags:
+      - Streaming
+    summary: Get video manifest
+    parameters:
+      - name: video_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        description: Video manifest
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/content-management-schemas.yaml#/components/schemas/VideoManifest'
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'
+
+/api/streaming/playback/{video_id}:
+  get:
+    tags:
+      - Streaming
+    summary: Get playback state
+    parameters:
+      - name: video_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        description: Playback state
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/content-management-schemas.yaml#/components/schemas/PlaybackState'
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'
+
+  put:
+    tags:
+      - Streaming
+    summary: Update playback position
+    parameters:
+      - name: video_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/content-management-schemas.yaml#/components/schemas/UpdatePlaybackPositionRequest'
+    responses:
+      '204':
+        description: Playback position updated
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'

@@ -384,6 +384,27 @@ route_overrides:
     http_method: "GET"
     service: "user-auth-service"
 
+  # Health Check Endpoints
+  - grpc_method: "auth.AuthService/HealthCheck"
+    http_path: "/api/health/auth"
+    http_method: "GET"
+    service: "user-auth-service"
+
+  - grpc_method: "course.CourseService/HealthCheck"
+    http_path: "/api/health/courses"
+    http_method: "GET"
+    service: "course-service"
+
+  - grpc_method: "content.ContentService/HealthCheck"
+    http_path: "/api/health/content"
+    http_method: "GET"
+    service: "content-management-service"
+
+  - grpc_method: "assignment.AssignmentService/HealthCheck"
+    http_path: "/api/health/assignments"
+    http_method: "GET"
+    service: "assignment-grading-service"
+
   # Content Management Service - Custom Content Routes
   - grpc_method: "content.ContentService/GetContentStructure"
     http_path: "/api/content/structure"
@@ -500,6 +521,16 @@ auth:
     - path: "/auth/saml/acs"
       method: "POST"
     - path: "/auth/saml/metadata"
+      method: "GET"
+
+    # Health check endpoints (public for monitoring)
+    - path: "/api/health/auth"
+      method: "GET"
+    - path: "/api/health/courses"
+      method: "GET"
+    - path: "/api/health/content"
+      method: "GET"
+    - path: "/api/health/assignments"
       method: "GET"
 
 rate_limit:

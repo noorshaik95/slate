@@ -10,7 +10,7 @@ export class CourseController {
   constructor(
     private readonly courseService: CourseService,
     private readonly enrollmentService: EnrollmentService,
-  ) {}
+  ) { }
 
   // Course CRUD
   @GrpcMethod('CourseService', 'CreateCourse')
@@ -383,4 +383,15 @@ export class CourseController {
     };
     return mapping[status] || 0;
   }
+
+  // Health Check
+  @GrpcMethod('CourseService', 'HealthCheck')
+  async healthCheck() {
+    return {
+      status: 'healthy',
+      service: 'course-service',
+      timestamp: new Date().toISOString(),
+    };
+  }
 }
+

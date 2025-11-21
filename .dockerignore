@@ -1,0 +1,66 @@
+# Ignore all target directories (Rust build artifacts)
+**/target/
+
+# Ignore all node_modules (Node.js dependencies)
+**/node_modules/
+
+# Ignore git
+.git/
+.gitignore
+.github/
+
+# Ignore IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Ignore data directories
+**/mongo-data/
+**/loki-data/
+**/postgres-data/
+**/redis-data/
+**/minio-data/
+**/elasticsearch-data/
+
+# Ignore test coverage and reports
+**/coverage/
+**/.nyc_output/
+**/test-results/
+
+# Ignore logs
+*.log
+**/*.log
+
+# Ignore documentation (keep only what's needed)
+docs/
+*.md
+!README.md
+
+# Ignore frontend build artifacts (if not needed for backend services)
+frontend/dist/
+frontend/build/
+frontend/.next/
+frontend/node_modules/
+
+# Ignore mock services (mounted as volumes)
+mock-services/
+
+# Ignore scripts (not needed in images)
+scripts/
+
+# Ignore tests (not needed in production images)
+tests/
+
+# Ignore environment files
+.env
+.env.*
+!.env.example
+
+# Ignore Docker files themselves
+docker-compose*.yml
+.dockerignore
+
+# Ignore Kiro directory
+.kiro/

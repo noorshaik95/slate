@@ -303,6 +303,13 @@ async fn main() -> Result<()> {
 
     info!("Starting gRPC server on {}", grpc_addr);
 
+    // Reflection service
+    let descriptor_set = include_bytes!(concat!(env!("OUT_DIR"), "/descriptor.bin"));
+    let reflection_service = tonic_reflection::server::Builder::configure()
+        .register_encoded_file_descriptor_set(descriptor_set)
+        .build_v1()
+        .unwrap();
+
     // Add OpenTelemetry gRPC layer for automatic trace propagation
     // The tower-http TraceLayer will automatically extract trace context from gRPC metadata
     let grpc_server = tonic::transport::Server::builder()
@@ -310,6 +317,7 @@ async fn main() -> Result<()> {
             // Add OpenTelemetry tracing layer for automatic trace propagation
             .layer(tower_http::trace::TraceLayer::new_for_grpc())
         )
+        .add_service(reflection_service)
         .add_service(ContentServiceServer::new(content_service))
         .add_service(UploadServiceServer::new(upload_service))
         .add_service(StreamingServiceServer::new(streaming_service_impl))

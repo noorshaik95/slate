@@ -509,6 +509,21 @@ impl ContentService for ContentServiceImpl {
 
         Ok(Response::new(()))
     }
+
+    // ========================================================================
+    // Health Check
+    // ========================================================================
+
+    async fn health_check(
+        &self,
+        _request: Request<crate::proto::content::HealthCheckRequest>,
+    ) -> Result<Response<crate::proto::content::HealthCheckResponse>, Status> {
+        Ok(Response::new(crate::proto::content::HealthCheckResponse {
+            status: "healthy".to_string(),
+            service: "content-management-service".to_string(),
+            timestamp: chrono::Utc::now().to_rfc3339(),
+        }))
+    }
 }
 
 // ============================================================================

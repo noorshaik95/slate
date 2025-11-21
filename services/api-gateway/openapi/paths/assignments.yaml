@@ -1,0 +1,146 @@
+/api/assignments:
+  get:
+    tags:
+      - Assignments
+    summary: List assignments
+    parameters:
+      - name: course_id
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: page
+        in: query
+        schema:
+          type: integer
+          default: 1
+      - name: page_size
+        in: query
+        schema:
+          type: integer
+          default: 20
+    responses:
+      '200':
+        description: List of assignments
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                assignments:
+                  type: array
+                  items:
+                    $ref: '../schemas/assignment-grading-schemas.yaml#/components/schemas/Assignment'
+                total:
+                  type: integer
+                page:
+                  type: integer
+                page_size:
+                  type: integer
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+
+  post:
+    tags:
+      - Assignments
+    summary: Create a new assignment
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/assignment-grading-schemas.yaml#/components/schemas/CreateAssignmentRequest'
+    responses:
+      '201':
+        description: Assignment created
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/assignment-grading-schemas.yaml#/components/schemas/Assignment'
+      '400':
+        $ref: '../openapi.yaml#/components/responses/ValidationError'
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+
+/api/assignments/{assignment_id}:
+  get:
+    tags:
+      - Assignments
+    summary: Get assignment details
+    parameters:
+      - name: assignment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        description: Assignment details
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/assignment-grading-schemas.yaml#/components/schemas/Assignment'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+
+  put:
+    tags:
+      - Assignments
+    summary: Update an assignment
+    parameters:
+      - name: assignment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/assignment-grading-schemas.yaml#/components/schemas/UpdateAssignmentRequest'
+    responses:
+      '200':
+        description: Assignment updated
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/assignment-grading-schemas.yaml#/components/schemas/Assignment'
+      '400':
+        $ref: '../openapi.yaml#/components/responses/ValidationError'
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'
+
+  delete:
+    tags:
+      - Assignments
+    summary: Delete an assignment
+    parameters:
+      - name: assignment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '204':
+        description: Assignment deleted
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'

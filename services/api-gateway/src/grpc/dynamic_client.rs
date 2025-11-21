@@ -175,12 +175,94 @@ impl DynamicGrpcClient {
             file_descriptor_set.file.push(fd);
         }
 
-        let pool = DescriptorPool::from_file_descriptor_set(file_descriptor_set).map_err(|e| {
-            error!(error = %e, "Failed to build descriptor pool");
-            GrpcError::ConversionError(format!("Failed to build descriptor pool: {}", e))
+        // Remove any non-standard google protobuf files that might conflict
+        // Some reflection implementations return a google_protobuf.proto file that conflicts
+        // with the standard google/protobuf/*.proto files
+        file_descriptor_set.file.retain(|f| {
+            let name = f.name.as_deref().unwrap_or("");
+            // Keep all files except google_protobuf.proto (without the slash)
+            name != "google_protobuf.proto"
+        });
+        
+        // Add well-known type descriptors to ensure they're available
+        // This is necessary because some gRPC reflection implementations don't include them
+        add_well_known_types(&mut file_descriptor_set);
+        
+        // Fix missing dependencies in proto files
+        // Some reflection implementations don't include dependency information
+        fix_proto_dependencies(&mut file_descriptor_set);
+
+        // Log FileDescriptorSet contents before building pool for diagnostics
+        debug!(
+            service = %self.service_name,
+            file_count = file_descriptor_set.file.len(),
+            "Building descriptor pool from FileDescriptorSet"
+        );
+        
+        for (idx, file) in file_descriptor_set.file.iter().enumerate() {
+            let message_names: Vec<String> = file
+                .message_type
+                .iter()
+                .filter_map(|m| m.name.clone())
+                .collect();
+            
+            let dependencies: Vec<String> = file.dependency.clone();
+            
+            warn!(
+                index = idx,
+                file_name = ?file.name,
+                package = ?file.package,
+                message_count = file.message_type.len(),
+                service_count = file.service.len(),
+                messages = ?message_names,
+                dependencies = ?dependencies,
+                "FileDescriptor in set"
+            );
+        }
+
+        let pool = DescriptorPool::from_file_descriptor_set(file_descriptor_set.clone()).map_err(|e| {
+            error!(
+                service = %self.service_name,
+                error = %e,
+                "Failed to build descriptor pool"
+            );
+            
+            // Log all available files for debugging
+            let available_files: Vec<String> = file_descriptor_set
+                .file
+                .iter()
+                .filter_map(|f| f.name.clone())
+                .collect();
+            
+            let available_packages: Vec<String> = file_descriptor_set
+                .file
+                .iter()
+                .filter_map(|f| f.package.clone())
+                .collect();
+            
+            error!(
+                available_files = ?available_files,
+                available_packages = ?available_packages,
+                "Available files and packages in FileDescriptorSet"
+            );
+            
+            GrpcError::ConversionError(format!(
+                "Failed to build descriptor pool: {}. Available files: {:?}. Service: {}",
+                e, available_files, self.service_name
+            ))
         })?;
 
-        debug!(service = %self.service_name, "Successfully built descriptor pool");
+        // Log success with pool statistics
+        let service_count = pool.services().count();
+        let message_count = pool.all_messages().count();
+        
+        debug!(
+            service = %self.service_name,
+            service_count = service_count,
+            message_count = message_count,
+            "Successfully built descriptor pool"
+        );
+        
         Ok(pool)
     }
 
@@ -421,6 +503,259 @@ pub fn grpc_status_to_http(status: &Status) -> u16 {
         Code::DataLoss => 500,
         Code::Unauthenticated => 401,
     }
+}
+
+/// Add well-known type descriptors to the file descriptor set
+/// This ensures that google.protobuf.Timestamp, Empty, Duration, and other well-known types
+/// are available even if the gRPC reflection response doesn't include them
+fn add_well_known_types(file_descriptor_set: &mut FileDescriptorSet) {
+    use prost_types::{FieldDescriptorProto, FileDescriptorProto, field_descriptor_proto};
+    
+    // Track which well-known type files already exist
+    let existing_files: std::collections::HashSet<String> = file_descriptor_set
+        .file
+        .iter()
+        .filter_map(|f| f.name.clone())
+        .collect();
+    
+    debug!(
+        existing_files = ?existing_files,
+        "Checking for well-known types in FileDescriptorSet"
+    );
+    
+    let mut well_known_files = Vec::new();
+    
+    // Only add well-known types if the exact standard file name doesn't exist
+    // We don't check for types in other files because they might not be properly structured
+    
+    // Add google/protobuf/timestamp.proto if not present
+    if !existing_files.contains("google/protobuf/timestamp.proto") {
+        let timestamp_descriptor = prost_types::DescriptorProto {
+            name: Some("Timestamp".to_string()),
+            field: vec![
+                FieldDescriptorProto {
+                    name: Some("seconds".to_string()),
+                    number: Some(1),
+                    r#type: Some(field_descriptor_proto::Type::Int64 as i32),
+                    ..Default::default()
+                },
+                FieldDescriptorProto {
+                    name: Some("nanos".to_string()),
+                    number: Some(2),
+                    r#type: Some(field_descriptor_proto::Type::Int32 as i32),
+                    ..Default::default()
+                },
+            ],
+            ..Default::default()
+        };
+        
+        let timestamp_file = FileDescriptorProto {
+            name: Some("google/protobuf/timestamp.proto".to_string()),
+            package: Some("google.protobuf".to_string()),
+            message_type: vec![timestamp_descriptor],
+            syntax: Some("proto3".to_string()),
+            ..Default::default()
+        };
+        
+        well_known_files.push(timestamp_file);
+        debug!("Adding google/protobuf/timestamp.proto to FileDescriptorSet");
+    }
+    
+    // Add google/protobuf/empty.proto if not present
+    if !existing_files.contains("google/protobuf/empty.proto") {
+        let empty_descriptor = prost_types::DescriptorProto {
+            name: Some("Empty".to_string()),
+            field: vec![],
+            ..Default::default()
+        };
+        
+        let empty_file = FileDescriptorProto {
+            name: Some("google/protobuf/empty.proto".to_string()),
+            package: Some("google.protobuf".to_string()),
+            message_type: vec![empty_descriptor],
+            syntax: Some("proto3".to_string()),
+            ..Default::default()
+        };
+        
+        well_known_files.push(empty_file);
+        debug!("Adding google/protobuf/empty.proto to FileDescriptorSet");
+    }
+    
+    // Add google/protobuf/duration.proto if not present
+    if !existing_files.contains("google/protobuf/duration.proto") {
+        let duration_descriptor = prost_types::DescriptorProto {
+            name: Some("Duration".to_string()),
+            field: vec![
+                FieldDescriptorProto {
+                    name: Some("seconds".to_string()),
+                    number: Some(1),
+                    r#type: Some(field_descriptor_proto::Type::Int64 as i32),
+                    ..Default::default()
+                },
+                FieldDescriptorProto {
+                    name: Some("nanos".to_string()),
+                    number: Some(2),
+                    r#type: Some(field_descriptor_proto::Type::Int32 as i32),
+                    ..Default::default()
+                },
+            ],
+            ..Default::default()
+        };
+        
+        let duration_file = FileDescriptorProto {
+            name: Some("google/protobuf/duration.proto".to_string()),
+            package: Some("google.protobuf".to_string()),
+            message_type: vec![duration_descriptor],
+            syntax: Some("proto3".to_string()),
+            ..Default::default()
+        };
+        
+        well_known_files.push(duration_file);
+        debug!("Adding google/protobuf/duration.proto to FileDescriptorSet");
+    }
+    
+    // Insert well-known types at the beginning of the file list
+    // This ensures they're available when other files reference them
+    if !well_known_files.is_empty() {
+        debug!(
+            count = well_known_files.len(),
+            "Inserting well-known type files at beginning of FileDescriptorSet"
+        );
+        
+        // Prepend well-known files to the beginning
+        let mut new_files = well_known_files;
+        new_files.extend(file_descriptor_set.file.drain(..));
+        file_descriptor_set.file = new_files;
+    }
+}
+
+/// Fix missing dependencies in proto files
+/// Some gRPC reflection implementations don't include dependency information,
+/// which causes the descriptor pool to fail when resolving imports
+fn fix_proto_dependencies(file_descriptor_set: &mut FileDescriptorSet) {
+    use prost_types::FileDescriptorProto;
+    
+    // Build a map of available files
+    let available_files: std::collections::HashSet<String> = file_descriptor_set
+        .file
+        .iter()
+        .filter_map(|f| f.name.clone())
+        .collect();
+    
+    debug!(
+        available_files = ?available_files,
+        "Fixing proto dependencies"
+    );
+    
+    // For each file, check if it needs well-known type dependencies
+    for file in file_descriptor_set.file.iter_mut() {
+        let file_name = file.name.as_deref().unwrap_or("");
+        
+        // Skip well-known type files themselves
+        if file_name.starts_with("google/protobuf/") {
+            continue;
+        }
+        
+        // Check if this file uses Timestamp, Empty, or Duration types
+        let uses_timestamp = file_uses_type(file, "Timestamp");
+        let uses_empty = file_uses_type(file, "Empty");
+        let uses_duration = file_uses_type(file, "Duration");
+        
+        // Add missing dependencies
+        if uses_timestamp && available_files.contains("google/protobuf/timestamp.proto") {
+            if !file.dependency.contains(&"google/protobuf/timestamp.proto".to_string()) {
+                file.dependency.push("google/protobuf/timestamp.proto".to_string());
+                debug!(
+                    file = file_name,
+                    "Added google/protobuf/timestamp.proto dependency"
+                );
+            }
+        }
+        
+        if uses_empty && available_files.contains("google/protobuf/empty.proto") {
+            if !file.dependency.contains(&"google/protobuf/empty.proto".to_string()) {
+                file.dependency.push("google/protobuf/empty.proto".to_string());
+                debug!(
+                    file = file_name,
+                    "Added google/protobuf/empty.proto dependency"
+                );
+            }
+        }
+        
+        if uses_duration && available_files.contains("google/protobuf/duration.proto") {
+            if !file.dependency.contains(&"google/protobuf/duration.proto".to_string()) {
+                file.dependency.push("google/protobuf/duration.proto".to_string());
+                debug!(
+                    file = file_name,
+                    "Added google/protobuf/duration.proto dependency"
+                );
+            }
+        }
+    }
+}
+
+/// Check if a file uses a specific type (by checking field types in messages and service methods)
+fn file_uses_type(file: &prost_types::FileDescriptorProto, type_name: &str) -> bool {
+    use prost_types::field_descriptor_proto;
+    
+    // Check message fields
+    for message in &file.message_type {
+        for field in &message.field {
+            // Check if field type_name contains the type we're looking for
+            if let Some(field_type_name) = &field.type_name {
+                // Type names in protobuf are fully qualified, e.g., ".google.protobuf.Timestamp"
+                if field_type_name.ends_with(&format!(".{}", type_name)) {
+                    return true;
+                }
+            }
+        }
+        
+        // Also check nested messages recursively
+        if message_uses_type_recursive(message, type_name) {
+            return true;
+        }
+    }
+    
+    // Check service method input/output types
+    for service in &file.service {
+        for method in &service.method {
+            // Check input type
+            if let Some(input_type) = &method.input_type {
+                if input_type.ends_with(&format!(".{}", type_name)) {
+                    return true;
+                }
+            }
+            
+            // Check output type
+            if let Some(output_type) = &method.output_type {
+                if output_type.ends_with(&format!(".{}", type_name)) {
+                    return true;
+                }
+            }
+        }
+    }
+    
+    false
+}
+
+/// Recursively check nested messages for type usage
+fn message_uses_type_recursive(message: &prost_types::DescriptorProto, type_name: &str) -> bool {
+    for nested in &message.nested_type {
+        for field in &nested.field {
+            if let Some(field_type_name) = &field.type_name {
+                if field_type_name.ends_with(&format!(".{}", type_name)) {
+                    return true;
+                }
+            }
+        }
+        
+        // Recurse further
+        if message_uses_type_recursive(nested, type_name) {
+            return true;
+        }
+    }
+    
+    false
 }
 
 #[cfg(test)]

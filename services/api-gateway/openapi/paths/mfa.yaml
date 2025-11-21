@@ -1,0 +1,282 @@
+/api/users/{user_id}/mfa/setup:
+  post:
+    tags:
+      - MFA
+    summary: Setup MFA for user
+    description: |
+      Initialize multi-factor authentication for a user.
+      Supports TOTP (Time-based One-Time Password), SMS, and Email MFA.
+      Returns secret key and QR code for TOTP setup.
+    operationId: setupMFA
+    parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: User identifier
+        example: "550e8400-e29b-41d4-a716-446655440000"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - mfa_type
+            properties:
+              mfa_type:
+                type: string
+                enum: [totp, sms, email]
+                description: Type of MFA to set up
+                example: "totp"
+          example:
+            mfa_type: "totp"
+    responses:
+      '200':
+        description: MFA setup initiated successfully
+        content:
+          application/json:
+            schema:
+              $ref: '../openapi.yaml#/components/schemas/SetupMFAResponse'
+            example:
+              secret: "JBSWY3DPEHPK3PXP"
+              qr_code_url: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."
+              backup_codes: ["12345678", "87654321", "11223344", "55667788", "99001122"]
+      '400':
+        $ref: '../openapi.yaml#/components/responses/ValidationError'
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'
+
+/api/users/{user_id}/mfa/verify:
+  post:
+    tags:
+      - MFA
+    summary: Verify and enable MFA
+    description: |
+      Verify MFA setup by validating a code from the user.
+      This completes the MFA setup process and enables MFA for the user.
+    operationId: verifyMFA
+    parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: User identifier
+        example: "550e8400-e29b-41d4-a716-446655440000"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - code
+            properties:
+              code:
+                type: string
+                description: MFA code to verify
+                example: "123456"
+          example:
+            code: "123456"
+    responses:
+      '200':
+        description: MFA verified and enabled successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: "MFA enabled successfully"
+      '400':
+        description: Invalid MFA code
+        content:
+          application/json:
+            schema:
+              $ref: '../openapi.yaml#/components/schemas/Error'
+            example:
+              error: "Invalid MFA code"
+              code: "INVALID_MFA_CODE"
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'
+
+/api/users/{user_id}/mfa:
+  delete:
+    tags:
+      - MFA
+    summary: Disable MFA for user
+    description: |
+      Disable multi-factor authentication for a user.
+      Requires password confirmation for security.
+    operationId: disableMFA
+    parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: User identifier
+        example: "550e8400-e29b-41d4-a716-446655440000"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - mfa_type
+              - password
+            properties:
+              mfa_type:
+                type: string
+                enum: [totp, sms, email]
+                description: Type of MFA to disable
+                example: "totp"
+              password:
+                type: string
+                format: password
+                description: User password for confirmation
+                example: "SecurePassword123!"
+          example:
+            mfa_type: "totp"
+            password: "SecurePassword123!"
+    responses:
+      '200':
+        description: MFA disabled successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: "MFA disabled successfully"
+      '400':
+        $ref: '../openapi.yaml#/components/responses/ValidationError'
+      '401':
+        description: Invalid password
+        content:
+          application/json:
+            schema:
+              $ref: '../openapi.yaml#/components/schemas/Error'
+            example:
+              error: "Invalid password"
+              code: "INVALID_PASSWORD"
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'
+
+/api/users/{user_id}/mfa/status:
+  get:
+    tags:
+      - MFA
+    summary: Get MFA status
+    description: |
+      Retrieve MFA configuration status for a user.
+      Shows which MFA methods are enabled and when they were last used.
+    operationId: getMFAStatus
+    parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: User identifier
+        example: "550e8400-e29b-41d4-a716-446655440000"
+    responses:
+      '200':
+        description: MFA status retrieved successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mfa_configs:
+                  type: array
+                  items:
+                    $ref: '../openapi.yaml#/components/schemas/MFAStatus'
+            example:
+              mfa_configs:
+                - mfa_type: "totp"
+                  is_enabled: true
+                  last_used_at: "2024-01-20T08:15:00Z"
+                - mfa_type: "sms"
+                  is_enabled: false
+                  last_used_at: null
+                - mfa_type: "email"
+                  is_enabled: false
+                  last_used_at: null
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'
+
+/api/users/{user_id}/mfa/validate:
+  post:
+    tags:
+      - MFA
+    summary: Validate MFA code
+    description: |
+      Validate an MFA code during login or sensitive operations.
+      Used as part of the authentication flow when MFA is enabled.
+    operationId: validateMFACode
+    parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: User identifier
+        example: "550e8400-e29b-41d4-a716-446655440000"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../openapi.yaml#/components/schemas/ValidateMFACodeRequest'
+          example:
+            user_id: "550e8400-e29b-41d4-a716-446655440000"
+            code: "123456"
+            mfa_type: "totp"
+    responses:
+      '200':
+        description: MFA code validation result
+        content:
+          application/json:
+            schema:
+              $ref: '../openapi.yaml#/components/schemas/ValidateMFACodeResponse'
+            example:
+              valid: true
+      '400':
+        $ref: '../openapi.yaml#/components/responses/ValidationError'
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '429':
+        description: Too many validation attempts
+        content:
+          application/json:
+            schema:
+              $ref: '../openapi.yaml#/components/schemas/Error'
+            example:
+              error: "Too many MFA validation attempts"
+              code: "RATE_LIMIT_EXCEEDED"
+              retry_after: 300

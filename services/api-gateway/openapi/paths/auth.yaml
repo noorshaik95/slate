@@ -1,0 +1,252 @@
+/api/auth/login:
+  post:
+    tags:
+      - Authentication
+    summary: User login
+    description: |
+      Authenticate user with email and password.
+      Returns access token (expires in 15 minutes) and refresh token (expires in 24 hours).
+    operationId: login
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - email
+              - password
+            properties:
+              email:
+                type: string
+                format: email
+                example: "user@example.com"
+              password:
+                type: string
+                format: password
+                example: "SecurePass123!"
+          example:
+            email: "user@example.com"
+            password: "SecurePass123!"
+    responses:
+      '200':
+        description: Login successful
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                access_token:
+                  type: string
+                  description: JWT access token (expires in 15 minutes)
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                refresh_token:
+                  type: string
+                  description: JWT refresh token (expires in 24 hours)
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                user:
+                  $ref: '../openapi.yaml#/components/schemas/User'
+                expires_in:
+                  type: integer
+                  description: Access token expiration time in seconds
+                  example: 900
+            example:
+              access_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+              refresh_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+              user:
+                id: "550e8400-e29b-41d4-a716-446655440000"
+                email: "user@example.com"
+                first_name: "John"
+                last_name: "Doe"
+                phone: "+1234567890"
+                roles: ["user"]
+                is_active: true
+                created_at: "2024-01-15T10:30:00Z"
+                updated_at: "2024-01-15T10:30:00Z"
+              expires_in: 900
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '429':
+        $ref: '../openapi.yaml#/components/responses/RateLimitError'
+
+/api/auth/register:
+  post:
+    tags:
+      - Authentication
+    summary: User registration
+    description: |
+      Register a new user account.
+      Password must be at least 8 characters and contain uppercase, lowercase, digit, and special character.
+    operationId: register
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - email
+              - password
+              - first_name
+              - last_name
+            properties:
+              email:
+                type: string
+                format: email
+                example: "newuser@example.com"
+              password:
+                type: string
+                format: password
+                minLength: 8
+                description: Must contain uppercase, lowercase, digit, and special character
+                example: "SecurePass123!"
+              first_name:
+                type: string
+                example: "Jane"
+              last_name:
+                type: string
+                example: "Smith"
+              phone:
+                type: string
+                pattern: '^\+[1-9]\d{1,14}$'
+                description: E.164 format phone number
+                example: "+1234567890"
+          example:
+            email: "newuser@example.com"
+            password: "SecurePass123!"
+            first_name: "Jane"
+            last_name: "Smith"
+            phone: "+1234567890"
+    responses:
+      '201':
+        description: Registration successful
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                access_token:
+                  type: string
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                refresh_token:
+                  type: string
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                user:
+                  $ref: '../openapi.yaml#/components/schemas/User'
+            example:
+              access_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+              refresh_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+              user:
+                id: "550e8400-e29b-41d4-a716-446655440000"
+                email: "newuser@example.com"
+                first_name: "Jane"
+                last_name: "Smith"
+                phone: "+1234567890"
+                roles: ["user"]
+                is_active: true
+                created_at: "2024-01-15T10:30:00Z"
+                updated_at: "2024-01-15T10:30:00Z"
+      '400':
+        $ref: '../openapi.yaml#/components/responses/ValidationError'
+      '409':
+        description: Email already exists
+        content:
+          application/json:
+            schema:
+              $ref: '../openapi.yaml#/components/schemas/Error'
+            example:
+              error: "Email already exists"
+              code: "EMAIL_EXISTS"
+      '429':
+        $ref: '../openapi.yaml#/components/responses/RateLimitError'
+
+/api/auth/refresh:
+  post:
+    tags:
+      - Authentication
+    summary: Refresh access token
+    description: |
+      Get a new access token using a valid refresh token.
+      The refresh token is also rotated for security.
+    operationId: refreshToken
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - refresh_token
+            properties:
+              refresh_token:
+                type: string
+                example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+          example:
+            refresh_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    responses:
+      '200':
+        description: Token refreshed successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                access_token:
+                  type: string
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                refresh_token:
+                  type: string
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                expires_in:
+                  type: integer
+                  example: 900
+                  description: Access token expiration time in seconds
+            example:
+              access_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+              refresh_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+              expires_in: 900
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+
+/api/auth/logout:
+  post:
+    tags:
+      - Authentication
+    summary: User logout
+    description: |
+      Invalidate the current session and tokens.
+      The user will need to login again to access protected resources.
+    operationId: logout
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              user_id:
+                type: string
+                format: uuid
+                example: "550e8400-e29b-41d4-a716-446655440000"
+              token:
+                type: string
+                example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+          example:
+            user_id: "550e8400-e29b-41d4-a716-446655440000"
+            token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    responses:
+      '200':
+        description: Logout successful
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: "Logout successful"
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'

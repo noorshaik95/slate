@@ -1,0 +1,399 @@
+# Course Template Endpoints
+
+/api/coursetemplates:
+  get:
+    tags:
+      - Templates
+    summary: List course templates
+    description: |
+      Retrieve a paginated list of course templates.
+      
+      **Course Templates:**
+      - Reusable course structures with default settings
+      - Include syllabus templates and default metadata
+      - Can be used to quickly create new courses
+      
+      **Pagination:**
+      - Use `page` and `page_size` parameters to paginate through results
+      - Default page size is 20, maximum is 100
+      
+      **Authorization:**
+      - Instructors can view all templates
+      - Admins can view all templates
+      - Students cannot view templates
+      
+      **Use Cases:**
+      - Browse available course templates
+      - Find template for new course creation
+      - Review standard course structures
+    operationId: listCourseTemplates
+    parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 1
+          minimum: 1
+        description: Page number for pagination
+        example: 1
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 20
+          minimum: 1
+          maximum: 100
+        description: Number of templates per page
+        example: 20
+    responses:
+      '200':
+        description: List of course templates retrieved successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                templates:
+                  type: array
+                  items:
+                    $ref: '../openapi.yaml#/components/schemas/CourseTemplate'
+                total_count:
+                  type: integer
+                  description: Total number of templates
+                  example: 15
+            example:
+              templates:
+                - id: "t1e2m3p4-l5a6-t7e8-9012-345678901234"
+                  name: "Standard CS Course Template"
+                  description: "Template for computer science courses"
+                  syllabus_template: "Week 1: Introduction\nWeek 2: Fundamentals\n..."
+                  created_by: "550e8400-e29b-41d4-a716-446655440000"
+                  created_at: "2024-01-01T00:00:00Z"
+                  default_metadata:
+                    max_students: 30
+                    department: "Computer Science"
+                    course_code: ""
+                    credits: 3
+                    tags: ["programming"]
+              total_count: 15
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '429':
+        $ref: '../openapi.yaml#/components/responses/RateLimitError'
+
+  post:
+    tags:
+      - Templates
+    summary: Create course template
+    description: |
+      Create a new course template for reuse across multiple courses.
+      
+      **Template Components:**
+      - Name and description
+      - Syllabus template with placeholder content
+      - Default metadata (department, credits, tags, etc.)
+      - Creator information
+      
+      **Authorization:**
+      - Instructors can create templates
+      - Admins can create templates
+      
+      **Business Rules:**
+      - Template name must be unique
+      - Syllabus template can include placeholders
+      - Default metadata is applied to courses created from template
+      - Templates can be modified after creation
+      
+      **Use Cases:**
+      - Create standard template for department courses
+      - Define reusable course structure
+      - Standardize course creation process
+    operationId: createCourseTemplate
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - name
+              - description
+              - created_by
+            properties:
+              name:
+                type: string
+                minLength: 1
+                maxLength: 200
+                description: Template name
+                example: "Standard CS Course Template"
+              description:
+                type: string
+                minLength: 1
+                maxLength: 2000
+                description: Template description
+                example: "Template for computer science courses with standard structure"
+              syllabus_template:
+                type: string
+                description: Syllabus template content with placeholders
+                example: "Week 1: Introduction to {TOPIC}\nWeek 2: Fundamentals\n..."
+              created_by:
+                type: string
+                format: uuid
+                description: User ID of template creator
+                example: "550e8400-e29b-41d4-a716-446655440000"
+              default_metadata:
+                $ref: '../openapi.yaml#/components/schemas/CourseMetadata'
+          example:
+            name: "Standard CS Course Template"
+            description: "Template for computer science courses"
+            syllabus_template: "Week 1: Introduction\nWeek 2: Fundamentals"
+            created_by: "550e8400-e29b-41d4-a716-446655440000"
+            default_metadata:
+              max_students: 30
+              department: "Computer Science"
+              course_code: ""
+              credits: 3
+              tags: ["programming"]
+    responses:
+      '201':
+        description: Course template created successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                template:
+                  $ref: '../openapi.yaml#/components/schemas/CourseTemplate'
+            example:
+              template:
+                id: "t1e2m3p4-l5a6-t7e8-9012-345678901234"
+                name: "Standard CS Course Template"
+                description: "Template for computer science courses"
+                syllabus_template: "Week 1: Introduction\nWeek 2: Fundamentals"
+                created_by: "550e8400-e29b-41d4-a716-446655440000"
+                created_at: "2024-01-15T10:30:00Z"
+                default_metadata:
+                  max_students: 30
+                  department: "Computer Science"
+                  course_code: ""
+                  credits: 3
+                  tags: ["programming"]
+      '400':
+        $ref: '../openapi.yaml#/components/responses/ValidationError'
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '409':
+        description: Template name already exists
+        content:
+          application/json:
+            schema:
+              $ref: '../openapi.yaml#/components/schemas/Error'
+            example:
+              error: "Template name already exists"
+              code: "DUPLICATE_TEMPLATE_NAME"
+      '429':
+        $ref: '../openapi.yaml#/components/responses/RateLimitError'
+
+/api/coursetemplates/{template_id}:
+  get:
+    tags:
+      - Templates
+    summary: Get course template by ID
+    description: |
+      Retrieve detailed information about a specific course template.
+      
+      **Template Information:**
+      - Complete template details
+      - Syllabus template content
+      - Default metadata settings
+      - Creator and creation date
+      
+      **Authorization:**
+      - Instructors can view templates
+      - Admins can view templates
+      
+      **Use Cases:**
+      - Review template before creating course
+      - View template details for modification
+      - Check default settings
+    operationId: getCourseTemplate
+    parameters:
+      - name: template_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Unique template identifier
+        example: "t1e2m3p4-l5a6-t7e8-9012-345678901234"
+    responses:
+      '200':
+        description: Course template retrieved successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                template:
+                  $ref: '../openapi.yaml#/components/schemas/CourseTemplate'
+            example:
+              template:
+                id: "t1e2m3p4-l5a6-t7e8-9012-345678901234"
+                name: "Standard CS Course Template"
+                description: "Template for computer science courses"
+                syllabus_template: "Week 1: Introduction\nWeek 2: Fundamentals"
+                created_by: "550e8400-e29b-41d4-a716-446655440000"
+                created_at: "2024-01-01T00:00:00Z"
+                default_metadata:
+                  max_students: 30
+                  department: "Computer Science"
+                  course_code: ""
+                  credits: 3
+                  tags: ["programming"]
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'
+      '429':
+        $ref: '../openapi.yaml#/components/responses/RateLimitError'
+
+/api/coursetemplates/{template_id}/courses:
+  post:
+    tags:
+      - Templates
+    summary: Create course from template
+    description: |
+      Create a new course using a template as the starting point.
+      
+      **Template Application:**
+      - Copies syllabus template to new course
+      - Applies default metadata from template
+      - Sets instructor and term as specified
+      - Creates course in unpublished state
+      
+      **Required Fields:**
+      - title: Course title (overrides template)
+      - term: Academic term
+      - instructor_id: Primary instructor
+      
+      **Optional Fields:**
+      - description: Course description (overrides template if provided)
+      
+      **Authorization:**
+      - Instructors can create courses from templates
+      - Admins can create courses from templates for any instructor
+      
+      **Business Rules:**
+      - Template must exist
+      - Instructor must have instructor or admin role
+      - Course is created in unpublished state
+      - Template metadata can be overridden after creation
+      
+      **Use Cases:**
+      - Quickly create new course with standard structure
+      - Ensure consistency across similar courses
+      - Reduce course setup time
+    operationId: createCourseFromTemplate
+    parameters:
+      - name: template_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Template ID to use for course creation
+        example: "t1e2m3p4-l5a6-t7e8-9012-345678901234"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - title
+              - term
+              - instructor_id
+            properties:
+              title:
+                type: string
+                minLength: 1
+                maxLength: 200
+                description: Course title
+                example: "Introduction to Python Programming"
+              term:
+                type: string
+                minLength: 1
+                maxLength: 50
+                description: Academic term
+                example: "Fall 2024"
+              instructor_id:
+                type: string
+                format: uuid
+                description: Primary instructor user ID
+                example: "550e8400-e29b-41d4-a716-446655440000"
+              description:
+                type: string
+                maxLength: 2000
+                description: Optional course description (overrides template)
+                example: "Learn Python programming from scratch"
+          example:
+            title: "Introduction to Python Programming"
+            term: "Fall 2024"
+            instructor_id: "550e8400-e29b-41d4-a716-446655440000"
+            description: "Learn Python programming from scratch"
+    responses:
+      '201':
+        description: Course created from template successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                course:
+                  $ref: '../openapi.yaml#/components/schemas/Course'
+            example:
+              course:
+                id: "c7f8e9d0-1234-5678-90ab-cdef12345678"
+                title: "Introduction to Python Programming"
+                description: "Learn Python programming from scratch"
+                term: "Fall 2024"
+                syllabus: "Week 1: Introduction\nWeek 2: Fundamentals"
+                instructor_id: "550e8400-e29b-41d4-a716-446655440000"
+                co_instructor_ids: []
+                is_published: false
+                prerequisite_course_ids: []
+                template_id: "t1e2m3p4-l5a6-t7e8-9012-345678901234"
+                cross_listing_group_id: null
+                created_at: "2024-01-15T10:30:00Z"
+                updated_at: "2024-01-15T10:30:00Z"
+                metadata:
+                  max_students: 30
+                  department: "Computer Science"
+                  course_code: "CS102"
+                  credits: 3
+                  tags: ["programming"]
+      '400':
+        $ref: '../openapi.yaml#/components/responses/ValidationError'
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '404':
+        description: Template not found
+        content:
+          application/json:
+            schema:
+              $ref: '../openapi.yaml#/components/schemas/Error'
+            example:
+              error: "Template not found"
+              code: "NOT_FOUND"
+      '429':
+        $ref: '../openapi.yaml#/components/responses/RateLimitError'

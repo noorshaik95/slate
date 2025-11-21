@@ -1,0 +1,645 @@
+/api/courses:
+  get:
+    tags:
+      - Courses
+    summary: List courses
+    description: |
+      Retrieve a paginated list of courses with optional filtering.
+      
+      **Filtering Options:**
+      - Filter by instructor to see courses taught by a specific instructor
+      - Filter by term to see courses in a specific academic term
+      - Filter by publication status to see only published or unpublished courses
+      
+      **Pagination:**
+      - Use `page` and `page_size` parameters to paginate through results
+      - Default page size is 20, maximum is 100
+      
+      **Authorization:**
+      - Students can see published courses they're enrolled in or can enroll in
+      - Instructors can see all courses they teach
+      - Admins can see all courses
+    operationId: listCourses
+    parameters:
+      - name: instructor_id
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+        description: Filter courses by instructor ID
+        example: "550e8400-e29b-41d4-a716-446655440000"
+      - name: term
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Filter courses by academic term
+        example: "Fall 2024"
+      - name: is_published
+        in: query
+        required: false
+        schema:
+          type: boolean
+        description: Filter by publication status (true for published, false for unpublished)
+        example: true
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 1
+          minimum: 1
+        description: Page number for pagination
+        example: 1
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 20
+          minimum: 1
+          maximum: 100
+        description: Number of courses per page
+        example: 20
+    responses:
+      '200':
+        description: List of courses retrieved successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                courses:
+                  type: array
+                  items:
+                    $ref: '../openapi.yaml#/components/schemas/Course'
+                total_count:
+                  type: integer
+                  description: Total number of courses matching the filter criteria
+                  example: 45
+                page:
+                  type: integer
+                  description: Current page number
+                  example: 1
+                page_size:
+                  type: integer
+                  description: Number of courses per page
+                  example: 20
+            example:
+              courses:
+                - id: "c7f8e9d0-1234-5678-90ab-cdef12345678"
+                  title: "Introduction to Computer Science"
+                  description: "A comprehensive introduction to computer science fundamentals"
+                  term: "Fall 2024"
+                  syllabus: "Course syllabus content..."
+                  instructor_id: "550e8400-e29b-41d4-a716-446655440000"
+                  co_instructor_ids: []
+                  is_published: true
+                  prerequisite_course_ids: []
+                  template_id: null
+                  cross_listing_group_id: null
+                  created_at: "2024-01-15T10:30:00Z"
+                  updated_at: "2024-01-20T14:45:00Z"
+                  metadata:
+                    max_students: 30
+                    department: "Computer Science"
+                    course_code: "CS101"
+                    credits: 3
+                    tags: ["programming", "fundamentals", "introductory"]
+              total_count: 45
+              page: 1
+              page_size: 20
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '429':
+        $ref: '../openapi.yaml#/components/responses/RateLimitError'
+
+  post:
+    tags:
+      - Courses
+    summary: Create course
+    description: |
+      Create a new course with the specified details.
+      
+      **Required Fields:**
+      - title: Course title
+      - description: Course description
+      - term: Academic term (e.g., "Fall 2024")
+      - instructor_id: ID of the primary instructor
+      
+      **Optional Fields:**
+      - syllabus: Course syllabus content
+      - metadata: Additional course metadata (department, course code, credits, etc.)
+      
+      **Authorization:**
+      - Requires instructor or admin role
+      - Instructors can only create courses where they are the instructor
+      - Admins can create courses for any instructor
+      
+      **Business Rules:**
+      - Course is created in unpublished state by default
+      - Course code must be unique within the department if specified
+      - Instructor must have instructor or admin role
+    operationId: createCourse
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - title
+              - description
+              - term
+              - instructor_id
+            properties:
+              title:
+                type: string
+                minLength: 1
+                maxLength: 200
+                description: Course title
+                example: "Introduction to Computer Science"
+              description:
+                type: string
+                minLength: 1
+                maxLength: 2000
+                description: Course description
+                example: "A comprehensive introduction to computer science fundamentals covering programming, algorithms, and data structures"
+              term:
+                type: string
+                minLength: 1
+                maxLength: 50
+                description: Academic term
+                example: "Fall 2024"
+              syllabus:
+                type: string
+                description: Course syllabus content
+                example: "Week 1: Introduction to Programming\nWeek 2: Variables and Data Types\n..."
+              instructor_id:
+                type: string
+                format: uuid
+                description: Primary instructor user ID
+                example: "550e8400-e29b-41d4-a716-446655440000"
+              metadata:
+                $ref: '../openapi.yaml#/components/schemas/CourseMetadata'
+          example:
+            title: "Introduction to Computer Science"
+            description: "A comprehensive introduction to computer science fundamentals"
+            term: "Fall 2024"
+            syllabus: "Week 1: Introduction to Programming\nWeek 2: Variables and Data Types"
+            instructor_id: "550e8400-e29b-41d4-a716-446655440000"
+            metadata:
+              max_students: 30
+              department: "Computer Science"
+              course_code: "CS101"
+              credits: 3
+              tags: ["programming", "fundamentals", "introductory"]
+    responses:
+      '201':
+        description: Course created successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                course:
+                  $ref: '../openapi.yaml#/components/schemas/Course'
+            example:
+              course:
+                id: "c7f8e9d0-1234-5678-90ab-cdef12345678"
+                title: "Introduction to Computer Science"
+                description: "A comprehensive introduction to computer science fundamentals"
+                term: "Fall 2024"
+                syllabus: "Week 1: Introduction to Programming\nWeek 2: Variables and Data Types"
+                instructor_id: "550e8400-e29b-41d4-a716-446655440000"
+                co_instructor_ids: []
+                is_published: false
+                prerequisite_course_ids: []
+                template_id: null
+                cross_listing_group_id: null
+                created_at: "2024-01-15T10:30:00Z"
+                updated_at: "2024-01-15T10:30:00Z"
+                metadata:
+                  max_students: 30
+                  department: "Computer Science"
+                  course_code: "CS101"
+                  credits: 3
+                  tags: ["programming", "fundamentals", "introductory"]
+      '400':
+        $ref: '../openapi.yaml#/components/responses/ValidationError'
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '409':
+        description: Course code already exists
+        content:
+          application/json:
+            schema:
+              $ref: '../openapi.yaml#/components/schemas/Error'
+            example:
+              error: "Course code CS101 already exists in Computer Science department"
+              code: "DUPLICATE_COURSE_CODE"
+      '429':
+        $ref: '../openapi.yaml#/components/responses/RateLimitError'
+
+
+/api/courses/{course_id}:
+  get:
+    tags:
+      - Courses
+    summary: Get course by ID
+    description: |
+      Retrieve detailed information about a specific course.
+      
+      **Authorization:**
+      - Students can view published courses they're enrolled in or can enroll in
+      - Instructors can view courses they teach (published or unpublished)
+      - Admins can view any course
+      
+      **Response Includes:**
+      - Complete course details including metadata
+      - Instructor and co-instructor IDs
+      - Prerequisites and cross-listing information
+      - Publication status
+    operationId: getCourse
+    parameters:
+      - name: course_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Unique course identifier
+        example: "c7f8e9d0-1234-5678-90ab-cdef12345678"
+    responses:
+      '200':
+        description: Course retrieved successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                course:
+                  $ref: '../openapi.yaml#/components/schemas/Course'
+            example:
+              course:
+                id: "c7f8e9d0-1234-5678-90ab-cdef12345678"
+                title: "Introduction to Computer Science"
+                description: "A comprehensive introduction to computer science fundamentals"
+                term: "Fall 2024"
+                syllabus: "Week 1: Introduction to Programming\nWeek 2: Variables and Data Types"
+                instructor_id: "550e8400-e29b-41d4-a716-446655440000"
+                co_instructor_ids: ["660e8400-e29b-41d4-a716-446655440001"]
+                is_published: true
+                prerequisite_course_ids: []
+                template_id: null
+                cross_listing_group_id: null
+                created_at: "2024-01-15T10:30:00Z"
+                updated_at: "2024-01-20T14:45:00Z"
+                metadata:
+                  max_students: 30
+                  department: "Computer Science"
+                  course_code: "CS101"
+                  credits: 3
+                  tags: ["programming", "fundamentals", "introductory"]
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'
+      '429':
+        $ref: '../openapi.yaml#/components/responses/RateLimitError'
+
+  put:
+    tags:
+      - Courses
+    summary: Update course
+    description: |
+      Update an existing course's details. All fields are optional - only provided fields will be updated.
+      
+      **Updatable Fields:**
+      - title: Course title
+      - description: Course description
+      - term: Academic term
+      - syllabus: Course syllabus content
+      - metadata: Course metadata (department, course code, credits, etc.)
+      
+      **Authorization:**
+      - Instructors can update courses they teach
+      - Co-instructors can update courses they co-teach
+      - Admins can update any course
+      
+      **Business Rules:**
+      - Cannot change instructor_id (use co-instructor endpoints instead)
+      - Cannot change publication status (use publish/unpublish endpoints)
+      - Course code changes must maintain uniqueness within department
+      - Updates to published courses are immediately visible to students
+    operationId: updateCourse
+    parameters:
+      - name: course_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Unique course identifier
+        example: "c7f8e9d0-1234-5678-90ab-cdef12345678"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              title:
+                type: string
+                minLength: 1
+                maxLength: 200
+                description: Course title
+                example: "Introduction to Computer Science"
+              description:
+                type: string
+                minLength: 1
+                maxLength: 2000
+                description: Course description
+                example: "An updated comprehensive introduction to computer science"
+              term:
+                type: string
+                minLength: 1
+                maxLength: 50
+                description: Academic term
+                example: "Fall 2024"
+              syllabus:
+                type: string
+                description: Course syllabus content
+                example: "Updated syllabus content..."
+              metadata:
+                $ref: '../openapi.yaml#/components/schemas/CourseMetadata'
+          example:
+            title: "Introduction to Computer Science - Updated"
+            description: "An updated comprehensive introduction to computer science fundamentals"
+            metadata:
+              max_students: 35
+              tags: ["programming", "fundamentals", "introductory", "updated"]
+    responses:
+      '200':
+        description: Course updated successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                course:
+                  $ref: '../openapi.yaml#/components/schemas/Course'
+            example:
+              course:
+                id: "c7f8e9d0-1234-5678-90ab-cdef12345678"
+                title: "Introduction to Computer Science - Updated"
+                description: "An updated comprehensive introduction to computer science fundamentals"
+                term: "Fall 2024"
+                syllabus: "Week 1: Introduction to Programming\nWeek 2: Variables and Data Types"
+                instructor_id: "550e8400-e29b-41d4-a716-446655440000"
+                co_instructor_ids: ["660e8400-e29b-41d4-a716-446655440001"]
+                is_published: true
+                prerequisite_course_ids: []
+                template_id: null
+                cross_listing_group_id: null
+                created_at: "2024-01-15T10:30:00Z"
+                updated_at: "2024-01-22T09:15:00Z"
+                metadata:
+                  max_students: 35
+                  department: "Computer Science"
+                  course_code: "CS101"
+                  credits: 3
+                  tags: ["programming", "fundamentals", "introductory", "updated"]
+      '400':
+        $ref: '../openapi.yaml#/components/responses/ValidationError'
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'
+      '409':
+        description: Course code already exists
+        content:
+          application/json:
+            schema:
+              $ref: '../openapi.yaml#/components/schemas/Error'
+            example:
+              error: "Course code already exists in department"
+              code: "DUPLICATE_COURSE_CODE"
+      '429':
+        $ref: '../openapi.yaml#/components/responses/RateLimitError'
+
+  delete:
+    tags:
+      - Courses
+    summary: Delete course
+    description: |
+      Permanently delete a course and all associated data.
+      
+      **Authorization:**
+      - Instructors can delete unpublished courses they teach
+      - Admins can delete any course
+      
+      **Business Rules:**
+      - Cannot delete published courses (must unpublish first)
+      - Cannot delete courses with active enrollments
+      - Deletes all associated sections, assignments, and content
+      - This operation cannot be undone
+      
+      **Warning:** This is a destructive operation. Consider unpublishing instead of deleting.
+    operationId: deleteCourse
+    parameters:
+      - name: course_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Unique course identifier
+        example: "c7f8e9d0-1234-5678-90ab-cdef12345678"
+    responses:
+      '204':
+        description: Course deleted successfully (no content returned)
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'
+      '409':
+        description: Cannot delete course with active enrollments or published status
+        content:
+          application/json:
+            schema:
+              $ref: '../openapi.yaml#/components/schemas/Error'
+            example:
+              error: "Cannot delete course with active enrollments"
+              code: "COURSE_HAS_ENROLLMENTS"
+      '429':
+        $ref: '../openapi.yaml#/components/responses/RateLimitError'
+
+/api/courses/{course_id}/publish:
+  post:
+    tags:
+      - Courses
+    summary: Publish course
+    description: |
+      Publish a course to make it visible and available for student enrollment.
+      
+      **Publishing Requirements:**
+      - Course must have a title, description, and term
+      - Course must have at least one instructor
+      - Course must have valid metadata (if specified)
+      
+      **Effects of Publishing:**
+      - Course becomes visible to students in course catalog
+      - Students can enroll in the course (if enrollment is open)
+      - Course appears in search results
+      - Course content becomes accessible to enrolled students
+      
+      **Authorization:**
+      - Instructors can publish courses they teach
+      - Co-instructors can publish courses they co-teach
+      - Admins can publish any course
+      
+      **Note:** Publishing is reversible using the unpublish endpoint.
+    operationId: publishCourse
+    parameters:
+      - name: course_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Unique course identifier
+        example: "c7f8e9d0-1234-5678-90ab-cdef12345678"
+    responses:
+      '200':
+        description: Course published successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                course:
+                  $ref: '../openapi.yaml#/components/schemas/Course'
+            example:
+              course:
+                id: "c7f8e9d0-1234-5678-90ab-cdef12345678"
+                title: "Introduction to Computer Science"
+                description: "A comprehensive introduction to computer science fundamentals"
+                term: "Fall 2024"
+                syllabus: "Week 1: Introduction to Programming\nWeek 2: Variables and Data Types"
+                instructor_id: "550e8400-e29b-41d4-a716-446655440000"
+                co_instructor_ids: []
+                is_published: true
+                prerequisite_course_ids: []
+                template_id: null
+                cross_listing_group_id: null
+                created_at: "2024-01-15T10:30:00Z"
+                updated_at: "2024-01-22T10:00:00Z"
+                metadata:
+                  max_students: 30
+                  department: "Computer Science"
+                  course_code: "CS101"
+                  credits: 3
+                  tags: ["programming", "fundamentals", "introductory"]
+      '400':
+        description: Course does not meet publishing requirements
+        content:
+          application/json:
+            schema:
+              $ref: '../openapi.yaml#/components/schemas/Error'
+            example:
+              error: "Course must have a description before publishing"
+              code: "INVALID_COURSE_STATE"
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'
+      '429':
+        $ref: '../openapi.yaml#/components/responses/RateLimitError'
+
+/api/courses/{course_id}/unpublish:
+  post:
+    tags:
+      - Courses
+    summary: Unpublish course
+    description: |
+      Unpublish a course to hide it from students and prevent new enrollments.
+      
+      **Effects of Unpublishing:**
+      - Course becomes hidden from course catalog
+      - Students cannot enroll in the course
+      - Course does not appear in search results
+      - Existing enrollments remain active but students cannot access new content
+      - Course content becomes inaccessible to students
+      
+      **Authorization:**
+      - Instructors can unpublish courses they teach
+      - Co-instructors can unpublish courses they co-teach
+      - Admins can unpublish any course
+      
+      **Use Cases:**
+      - Temporarily hide course while making major updates
+      - Prevent new enrollments while keeping existing students enrolled
+      - Archive course at end of term
+      
+      **Note:** Unpublishing does not delete the course or remove enrollments.
+    operationId: unpublishCourse
+    parameters:
+      - name: course_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Unique course identifier
+        example: "c7f8e9d0-1234-5678-90ab-cdef12345678"
+    responses:
+      '200':
+        description: Course unpublished successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                course:
+                  $ref: '../openapi.yaml#/components/schemas/Course'
+            example:
+              course:
+                id: "c7f8e9d0-1234-5678-90ab-cdef12345678"
+                title: "Introduction to Computer Science"
+                description: "A comprehensive introduction to computer science fundamentals"
+                term: "Fall 2024"
+                syllabus: "Week 1: Introduction to Programming\nWeek 2: Variables and Data Types"
+                instructor_id: "550e8400-e29b-41d4-a716-446655440000"
+                co_instructor_ids: []
+                is_published: false
+                prerequisite_course_ids: []
+                template_id: null
+                cross_listing_group_id: null
+                created_at: "2024-01-15T10:30:00Z"
+                updated_at: "2024-01-22T11:30:00Z"
+                metadata:
+                  max_students: 30
+                  department: "Computer Science"
+                  course_code: "CS101"
+                  credits: 3
+                  tags: ["programming", "fundamentals", "introductory"]
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'
+      '429':
+        $ref: '../openapi.yaml#/components/responses/RateLimitError'

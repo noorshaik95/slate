@@ -1,0 +1,297 @@
+components:
+  schemas:
+    LatePolicy:
+      type: object
+      properties:
+        penalty_percent_per_day:
+          type: integer
+          format: int32
+          description: Percentage deduction per day late (0-100)
+        max_late_days:
+          type: integer
+          format: int32
+          description: Maximum days late before zero (0 = no late submissions)
+
+    Assignment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        course_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        max_points:
+          type: number
+          format: double
+        due_date:
+          type: string
+          format: date-time
+        late_policy:
+          $ref: '#/components/schemas/LatePolicy'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Submission:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        assignment_id:
+          type: string
+          format: uuid
+        student_id:
+          type: string
+          format: uuid
+        file_path:
+          type: string
+        submitted_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [submitted, graded, returned]
+        is_late:
+          type: boolean
+        days_late:
+          type: integer
+          format: int32
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Grade:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        submission_id:
+          type: string
+          format: uuid
+        student_id:
+          type: string
+          format: uuid
+        assignment_id:
+          type: string
+          format: uuid
+        score:
+          type: number
+          format: double
+        adjusted_score:
+          type: number
+          format: double
+          description: After late penalty
+        feedback:
+          type: string
+        status:
+          type: string
+          enum: [draft, published]
+        graded_at:
+          type: string
+          format: date-time
+        published_at:
+          type: string
+          format: date-time
+        graded_by:
+          type: string
+          format: uuid
+          description: Instructor ID
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateAssignmentRequest:
+      type: object
+      properties:
+        course_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        max_points:
+          type: number
+          format: double
+        due_date:
+          type: string
+          format: date-time
+        late_policy:
+          $ref: '#/components/schemas/LatePolicy'
+
+    UpdateAssignmentRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        max_points:
+          type: number
+          format: double
+        due_date:
+          type: string
+          format: date-time
+        late_policy:
+          $ref: '#/components/schemas/LatePolicy'
+
+    SubmitAssignmentRequest:
+      type: object
+      properties:
+        assignment_id:
+          type: string
+          format: uuid
+        student_id:
+          type: string
+          format: uuid
+        file_content:
+          type: string
+          format: byte
+        file_name:
+          type: string
+        content_type:
+          type: string
+
+    CreateGradeRequest:
+      type: object
+      properties:
+        submission_id:
+          type: string
+          format: uuid
+        score:
+          type: number
+          format: double
+        feedback:
+          type: string
+        graded_by:
+          type: string
+          format: uuid
+
+    UpdateGradeRequest:
+      type: object
+      properties:
+        score:
+          type: number
+          format: double
+        feedback:
+          type: string
+
+    GradebookEntry:
+      type: object
+      properties:
+        assignment_id:
+          type: string
+          format: uuid
+        assignment_title:
+          type: string
+        max_points:
+          type: number
+          format: double
+        score:
+          type: number
+          format: double
+        adjusted_score:
+          type: number
+          format: double
+        status:
+          type: string
+        due_date:
+          type: string
+          format: date-time
+        submitted_at:
+          type: string
+          format: date-time
+        is_late:
+          type: boolean
+
+    StudentGradeSummary:
+      type: object
+      properties:
+        student_id:
+          type: string
+          format: uuid
+        student_name:
+          type: string
+        total_points:
+          type: number
+          format: double
+        earned_points:
+          type: number
+          format: double
+        percentage:
+          type: number
+          format: double
+        letter_grade:
+          type: string
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/GradebookEntry'
+
+    GradeStatistics:
+      type: object
+      properties:
+        assignment_id:
+          type: string
+          format: uuid
+        total_submissions:
+          type: integer
+          format: int32
+        graded_count:
+          type: integer
+          format: int32
+        mean:
+          type: number
+          format: double
+        median:
+          type: number
+          format: double
+        std_deviation:
+          type: number
+          format: double
+        min_score:
+          type: number
+          format: double
+        max_score:
+          type: number
+          format: double
+
+    GetStudentGradebookResponse:
+      type: object
+      properties:
+        student_id:
+          type: string
+          format: uuid
+        course_id:
+          type: string
+          format: uuid
+        summary:
+          $ref: '#/components/schemas/StudentGradeSummary'
+
+    GetCourseGradebookResponse:
+      type: object
+      properties:
+        course_id:
+          type: string
+          format: uuid
+        students:
+          type: array
+          items:
+            $ref: '#/components/schemas/StudentGradeSummary'
+

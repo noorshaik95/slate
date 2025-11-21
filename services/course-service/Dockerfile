@@ -10,7 +10,8 @@ COPY proto /build/proto
 COPY services/course-service/package*.json ./
 
 # Install dependencies
-RUN npm install
+RUN --mount=type=cache,target=/root/.npm \
+  npm install
 
 # Copy source code
 COPY services/course-service/ .
@@ -25,7 +26,8 @@ WORKDIR /app
 
 # Install only production dependencies
 COPY services/course-service/package*.json ./
-RUN npm install --only=production && npm cache clean --force
+RUN --mount=type=cache,target=/root/.npm \
+  npm install --only=production && npm cache clean --force
 
 # Copy built application from builder
 COPY --from=builder /build/dist ./dist

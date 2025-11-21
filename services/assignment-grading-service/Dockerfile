@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.23-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 # Install protoc and required tools
 RUN apk add --no-cache protobuf protobuf-dev git make
@@ -20,7 +20,8 @@ COPY services/assignment-grading-service/go.mod ./
 COPY services/assignment-grading-service/ .
 
 # Generate go.sum and download dependencies
-RUN go mod tidy && go mod download && go mod verify
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod tidy && go mod download && go mod verify
 
 # Generate protobuf code
 RUN mkdir -p api/proto && \
@@ -31,7 +32,9 @@ RUN mkdir -p api/proto && \
     mv -f assignment.pb.go assignment_grpc.pb.go api/proto/ 2>/dev/null || true
 
 # Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o server cmd/server/main.go
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o server cmd/server/main.go
 
 # Runtime stage
 FROM alpine:latest

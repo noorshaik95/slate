@@ -15,7 +15,8 @@ COPY proto /build/proto
 
 # Copy go mod files
 COPY services/user-auth-service/go.mod services/user-auth-service/go.sum* ./
-RUN go mod download
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
 
 # Generate protobuf code
 RUN mkdir -p api/proto && \
@@ -32,7 +33,9 @@ RUN mkdir -p api/proto && \
 COPY services/user-auth-service/ .
 
 # Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o server cmd/server/main.go
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o server cmd/server/main.go
 
 # Runtime stage
 FROM alpine:latest

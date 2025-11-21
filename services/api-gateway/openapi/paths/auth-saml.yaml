@@ -1,0 +1,135 @@
+/api/auth/saml/{organization_id}:
+  get:
+    tags:
+      - Authentication
+    summary: Initiate SAML authentication
+    description: |
+      Get SAML authentication request to redirect user to Identity Provider.
+      Organization-specific SAML configuration is used based on organization_id.
+    operationId: getSAMLAuthRequest
+    security: []
+    parameters:
+      - name: organization_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Organization identifier for SAML configuration
+        example: "org-123e4567-e89b-12d3-a456-426614174000"
+    responses:
+      '200':
+        description: SAML authentication request generated
+        content:
+          application/json:
+            schema:
+              $ref: '../openapi.yaml#/components/schemas/SAMLAuthResponse'
+            example:
+              saml_request: "PHNhbWxwOkF1dGhuUmVxdWVzdCB4bWxuczpzYW1scD0idXJuOm9hc2lzOm5hbWVzOnRjOlNBTUw6Mi4wOnByb3RvY29sIi4uLg=="
+              sso_url: "https://idp.example.com/sso"
+      '400':
+        $ref: '../openapi.yaml#/components/responses/ValidationError'
+      '404':
+        description: SAML configuration not found for organization
+        content:
+          application/json:
+            schema:
+              $ref: '../openapi.yaml#/components/schemas/Error'
+            example:
+              error: "SAML configuration not found for organization"
+              code: "SAML_CONFIG_NOT_FOUND"
+
+/api/auth/saml/callback:
+  post:
+    tags:
+      - Authentication
+    summary: Handle SAML assertion
+    description: |
+      Process SAML assertion from Identity Provider after user authentication.
+      Validates the assertion and creates/logs in user.
+    operationId: handleSAMLAssertion
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../openapi.yaml#/components/schemas/SAMLAssertionRequest'
+          example:
+            saml_response: "PHNhbWxwOlJlc3BvbnNlIHhtbG5zOnNhbWxwPSJ1cm46b2FzaXM6bmFtZXM6dGM6U0FNTDoyLjA6cHJvdG9jb2wiLi4u"
+    responses:
+      '200':
+        description: SAML authentication successful
+        content:
+          application/json:
+            schema:
+              $ref: '../openapi.yaml#/components/schemas/LoginResponse'
+            example:
+              access_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+              refresh_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+              user:
+                id: "550e8400-e29b-41d4-a716-446655440000"
+                email: "user@example.com"
+                first_name: "John"
+                last_name: "Doe"
+                phone: "+1234567890"
+                roles: ["user"]
+                is_active: true
+                created_at: "2024-01-15T10:30:00Z"
+                updated_at: "2024-01-15T10:30:00Z"
+              expires_in: 900
+      '400':
+        $ref: '../openapi.yaml#/components/responses/ValidationError'
+      '401':
+        description: SAML assertion validation failed
+        content:
+          application/json:
+            schema:
+              $ref: '../openapi.yaml#/components/schemas/Error'
+            example:
+              error: "Invalid SAML assertion or signature verification failed"
+              code: "SAML_VALIDATION_FAILED"
+      '429':
+        $ref: '../openapi.yaml#/components/responses/RateLimitError'
+
+/api/auth/saml/metadata:
+  get:
+    tags:
+      - Authentication
+    summary: Get SAML Service Provider metadata
+    description: |
+      Retrieve SAML Service Provider metadata XML.
+      This metadata can be imported into Identity Providers for configuration.
+    operationId: getSAMLMetadata
+    security: []
+    responses:
+      '200':
+        description: SAML metadata XML
+        content:
+          application/xml:
+            schema:
+              type: string
+            example: |
+              <?xml version="1.0"?>
+              <md:EntityDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata"
+                                   entityID="https://api.example.com/saml">
+                <md:SPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">
+                  <md:AssertionConsumerService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
+                                               Location="https://api.example.com/api/auth/saml/callback"
+                                               index="0"/>
+                </md:SPSSODescriptor>
+              </md:EntityDescriptor>
+          application/json:
+            schema:
+              $ref: '../openapi.yaml#/components/schemas/SAMLMetadataResponse'
+            example:
+              metadata_xml: "<?xml version=\"1.0\"?><md:EntityDescriptor..."
+      '500':
+        description: Failed to generate metadata
+        content:
+          application/json:
+            schema:
+              $ref: '../openapi.yaml#/components/schemas/Error'
+            example:
+              error: "Failed to generate SAML metadata"
+              code: "INTERNAL_ERROR"

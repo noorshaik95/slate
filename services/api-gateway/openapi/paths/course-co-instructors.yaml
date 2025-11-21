@@ -1,0 +1,239 @@
+# Course Co-Instructor Endpoints
+
+/api/courses/{course_id}/co-instructors:
+  post:
+    tags:
+      - Courses
+    summary: Add co-instructor to course
+    description: |
+      Add a co-instructor to a course to share teaching responsibilities.
+      
+      **Co-Instructor Capabilities:**
+      - Full access to course content and settings
+      - Can update course details
+      - Can publish/unpublish course
+      - Can add/remove students
+      - Can manage assignments and grades
+      - Can add/remove other co-instructors
+      - Cannot change primary instructor
+      - Cannot delete the course
+      
+      **Authorization:**
+      - Primary instructor can add co-instructors
+      - Existing co-instructors can add other co-instructors
+      - Admins can add co-instructors to any course
+      
+      **Business Rules:**
+      - Co-instructor must have instructor or admin role
+      - Co-instructor cannot be the primary instructor
+      - Cannot add duplicate co-instructors
+      - Co-instructor is added to co_instructor_ids array
+      - Co-instructor receives immediate access to course
+      
+      **Use Cases:**
+      - Team teaching arrangements
+      - Teaching assistant with instructor privileges
+      - Guest lecturer with full access
+      - Course coordinator role
+    operationId: addCoInstructor
+    parameters:
+      - name: course_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Course ID to add co-instructor to
+        example: "c7f8e9d0-1234-5678-90ab-cdef12345678"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - co_instructor_id
+            properties:
+              co_instructor_id:
+                type: string
+                format: uuid
+                description: User ID of the co-instructor to add
+                example: "660e8400-e29b-41d4-a716-446655440001"
+          example:
+            co_instructor_id: "660e8400-e29b-41d4-a716-446655440001"
+    responses:
+      '200':
+        description: Co-instructor added successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                course:
+                  $ref: '../openapi.yaml#/components/schemas/Course'
+            example:
+              course:
+                id: "c7f8e9d0-1234-5678-90ab-cdef12345678"
+                title: "Introduction to Computer Science"
+                description: "A comprehensive introduction to computer science fundamentals"
+                term: "Fall 2024"
+                syllabus: "Week 1: Introduction to Programming"
+                instructor_id: "550e8400-e29b-41d4-a716-446655440000"
+                co_instructor_ids: ["660e8400-e29b-41d4-a716-446655440001"]
+                is_published: true
+                prerequisite_course_ids: []
+                template_id: null
+                cross_listing_group_id: null
+                created_at: "2024-01-15T10:30:00Z"
+                updated_at: "2024-01-22T16:00:00Z"
+                metadata:
+                  max_students: 30
+                  department: "Computer Science"
+                  course_code: "CS101"
+                  credits: 3
+                  tags: ["programming", "fundamentals"]
+      '400':
+        description: Invalid co-instructor
+        content:
+          application/json:
+            schema:
+              $ref: '../openapi.yaml#/components/schemas/Error'
+            examples:
+              not_instructor:
+                value:
+                  error: "User does not have instructor role"
+                  code: "INVALID_INSTRUCTOR"
+              already_instructor:
+                value:
+                  error: "User is already the primary instructor"
+                  code: "ALREADY_PRIMARY_INSTRUCTOR"
+              duplicate:
+                value:
+                  error: "User is already a co-instructor"
+                  code: "DUPLICATE_CO_INSTRUCTOR"
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '404':
+        description: Course or user not found
+        content:
+          application/json:
+            schema:
+              $ref: '../openapi.yaml#/components/schemas/Error'
+            example:
+              error: "User not found"
+              code: "NOT_FOUND"
+      '429':
+        $ref: '../openapi.yaml#/components/responses/RateLimitError'
+
+/api/courses/{course_id}/co-instructors/{co_instructor_id}:
+  delete:
+    tags:
+      - Courses
+    summary: Remove co-instructor from course
+    description: |
+      Remove a co-instructor from a course.
+      
+      **Removal Effects:**
+      - Co-instructor loses access to course
+      - Co-instructor removed from co_instructor_ids array
+      - Co-instructor can no longer modify course
+      - Co-instructor can no longer view course roster
+      - Does not affect course content or student enrollments
+      
+      **Authorization:**
+      - Primary instructor can remove co-instructors
+      - Co-instructors can remove other co-instructors
+      - Co-instructors can remove themselves
+      - Admins can remove co-instructors from any course
+      
+      **Business Rules:**
+      - Cannot remove primary instructor (use this endpoint only for co-instructors)
+      - Removal is immediate
+      - Co-instructor must exist on the course
+      
+      **Use Cases:**
+      - End team teaching arrangement
+      - Remove guest lecturer access
+      - Revoke teaching assistant privileges
+      - Self-removal from course
+    operationId: removeCoInstructor
+    parameters:
+      - name: course_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Course ID to remove co-instructor from
+        example: "c7f8e9d0-1234-5678-90ab-cdef12345678"
+      - name: co_instructor_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: User ID of the co-instructor to remove
+        example: "660e8400-e29b-41d4-a716-446655440001"
+    responses:
+      '200':
+        description: Co-instructor removed successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                course:
+                  $ref: '../openapi.yaml#/components/schemas/Course'
+            example:
+              course:
+                id: "c7f8e9d0-1234-5678-90ab-cdef12345678"
+                title: "Introduction to Computer Science"
+                description: "A comprehensive introduction to computer science fundamentals"
+                term: "Fall 2024"
+                syllabus: "Week 1: Introduction to Programming"
+                instructor_id: "550e8400-e29b-41d4-a716-446655440000"
+                co_instructor_ids: []
+                is_published: true
+                prerequisite_course_ids: []
+                template_id: null
+                cross_listing_group_id: null
+                created_at: "2024-01-15T10:30:00Z"
+                updated_at: "2024-01-22T17:00:00Z"
+                metadata:
+                  max_students: 30
+                  department: "Computer Science"
+                  course_code: "CS101"
+                  credits: 3
+                  tags: ["programming", "fundamentals"]
+      '400':
+        description: Invalid operation
+        content:
+          application/json:
+            schema:
+              $ref: '../openapi.yaml#/components/schemas/Error'
+            example:
+              error: "Cannot remove primary instructor using this endpoint"
+              code: "INVALID_OPERATION"
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '404':
+        description: Course or co-instructor not found
+        content:
+          application/json:
+            schema:
+              $ref: '../openapi.yaml#/components/schemas/Error'
+            examples:
+              course_not_found:
+                value:
+                  error: "Course not found"
+                  code: "NOT_FOUND"
+              co_instructor_not_found:
+                value:
+                  error: "Co-instructor not found on course"
+                  code: "NOT_FOUND"
+      '429':
+        $ref: '../openapi.yaml#/components/responses/RateLimitError'

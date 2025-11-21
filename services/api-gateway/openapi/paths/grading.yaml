@@ -1,0 +1,120 @@
+/api/submissions/{submission_id}/grade:
+  post:
+    tags:
+      - Grading
+    summary: Grade a submission
+    parameters:
+      - name: submission_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              score:
+                type: number
+                format: double
+              feedback:
+                type: string
+    responses:
+      '201':
+        description: Grade created
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/assignment-grading-schemas.yaml#/components/schemas/Grade'
+      '400':
+        $ref: '../openapi.yaml#/components/responses/ValidationError'
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+
+/api/grades/{grade_id}:
+  get:
+    tags:
+      - Grading
+    summary: Get grade details
+    parameters:
+      - name: grade_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        description: Grade details
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/assignment-grading-schemas.yaml#/components/schemas/Grade'
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'
+
+  put:
+    tags:
+      - Grading
+    summary: Update a grade
+    parameters:
+      - name: grade_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/assignment-grading-schemas.yaml#/components/schemas/UpdateGradeRequest'
+    responses:
+      '200':
+        description: Grade updated
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/assignment-grading-schemas.yaml#/components/schemas/Grade'
+      '400':
+        $ref: '../openapi.yaml#/components/responses/ValidationError'
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'
+
+/api/grades/{grade_id}/publish:
+  post:
+    tags:
+      - Grading
+    summary: Publish a grade
+    parameters:
+      - name: grade_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        description: Grade published
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/assignment-grading-schemas.yaml#/components/schemas/Grade'
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'

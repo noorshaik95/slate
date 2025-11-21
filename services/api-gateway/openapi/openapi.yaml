@@ -1,8 +1,9 @@
 openapi: 3.0.3
 info:
-  title: User Authentication Service API
+  title: Slate Learning Management System API
   description: |
-    RESTful API for user authentication and management through the API Gateway.
+    RESTful API for the Slate LMS platform through the API Gateway.
+    Covers authentication, user management, courses, enrollments, assignments, and content management.
     
     ## Authentication
     Most endpoints require authentication using Bearer tokens.
@@ -107,6 +108,9 @@ components:
           format: uri
         bio:
           type: string
+        timezone:
+          type: string
+          example: "America/New_York"
         roles:
           type: array
           items:
@@ -117,6 +121,395 @@ components:
         updated_at:
           type: string
           format: date-time
+
+    # User Auth Service Schemas - Authentication
+    LoginRequest:
+      $ref: './schemas/user-auth-schemas.yaml#/LoginRequest'
+    
+    LoginResponse:
+      $ref: './schemas/user-auth-schemas.yaml#/LoginResponse'
+    
+    RegisterRequest:
+      $ref: './schemas/user-auth-schemas.yaml#/RegisterRequest'
+    
+    RegisterResponse:
+      $ref: './schemas/user-auth-schemas.yaml#/RegisterResponse'
+    
+    RefreshTokenRequest:
+      $ref: './schemas/user-auth-schemas.yaml#/RefreshTokenRequest'
+    
+    RefreshTokenResponse:
+      $ref: './schemas/user-auth-schemas.yaml#/RefreshTokenResponse'
+    
+    ValidateTokenRequest:
+      $ref: './schemas/user-auth-schemas.yaml#/ValidateTokenRequest'
+    
+    ValidateTokenResponse:
+      $ref: './schemas/user-auth-schemas.yaml#/ValidateTokenResponse'
+
+    # User Auth Service Schemas - OAuth
+    OAuthProviderInfo:
+      $ref: './schemas/user-auth-schemas.yaml#/OAuthProviderInfo'
+    
+    OAuthAuthRequest:
+      $ref: './schemas/user-auth-schemas.yaml#/OAuthAuthRequest'
+    
+    OAuthAuthResponse:
+      $ref: './schemas/user-auth-schemas.yaml#/OAuthAuthResponse'
+    
+    OAuthCallbackRequest:
+      $ref: './schemas/user-auth-schemas.yaml#/OAuthCallbackRequest'
+    
+    OAuthCallbackResponse:
+      $ref: './schemas/user-auth-schemas.yaml#/OAuthCallbackResponse'
+
+    # User Auth Service Schemas - SAML
+    SAMLAuthRequest:
+      $ref: './schemas/user-auth-schemas.yaml#/SAMLAuthRequest'
+    
+    SAMLAuthResponse:
+      $ref: './schemas/user-auth-schemas.yaml#/SAMLAuthResponse'
+    
+    SAMLAssertionRequest:
+      $ref: './schemas/user-auth-schemas.yaml#/SAMLAssertionRequest'
+    
+    SAMLMetadataRequest:
+      $ref: './schemas/user-auth-schemas.yaml#/SAMLMetadataRequest'
+    
+    SAMLMetadataResponse:
+      $ref: './schemas/user-auth-schemas.yaml#/SAMLMetadataResponse'
+
+    # User Auth Service Schemas - MFA
+    SetupMFARequest:
+      $ref: './schemas/user-auth-schemas.yaml#/SetupMFARequest'
+    
+    SetupMFAResponse:
+      $ref: './schemas/user-auth-schemas.yaml#/SetupMFAResponse'
+    
+    MFAStatus:
+      $ref: './schemas/user-auth-schemas.yaml#/MFAStatus'
+    
+    ValidateMFACodeRequest:
+      $ref: './schemas/user-auth-schemas.yaml#/ValidateMFACodeRequest'
+    
+    ValidateMFACodeResponse:
+      $ref: './schemas/user-auth-schemas.yaml#/ValidateMFACodeResponse'
+
+    # User Auth Service Schemas - Groups
+    Group:
+      $ref: './schemas/user-auth-schemas.yaml#/Group'
+    
+    GroupMember:
+      $ref: './schemas/user-auth-schemas.yaml#/GroupMember'
+    
+    CreateGroupRequest:
+      $ref: './schemas/user-auth-schemas.yaml#/CreateGroupRequest'
+    
+    UpdateGroupRequest:
+      $ref: './schemas/user-auth-schemas.yaml#/UpdateGroupRequest'
+    
+    ListGroupsRequest:
+      $ref: './schemas/user-auth-schemas.yaml#/ListGroupsRequest'
+    
+    ListGroupsResponse:
+      $ref: './schemas/user-auth-schemas.yaml#/ListGroupsResponse'
+
+    # User Auth Service Schemas - Parent-Child Relationships
+    ParentChildRelationship:
+      $ref: './schemas/user-auth-schemas.yaml#/ParentChildRelationship'
+
+    # Assignment Service Schemas
+    Assignment:
+      $ref: './schemas/assignment-grading-schemas.yaml#/components/schemas/Assignment'
+    
+    Submission:
+      $ref: './schemas/assignment-grading-schemas.yaml#/components/schemas/Submission'
+    
+    Grade:
+      $ref: './schemas/assignment-grading-schemas.yaml#/components/schemas/Grade'
+    
+    GradebookEntry:
+      $ref: './schemas/assignment-grading-schemas.yaml#/components/schemas/GradebookEntry'
+    
+    LatePolicy:
+      $ref: './schemas/assignment-grading-schemas.yaml#/components/schemas/LatePolicy'
+
+    # Content Service Schemas
+    Module:
+      $ref: './schemas/content-management-schemas.yaml#/components/schemas/Module'
+    
+    Lesson:
+      $ref: './schemas/content-management-schemas.yaml#/components/schemas/Lesson'
+    
+    Resource:
+      $ref: './schemas/content-management-schemas.yaml#/components/schemas/Resource'
+    
+    ContentStructure:
+      $ref: './schemas/content-management-schemas.yaml#/components/schemas/ContentStructure'
+    
+    VideoManifest:
+      $ref: './schemas/content-management-schemas.yaml#/components/schemas/VideoManifest'
+    
+    PlaybackState:
+      $ref: './schemas/content-management-schemas.yaml#/components/schemas/PlaybackState'
+    
+    ProgressReport:
+      $ref: './schemas/content-management-schemas.yaml#/components/schemas/ProgressReport'
+
+    # Course Service Schemas
+
+    Course:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "c7f8e9d0-1234-5678-90ab-cdef12345678"
+        title:
+          type: string
+          example: "Introduction to Computer Science"
+        description:
+          type: string
+          example: "A comprehensive introduction to computer science fundamentals"
+        term:
+          type: string
+          example: "Fall 2024"
+        syllabus:
+          type: string
+          example: "Course syllabus content..."
+        instructor_id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        co_instructor_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          example: ["660e8400-e29b-41d4-a716-446655440001"]
+        is_published:
+          type: boolean
+          example: true
+        prerequisite_course_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          example: ["a1b2c3d4-e5f6-7890-abcd-ef1234567890"]
+        template_id:
+          type: string
+          format: uuid
+          example: "t1e2m3p4-l5a6-t7e8-9012-345678901234"
+        cross_listing_group_id:
+          type: string
+          format: uuid
+          example: "x1l2i3s4-t5i6-n7g8-9012-345678901234"
+        created_at:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2024-01-20T14:45:00Z"
+        metadata:
+          $ref: '#/components/schemas/CourseMetadata'
+
+    CourseMetadata:
+      type: object
+      properties:
+        max_students:
+          type: integer
+          example: 30
+        department:
+          type: string
+          example: "Computer Science"
+        course_code:
+          type: string
+          example: "CS101"
+        credits:
+          type: integer
+          example: 3
+        tags:
+          type: array
+          items:
+            type: string
+          example: ["programming", "fundamentals", "introductory"]
+
+    Enrollment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "e1n2r3o4-l5l6-m7e8-n9t0-123456789012"
+        course_id:
+          type: string
+          format: uuid
+          example: "c7f8e9d0-1234-5678-90ab-cdef12345678"
+        student_id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        enrollment_type:
+          $ref: '#/components/schemas/EnrollmentType'
+        status:
+          $ref: '#/components/schemas/EnrollmentStatus'
+        enrolled_by:
+          type: string
+          format: uuid
+          description: User ID who enrolled the student
+          example: "660e8400-e29b-41d4-a716-446655440001"
+        enrolled_at:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00Z"
+        section_id:
+          type: string
+          format: uuid
+          example: "s1e2c3t4-i5o6-n7i8-d9e0-123456789012"
+
+    EnrollmentType:
+      type: string
+      enum:
+        - SELF
+        - INSTRUCTOR
+        - ADMIN
+      example: "SELF"
+      description: |
+        Type of enrollment:
+        - SELF: Student self-enrolled
+        - INSTRUCTOR: Enrolled by instructor
+        - ADMIN: Enrolled by administrator
+
+    EnrollmentStatus:
+      type: string
+      enum:
+        - ACTIVE
+        - DROPPED
+        - COMPLETED
+        - WAITLISTED
+      example: "ACTIVE"
+      description: |
+        Status of enrollment:
+        - ACTIVE: Currently enrolled
+        - DROPPED: Student dropped the course
+        - COMPLETED: Course completed
+        - WAITLISTED: On waitlist
+
+    CourseTemplate:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "t1e2m3p4-l5a6-t7e8-9012-345678901234"
+        name:
+          type: string
+          example: "Standard CS Course Template"
+        description:
+          type: string
+          example: "Template for computer science courses"
+        syllabus_template:
+          type: string
+          example: "Standard syllabus template content..."
+        created_by:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        created_at:
+          type: string
+          format: date-time
+          example: "2024-01-01T00:00:00Z"
+        default_metadata:
+          $ref: '#/components/schemas/CourseMetadata'
+
+    Section:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "s1e2c3t4-i5o6-n7i8-d9e0-123456789012"
+        course_id:
+          type: string
+          format: uuid
+          example: "c7f8e9d0-1234-5678-90ab-cdef12345678"
+        section_number:
+          type: string
+          example: "001"
+        instructor_id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        schedule:
+          $ref: '#/components/schemas/Schedule'
+        location:
+          type: string
+          example: "Room 101, Building A"
+        max_students:
+          type: integer
+          example: 30
+        enrolled_count:
+          type: integer
+          example: 25
+        created_at:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00Z"
+
+    Schedule:
+      type: object
+      properties:
+        days_of_week:
+          type: array
+          items:
+            type: string
+          example: ["MON", "WED", "FRI"]
+          description: Days of the week when the section meets
+        start_time:
+          type: string
+          example: "09:00"
+          description: Start time in HH:MM format
+        end_time:
+          type: string
+          example: "10:30"
+          description: End time in HH:MM format
+
+    CrossListing:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "x1l2i3s4-t5i6-n7g8-9012-345678901234"
+        group_id:
+          type: string
+          format: uuid
+          example: "g1r2o3u4-p5i6-d7e8-9012-345678901234"
+        course_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          example: ["c7f8e9d0-1234-5678-90ab-cdef12345678", "c8f9e0d1-2345-6789-01bc-def123456789"]
+        created_by:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        created_at:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00Z"
+
+    EnrollmentWithCourse:
+      type: object
+      properties:
+        enrollment:
+          $ref: '#/components/schemas/Enrollment'
+        course:
+          $ref: '#/components/schemas/Course'
+      description: Combined enrollment and course information for student enrollment views
 
     Error:
       type: object
@@ -193,605 +586,222 @@ components:
 
 tags:
   - name: Authentication
-    description: User authentication and token management
+    description: User authentication and token management (login, register, OAuth, SAML)
   - name: Users
     description: User CRUD operations (admin only)
   - name: Profile
     description: User profile management
   - name: Roles
     description: Role and permission management (admin only)
+  - name: MFA
+    description: Multi-factor authentication management (TOTP, SMS, Email)
+  - name: Groups
+    description: User group management and membership
+  - name: Parent-Child Accounts
+    description: Parent-child account relationships and permissions
+  - name: Courses
+    description: Course management operations
+  - name: Enrollments
+    description: Course enrollment operations
+  - name: Templates
+    description: Course template management
+  - name: Sections
+    description: Course section management
+  - name: Assignments
+    description: Assignment management operations
+  - name: Submissions
+    description: Assignment submission handling
+  - name: Grading
+    description: Grade management operations
+  - name: Gradebook
+    description: Gradebook views and statistics
+  - name: Content
+    description: Content management (modules, lessons, resources)
+  - name: Upload
+    description: File upload operations
+  - name: Streaming
+    description: Video streaming and playback
+  - name: Progress
+    description: Student progress tracking
+  - name: System
+    description: System operations (health checks, admin)
 
 paths:
+  # Authentication Endpoints
   /api/auth/login:
-    post:
-      tags:
-        - Authentication
-      summary: User login
-      description: Authenticate user and receive access/refresh tokens
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - email
-                - password
-              properties:
-                email:
-                  type: string
-                  format: email
-                  example: "user@example.com"
-                password:
-                  type: string
-                  format: password
-                  example: "SecurePass123!"
-      responses:
-        '200':
-          description: Login successful
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  access_token:
-                    type: string
-                    description: JWT access token (expires in 15 minutes)
-                  refresh_token:
-                    type: string
-                    description: JWT refresh token (expires in 24 hours)
-                  user:
-                    $ref: '#/components/schemas/User'
-                  expires_in:
-                    type: integer
-                    description: Access token expiration time in seconds
-                    example: 900
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '429':
-          $ref: '#/components/responses/RateLimitError'
-
+    $ref: './paths/auth.yaml#/~1api~1auth~1login'
+  
   /api/auth/register:
-    post:
-      tags:
-        - Authentication
-      summary: User registration
-      description: Register a new user account
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - email
-                - password
-                - first_name
-                - last_name
-              properties:
-                email:
-                  type: string
-                  format: email
-                password:
-                  type: string
-                  format: password
-                  minLength: 8
-                  description: Must contain uppercase, lowercase, digit, and special character
-                first_name:
-                  type: string
-                last_name:
-                  type: string
-                phone:
-                  type: string
-                  pattern: '^\+[1-9]\d{1,14}$'
-                  description: E.164 format
-      responses:
-        '201':
-          description: Registration successful
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  access_token:
-                    type: string
-                  refresh_token:
-                    type: string
-                  user:
-                    $ref: '#/components/schemas/User'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '409':
-          description: Email already exists
-        '429':
-          $ref: '#/components/responses/RateLimitError'
-
+    $ref: './paths/auth.yaml#/~1api~1auth~1register'
+  
   /api/auth/refresh:
-    post:
-      tags:
-        - Authentication
-      summary: Refresh access token
-      description: Get a new access token using refresh token
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - refresh_token
-              properties:
-                refresh_token:
-                  type: string
-      responses:
-        '200':
-          description: Token refreshed successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  access_token:
-                    type: string
-                  refresh_token:
-                    type: string
-                  expires_in:
-                    type: integer
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-
+    $ref: './paths/auth.yaml#/~1api~1auth~1refresh'
+  
   /api/auth/logout:
-    post:
-      tags:
-        - Authentication
-      summary: User logout
-      description: Invalidate current session
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                user_id:
-                  type: string
-                token:
-                  type: string
-      responses:
-        '200':
-          description: Logout successful
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-
+    $ref: './paths/auth.yaml#/~1api~1auth~1logout'
+  
+  # OAuth Endpoints
+  /api/auth/oauth/{provider}:
+    $ref: './paths/auth-oauth.yaml#/~1api~1auth~1oauth~1{provider}'
+  
+  /api/auth/oauth/callback:
+    $ref: './paths/auth-oauth.yaml#/~1api~1auth~1oauth~1callback'
+  
+  # SAML Endpoints
+  /api/auth/saml/{organization_id}:
+    $ref: './paths/auth-saml.yaml#/~1api~1auth~1saml~1{organization_id}'
+  
+  /api/auth/saml/callback:
+    $ref: './paths/auth-saml.yaml#/~1api~1auth~1saml~1callback'
+  
+  /api/auth/saml/metadata:
+    $ref: './paths/auth-saml.yaml#/~1api~1auth~1saml~1metadata'
+  
+  # User Endpoints
   /api/users:
-    get:
-      tags:
-        - Users
-      summary: List users
-      description: Get paginated list of users (admin only)
-      parameters:
-        - name: page
-          in: query
-          schema:
-            type: integer
-            default: 1
-        - name: page_size
-          in: query
-          schema:
-            type: integer
-            default: 20
-            maximum: 100
-        - name: search
-          in: query
-          schema:
-            type: string
-        - name: role
-          in: query
-          schema:
-            type: string
-        - name: is_active
-          in: query
-          schema:
-            type: boolean
-      responses:
-        '200':
-          description: List of users
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  users:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/User'
-                  total:
-                    type: integer
-                  page:
-                    type: integer
-                  page_size:
-                    type: integer
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-
-    post:
-      tags:
-        - Users
-      summary: Create user
-      description: Create a new user (admin only)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - email
-                - password
-                - first_name
-                - last_name
-              properties:
-                email:
-                  type: string
-                  format: email
-                password:
-                  type: string
-                first_name:
-                  type: string
-                last_name:
-                  type: string
-                phone:
-                  type: string
-                roles:
-                  type: array
-                  items:
-                    type: string
-      responses:
-        '201':
-          description: User created
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  user:
-                    $ref: '#/components/schemas/User'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-
+    $ref: './paths/users.yaml#/~1api~1users'
+  
   /api/users/{user_id}:
-    get:
-      tags:
-        - Users
-      summary: Get user by ID
-      description: Retrieve user details (admin only)
-      parameters:
-        - name: user_id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      responses:
-        '200':
-          description: User details
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  user:
-                    $ref: '#/components/schemas/User'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-
-    put:
-      tags:
-        - Users
-      summary: Update user
-      description: Update user details (admin only)
-      parameters:
-        - name: user_id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                email:
-                  type: string
-                  format: email
-                first_name:
-                  type: string
-                last_name:
-                  type: string
-                phone:
-                  type: string
-                is_active:
-                  type: boolean
-      responses:
-        '200':
-          description: User updated
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  user:
-                    $ref: '#/components/schemas/User'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-
-    delete:
-      tags:
-        - Users
-      summary: Delete user
-      description: Delete user account (admin only)
-      parameters:
-        - name: user_id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      responses:
-        '200':
-          description: User deleted
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-
+    $ref: './paths/users.yaml#/~1api~1users~1{user_id}'
+  
+  # Profile Endpoints
   /api/profile:
-    get:
-      tags:
-        - Profile
-      summary: Get current user profile
-      description: Retrieve authenticated user's profile
-      responses:
-        '200':
-          description: User profile
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  profile:
-                    $ref: '#/components/schemas/Profile'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-
-    put:
-      tags:
-        - Profile
-      summary: Update profile
-      description: Update authenticated user's profile
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                first_name:
-                  type: string
-                last_name:
-                  type: string
-                phone:
-                  type: string
-                avatar_url:
-                  type: string
-                  format: uri
-                bio:
-                  type: string
-      responses:
-        '200':
-          description: Profile updated
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  profile:
-                    $ref: '#/components/schemas/Profile'
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-
+    $ref: './paths/profile.yaml#/~1api~1profile'
+  
   /api/profile/password:
-    post:
-      tags:
-        - Profile
-      summary: Change password
-      description: Change authenticated user's password
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - old_password
-                - new_password
-              properties:
-                old_password:
-                  type: string
-                  format: password
-                new_password:
-                  type: string
-                  format: password
-                  minLength: 8
-      responses:
-        '200':
-          description: Password changed successfully
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-
+    $ref: './paths/profile.yaml#/~1api~1profile~1password'
+  
+  # Role Endpoints
   /api/users/{user_id}/roles:
-    get:
-      tags:
-        - Roles
-      summary: Get user roles
-      description: Retrieve roles assigned to a user
-      parameters:
-        - name: user_id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      responses:
-        '200':
-          description: User roles
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  roles:
-                    type: array
-                    items:
-                      type: string
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-
-    post:
-      tags:
-        - Roles
-      summary: Assign role
-      description: Assign a role to a user (admin only)
-      parameters:
-        - name: user_id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - role
-              properties:
-                role:
-                  type: string
-                  enum: [user, admin, moderator]
-      responses:
-        '200':
-          description: Role assigned
-        '400':
-          $ref: '#/components/responses/ValidationError'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-
-    delete:
-      tags:
-        - Roles
-      summary: Remove role
-      description: Remove a role from a user (admin only)
-      parameters:
-        - name: user_id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - role
-              properties:
-                role:
-                  type: string
-      responses:
-        '200':
-          description: Role removed
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-
+    $ref: './paths/roles.yaml#/~1api~1users~1{user_id}~1roles'
+  
   /api/permissions/check:
-    post:
-      tags:
-        - Roles
-      summary: Check permission
-      description: Check if user has a specific permission
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - user_id
-                - permission
-              properties:
-                user_id:
-                  type: string
-                  format: uuid
-                permission:
-                  type: string
-      responses:
-        '200':
-          description: Permission check result
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  has_permission:
-                    type: boolean
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
+    $ref: './paths/roles.yaml#/~1api~1permissions~1check'
+  
+  # MFA Endpoints
+  /api/users/{user_id}/mfa/setup:
+    $ref: './paths/mfa.yaml#/~1api~1users~1{user_id}~1mfa~1setup'
+  
+  /api/users/{user_id}/mfa/verify:
+    $ref: './paths/mfa.yaml#/~1api~1users~1{user_id}~1mfa~1verify'
+  
+  /api/users/{user_id}/mfa:
+    $ref: './paths/mfa.yaml#/~1api~1users~1{user_id}~1mfa'
+  
+  /api/users/{user_id}/mfa/status:
+    $ref: './paths/mfa.yaml#/~1api~1users~1{user_id}~1mfa~1status'
+  
+  /api/users/{user_id}/mfa/validate:
+    $ref: './paths/mfa.yaml#/~1api~1users~1{user_id}~1mfa~1validate'
+  
+  # Group Endpoints
+  /api/groups:
+    $ref: './paths/groups.yaml#/~1api~1groups'
+  
+  /api/groups/{group_id}:
+    $ref: './paths/groups.yaml#/~1api~1groups~1{group_id}'
+  
+  /api/groups/{group_id}/members:
+    $ref: './paths/groups.yaml#/~1api~1groups~1{group_id}~1members'
+  
+  /api/groups/{group_id}/members/{user_id}:
+    $ref: './paths/groups.yaml#/~1api~1groups~1{group_id}~1members~1{user_id}'
+  
+  /api/users/{user_id}/groups:
+    $ref: './paths/groups.yaml#/~1api~1users~1{user_id}~1groups'
+  
+  # Parent-Child Account Endpoints
+  /api/users/{parent_id}/children:
+    $ref: './paths/parent-child.yaml#/~1api~1users~1{parent_id}~1children'
+  
+  /api/users/{parent_id}/children/{child_id}:
+    $ref: './paths/parent-child.yaml#/~1api~1users~1{parent_id}~1children~1{child_id}'
+  
+  /api/users/{child_id}/parents:
+    $ref: './paths/parent-child.yaml#/~1api~1users~1{child_id}~1parents'
+  
+  /api/users/{parent_id}/children/{child_id}/permissions:
+    $ref: './paths/parent-child.yaml#/~1api~1users~1{parent_id}~1children~1{child_id}~1permissions'
+  
+  # Course Endpoints
+  /api/courses:
+    $ref: './paths/courses.yaml#/~1api~1courses'
+  
+  /api/courses/{course_id}:
+    $ref: './paths/courses.yaml#/~1api~1courses~1{course_id}'
+  
+  /api/courses/{course_id}/publish:
+    $ref: './paths/courses.yaml#/~1api~1courses~1{course_id}~1publish'
+  
+  /api/courses/{course_id}/unpublish:
+    $ref: './paths/courses.yaml#/~1api~1courses~1{course_id}~1unpublish'
+  
+  # Enrollment Endpoints
+  /api/courses/{course_id}/enroll:
+    $ref: './paths/enrollments.yaml#/~1api~1courses~1{course_id}~1enroll'
+  
+  /api/courses/{course_id}/students:
+    $ref: './paths/enrollments.yaml#/~1api~1courses~1{course_id}~1students'
+  
+  /api/enrollments/{enrollment_id}:
+    $ref: './paths/enrollments.yaml#/~1api~1enrollments~1{enrollment_id}'
+  
+  /api/courses/{course_id}/roster:
+    $ref: './paths/enrollments.yaml#/~1api~1courses~1{course_id}~1roster'
+  
+  /api/students/{student_id}/enrollments:
+    $ref: './paths/enrollments.yaml#/~1api~1students~1{student_id}~1enrollments'
+  
+  # Course Template Endpoints
+  /api/coursetemplates:
+    $ref: './paths/course-templates.yaml#/~1api~1coursetemplates'
+  
+  /api/coursetemplates/{template_id}:
+    $ref: './paths/course-templates.yaml#/~1api~1coursetemplates~1{template_id}'
+  
+  /api/coursetemplates/{template_id}/courses:
+    $ref: './paths/course-templates.yaml#/~1api~1coursetemplates~1{template_id}~1courses'
+  
+  # Course Prerequisite Endpoints
+  /api/courses/{course_id}/prerequisites:
+    $ref: './paths/course-prerequisites.yaml#/~1api~1courses~1{course_id}~1prerequisites'
+  
+  /api/courses/{course_id}/prerequisites/{prerequisite_id}:
+    $ref: './paths/course-prerequisites.yaml#/~1api~1courses~1{course_id}~1prerequisites~1{prerequisite_id}'
+  
+  /api/courses/{course_id}/prerequisites/check:
+    $ref: './paths/course-prerequisites.yaml#/~1api~1courses~1{course_id}~1prerequisites~1check'
+  
+  # Course Co-Instructor Endpoints
+  /api/courses/{course_id}/co-instructors:
+    $ref: './paths/course-co-instructors.yaml#/~1api~1courses~1{course_id}~1co-instructors'
+  
+  /api/courses/{course_id}/co-instructors/{co_instructor_id}:
+    $ref: './paths/course-co-instructors.yaml#/~1api~1courses~1{course_id}~1co-instructors~1{co_instructor_id}'
+  
+  # Course Section Endpoints
+  # TODO: Create course-sections.yaml file
+  # /api/sections:
+  #   $ref: './paths/course-sections.yaml#/~1api~1sections'
+  # 
+  # /api/sections/{section_id}:
+  #   $ref: './paths/course-sections.yaml#/~1api~1sections~1%7Bsection_id%7D'
+  # 
+  # /api/courses/{course_id}/sections:
+  #   $ref: './paths/course-sections.yaml#/~1api~1courses~1%7Bcourse_id%7D~1sections'
+  
+  # Course Cross-Listing Endpoints
+  # TODO: Create course-cross-listing.yaml file
+  # /api/courses/cross-list:
+  #   $ref: './paths/course-cross-listing.yaml#/~1api~1courses~1cross-list'
+  # 
+  # /api/cross-listings/{group_id}:
+  #   $ref: './paths/course-cross-listing.yaml#/~1api~1cross-listings~1%7Bgroup_id%7D'
+  # 
+  # /api/courses/{course_id}/cross-listed:
+  #   $ref: './paths/course-cross-listing.yaml#/~1api~1courses~1%7Bcourse_id%7D~1cross-listed'
 
+  # System Endpoints
   /health:
     get:
       tags:
@@ -813,3 +823,104 @@ paths:
                   timestamp:
                     type: string
                     format: date-time
+
+  # Assignment Endpoints
+  /api/assignments:
+    $ref: './paths/assignments.yaml#/~1api~1assignments'
+  
+  /api/assignments/{assignment_id}:
+    $ref: './paths/assignments.yaml#/~1api~1assignments~1{assignment_id}'
+  
+  /api/assignments/{assignment_id}/submit:
+    $ref: './paths/submissions.yaml#/~1api~1assignments~1{assignment_id}~1submit'
+  
+  /api/assignments/{assignment_id}/submissions:
+    $ref: './paths/submissions.yaml#/~1api~1assignments~1{assignment_id}~1submissions'
+  
+  /api/submissions/{submission_id}:
+    $ref: './paths/submissions.yaml#/~1api~1submissions~1{submission_id}'
+  
+  /api/students/{student_id}/submissions:
+    $ref: './paths/submissions.yaml#/~1api~1students~1{student_id}~1submissions'
+  
+  /api/submissions/{submission_id}/grade:
+    $ref: './paths/grading.yaml#/~1api~1submissions~1{submission_id}~1grade'
+  
+  /api/grades/{grade_id}:
+    $ref: './paths/grading.yaml#/~1api~1grades~1{grade_id}'
+  
+  /api/grades/{grade_id}/publish:
+    $ref: './paths/grading.yaml#/~1api~1grades~1{grade_id}~1publish'
+  
+  /api/gradebook/student/{student_id}:
+    $ref: './paths/gradebook.yaml#/~1api~1gradebook~1student~1{student_id}'
+  
+  /api/gradebook/course/{course_id}:
+    $ref: './paths/gradebook.yaml#/~1api~1gradebook~1course~1{course_id}'
+  
+  /api/gradebook/statistics/{assignment_id}:
+    $ref: './paths/gradebook.yaml#/~1api~1gradebook~1statistics~1{assignment_id}'
+  
+  /api/gradebook/export/{course_id}:
+    $ref: './paths/gradebook.yaml#/~1api~1gradebook~1export~1{course_id}'
+
+  # Content Endpoints
+  /api/courses/{course_id}/modules:
+    $ref: './paths/content-modules.yaml#/~1api~1courses~1{course_id}~1modules'
+  
+  /api/modules/{module_id}:
+    $ref: './paths/content-modules.yaml#/~1api~1modules~1{module_id}'
+  
+  /api/courses/{course_id}/structure:
+    $ref: './paths/content-modules.yaml#/~1api~1courses~1{course_id}~1structure'
+  
+  /api/modules/{module_id}/lessons:
+    $ref: './paths/content-lessons.yaml#/~1api~1modules~1{module_id}~1lessons'
+  
+  /api/lessons/{lesson_id}:
+    $ref: './paths/content-lessons.yaml#/~1api~1lessons~1{lesson_id}'
+  
+  /api/lessons/{lesson_id}/resources:
+    $ref: './paths/content-resources.yaml#/~1api~1lessons~1{lesson_id}~1resources'
+  
+  /api/resources/{resource_id}:
+    $ref: './paths/content-resources.yaml#/~1api~1resources~1{resource_id}'
+  
+  /api/resources/{resource_id}/publish:
+    $ref: './paths/content-resources.yaml#/~1api~1resources~1{resource_id}~1publish'
+  
+  /api/resources/{resource_id}/unpublish:
+    $ref: './paths/content-resources.yaml#/~1api~1resources~1{resource_id}~1unpublish'
+  
+  /api/resources/{resource_id}/download:
+    $ref: './paths/content-resources.yaml#/~1api~1resources~1{resource_id}~1download'
+  
+  /api/upload/initiate:
+    $ref: './paths/content-upload.yaml#/~1api~1upload~1initiate'
+  
+  /api/upload/chunk:
+    $ref: './paths/content-upload.yaml#/~1api~1upload~1chunk'
+  
+  /api/upload/complete:
+    $ref: './paths/content-upload.yaml#/~1api~1upload~1complete'
+  
+  /api/upload/cancel:
+    $ref: './paths/content-upload.yaml#/~1api~1upload~1cancel'
+  
+  /api/streaming/manifest/{video_id}:
+    $ref: './paths/content-streaming.yaml#/~1api~1streaming~1manifest~1{video_id}'
+  
+  /api/streaming/playback/{video_id}:
+    $ref: './paths/content-streaming.yaml#/~1api~1streaming~1playback~1{video_id}'
+  
+  /api/progress/{resource_id}:
+    $ref: './paths/content-progress.yaml#/~1api~1progress~1{resource_id}'
+  
+  /api/progress/course/{course_id}:
+    $ref: './paths/content-progress.yaml#/~1api~1progress~1course~1{course_id}'
+  
+  /api/progress/report/{course_id}:
+    $ref: './paths/content-progress.yaml#/~1api~1progress~1report~1{course_id}'
+  
+  /api/search:
+    $ref: './paths/content-search.yaml#/~1api~1search'

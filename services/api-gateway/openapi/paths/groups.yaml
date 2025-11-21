@@ -1,0 +1,440 @@
+/api/groups:
+  post:
+    tags:
+      - Groups
+    summary: Create a group
+    description: |
+      Create a new user group within an organization.
+      Groups can be used to organize users for collaborative activities.
+    operationId: createGroup
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../openapi.yaml#/components/schemas/CreateGroupRequest'
+          example:
+            name: "CS101 Study Group"
+            description: "Study group for Computer Science 101"
+            organization_id: "org-123e4567-e89b-12d3-a456-426614174000"
+            created_by: "550e8400-e29b-41d4-a716-446655440000"
+    responses:
+      '201':
+        description: Group created successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                group:
+                  $ref: '../openapi.yaml#/components/schemas/Group'
+            example:
+              group:
+                id: "grp-123e4567-e89b-12d3-a456-426614174000"
+                name: "CS101 Study Group"
+                description: "Study group for Computer Science 101"
+                organization_id: "org-123e4567-e89b-12d3-a456-426614174000"
+                is_active: true
+                created_at: "2024-01-15T10:30:00Z"
+                updated_at: "2024-01-15T10:30:00Z"
+                created_by: "550e8400-e29b-41d4-a716-446655440000"
+      '400':
+        $ref: '../openapi.yaml#/components/responses/ValidationError'
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+
+  get:
+    tags:
+      - Groups
+    summary: List groups
+    description: |
+      Get a paginated list of groups within an organization.
+      Requires organization_id query parameter.
+    operationId: listGroups
+    parameters:
+      - name: organization_id
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Organization identifier
+        example: "org-123e4567-e89b-12d3-a456-426614174000"
+      - name: page
+        in: query
+        schema:
+          type: integer
+          default: 1
+        description: Page number
+        example: 1
+      - name: page_size
+        in: query
+        schema:
+          type: integer
+          default: 20
+          maximum: 100
+        description: Number of items per page
+        example: 20
+    responses:
+      '200':
+        description: List of groups
+        content:
+          application/json:
+            schema:
+              $ref: '../openapi.yaml#/components/schemas/ListGroupsResponse'
+            example:
+              groups:
+                - id: "grp-123e4567-e89b-12d3-a456-426614174000"
+                  name: "CS101 Study Group"
+                  description: "Study group for Computer Science 101"
+                  organization_id: "org-123e4567-e89b-12d3-a456-426614174000"
+                  is_active: true
+                  created_at: "2024-01-15T10:30:00Z"
+                  updated_at: "2024-01-15T10:30:00Z"
+                  created_by: "550e8400-e29b-41d4-a716-446655440000"
+              total: 42
+      '400':
+        $ref: '../openapi.yaml#/components/responses/ValidationError'
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+
+/api/groups/{group_id}:
+  get:
+    tags:
+      - Groups
+    summary: Get group by ID
+    description: Retrieve detailed information about a specific group
+    operationId: getGroup
+    parameters:
+      - name: group_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Group identifier
+        example: "grp-123e4567-e89b-12d3-a456-426614174000"
+    responses:
+      '200':
+        description: Group details
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                group:
+                  $ref: '../openapi.yaml#/components/schemas/Group'
+            example:
+              group:
+                id: "grp-123e4567-e89b-12d3-a456-426614174000"
+                name: "CS101 Study Group"
+                description: "Study group for Computer Science 101"
+                organization_id: "org-123e4567-e89b-12d3-a456-426614174000"
+                is_active: true
+                created_at: "2024-01-15T10:30:00Z"
+                updated_at: "2024-01-15T10:30:00Z"
+                created_by: "550e8400-e29b-41d4-a716-446655440000"
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'
+
+  put:
+    tags:
+      - Groups
+    summary: Update group
+    description: |
+      Update group information.
+      Only group owners or admins can update group details.
+    operationId: updateGroup
+    parameters:
+      - name: group_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Group identifier
+        example: "grp-123e4567-e89b-12d3-a456-426614174000"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../openapi.yaml#/components/schemas/UpdateGroupRequest'
+          example:
+            name: "CS101 Study Group - Updated"
+            description: "Updated study group description"
+            is_active: true
+    responses:
+      '200':
+        description: Group updated successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                group:
+                  $ref: '../openapi.yaml#/components/schemas/Group'
+            example:
+              group:
+                id: "grp-123e4567-e89b-12d3-a456-426614174000"
+                name: "CS101 Study Group - Updated"
+                description: "Updated study group description"
+                organization_id: "org-123e4567-e89b-12d3-a456-426614174000"
+                is_active: true
+                created_at: "2024-01-15T10:30:00Z"
+                updated_at: "2024-01-20T14:45:00Z"
+                created_by: "550e8400-e29b-41d4-a716-446655440000"
+      '400':
+        $ref: '../openapi.yaml#/components/responses/ValidationError'
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'
+
+  delete:
+    tags:
+      - Groups
+    summary: Delete group
+    description: |
+      Delete a group. This action is irreversible.
+      Only group owners or admins can delete groups.
+    operationId: deleteGroup
+    parameters:
+      - name: group_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Group identifier
+        example: "grp-123e4567-e89b-12d3-a456-426614174000"
+    responses:
+      '200':
+        description: Group deleted successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: "Group deleted successfully"
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'
+
+/api/groups/{group_id}/members:
+  post:
+    tags:
+      - Groups
+    summary: Add member to group
+    description: |
+      Add a user as a member of the group.
+      Requires owner or admin role in the group.
+    operationId: addGroupMember
+    parameters:
+      - name: group_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Group identifier
+        example: "grp-123e4567-e89b-12d3-a456-426614174000"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - user_id
+              - role
+            properties:
+              user_id:
+                type: string
+                format: uuid
+                description: User identifier to add
+                example: "550e8400-e29b-41d4-a716-446655440000"
+              role:
+                type: string
+                enum: [owner, admin, member]
+                description: Role within the group
+                example: "member"
+          example:
+            user_id: "550e8400-e29b-41d4-a716-446655440000"
+            role: "member"
+    responses:
+      '200':
+        description: Member added successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: "Member added successfully"
+      '400':
+        $ref: '../openapi.yaml#/components/responses/ValidationError'
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'
+      '409':
+        description: User is already a member
+        content:
+          application/json:
+            schema:
+              $ref: '../openapi.yaml#/components/schemas/Error'
+            example:
+              error: "User is already a member of this group"
+              code: "ALREADY_MEMBER"
+
+  get:
+    tags:
+      - Groups
+    summary: Get group members
+    description: Retrieve list of all members in a group
+    operationId: getGroupMembers
+    parameters:
+      - name: group_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Group identifier
+        example: "grp-123e4567-e89b-12d3-a456-426614174000"
+    responses:
+      '200':
+        description: List of group members
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                members:
+                  type: array
+                  items:
+                    $ref: '../openapi.yaml#/components/schemas/GroupMember'
+            example:
+              members:
+                - group_id: "grp-123e4567-e89b-12d3-a456-426614174000"
+                  user_id: "550e8400-e29b-41d4-a716-446655440000"
+                  role: "owner"
+                  joined_at: "2024-01-15T10:30:00Z"
+                  email: "owner@example.com"
+                  first_name: "John"
+                  last_name: "Doe"
+                - group_id: "grp-123e4567-e89b-12d3-a456-426614174000"
+                  user_id: "660e8400-e29b-41d4-a716-446655440001"
+                  role: "member"
+                  joined_at: "2024-01-16T11:00:00Z"
+                  email: "member@example.com"
+                  first_name: "Jane"
+                  last_name: "Smith"
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'
+
+/api/groups/{group_id}/members/{user_id}:
+  delete:
+    tags:
+      - Groups
+    summary: Remove member from group
+    description: |
+      Remove a user from the group.
+      Requires owner or admin role in the group.
+    operationId: removeGroupMember
+    parameters:
+      - name: group_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Group identifier
+        example: "grp-123e4567-e89b-12d3-a456-426614174000"
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: User identifier to remove
+        example: "550e8400-e29b-41d4-a716-446655440000"
+    responses:
+      '200':
+        description: Member removed successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: "Member removed successfully"
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'
+
+/api/users/{user_id}/groups:
+  get:
+    tags:
+      - Groups
+    summary: Get user's groups
+    description: Retrieve all groups that a user is a member of
+    operationId: getUserGroups
+    parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: User identifier
+        example: "550e8400-e29b-41d4-a716-446655440000"
+    responses:
+      '200':
+        description: List of user's groups
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                groups:
+                  type: array
+                  items:
+                    $ref: '../openapi.yaml#/components/schemas/Group'
+            example:
+              groups:
+                - id: "grp-123e4567-e89b-12d3-a456-426614174000"
+                  name: "CS101 Study Group"
+                  description: "Study group for Computer Science 101"
+                  organization_id: "org-123e4567-e89b-12d3-a456-426614174000"
+                  is_active: true
+                  created_at: "2024-01-15T10:30:00Z"
+                  updated_at: "2024-01-15T10:30:00Z"
+                  created_by: "550e8400-e29b-41d4-a716-446655440000"
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'

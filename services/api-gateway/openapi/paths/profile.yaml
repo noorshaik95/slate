@@ -1,0 +1,96 @@
+/api/profile:
+  get:
+    tags:
+      - Profile
+    summary: Get current user profile
+    description: Retrieve authenticated user's profile
+    responses:
+      '200':
+        description: User profile
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                profile:
+                  $ref: '../openapi.yaml#/components/schemas/Profile'
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+
+  put:
+    tags:
+      - Profile
+    summary: Update profile
+    description: Update authenticated user's profile
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              first_name:
+                type: string
+                example: "John"
+              last_name:
+                type: string
+                example: "Doe"
+              phone:
+                type: string
+                example: "+1234567890"
+              avatar_url:
+                type: string
+                format: uri
+                example: "https://example.com/avatars/user.jpg"
+              bio:
+                type: string
+                example: "Computer Science student interested in AI and machine learning"
+              timezone:
+                type: string
+                example: "America/New_York"
+                description: IANA timezone identifier
+    responses:
+      '200':
+        description: Profile updated
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                profile:
+                  $ref: '../openapi.yaml#/components/schemas/Profile'
+      '400':
+        $ref: '../openapi.yaml#/components/responses/ValidationError'
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+
+/api/profile/password:
+  post:
+    tags:
+      - Profile
+    summary: Change password
+    description: Change authenticated user's password
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - old_password
+              - new_password
+            properties:
+              old_password:
+                type: string
+                format: password
+              new_password:
+                type: string
+                format: password
+                minLength: 8
+    responses:
+      '200':
+        description: Password changed successfully
+      '400':
+        $ref: '../openapi.yaml#/components/responses/ValidationError'
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'

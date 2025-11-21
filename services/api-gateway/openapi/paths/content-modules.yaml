@@ -1,0 +1,161 @@
+/api/courses/{course_id}/modules:
+  get:
+    tags:
+      - Content
+    summary: List modules for a course
+    parameters:
+      - name: course_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        description: List of modules
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                modules:
+                  type: array
+                  items:
+                    $ref: '../schemas/content-management-schemas.yaml#/components/schemas/Module'
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+
+  post:
+    tags:
+      - Content
+    summary: Create a new module
+    parameters:
+      - name: course_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/content-management-schemas.yaml#/components/schemas/CreateModuleRequest'
+    responses:
+      '201':
+        description: Module created
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/content-management-schemas.yaml#/components/schemas/Module'
+      '400':
+        $ref: '../openapi.yaml#/components/responses/ValidationError'
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+
+/api/modules/{module_id}:
+  get:
+    tags:
+      - Content
+    summary: Get module details
+    parameters:
+      - name: module_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        description: Module details
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/content-management-schemas.yaml#/components/schemas/Module'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+
+  put:
+    tags:
+      - Content
+    summary: Update a module
+    parameters:
+      - name: module_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../schemas/content-management-schemas.yaml#/components/schemas/UpdateModuleRequest'
+    responses:
+      '200':
+        description: Module updated
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/content-management-schemas.yaml#/components/schemas/Module'
+      '400':
+        $ref: '../openapi.yaml#/components/responses/ValidationError'
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'
+
+  delete:
+    tags:
+      - Content
+    summary: Delete a module
+    parameters:
+      - name: module_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '204':
+        description: Module deleted
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'
+
+/api/courses/{course_id}/structure:
+  get:
+    tags:
+      - Content
+    summary: Get full course content structure
+    parameters:
+      - name: course_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        description: Course content structure
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/content-management-schemas.yaml#/components/schemas/ContentStructure'
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'

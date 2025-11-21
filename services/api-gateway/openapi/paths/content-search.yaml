@@ -1,0 +1,37 @@
+/api/search:
+  get:
+    tags:
+      - Search
+    summary: Search content
+    parameters:
+      - name: query
+        in: query
+        required: true
+        schema:
+          type: string
+      - name: course_id
+        in: query
+        schema:
+          type: string
+          format: uuid
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 20
+    responses:
+      '200':
+        description: Search results
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                results:
+                  type: array
+                  items:
+                    $ref: '../schemas/content-management-schemas.yaml#/components/schemas/SearchResult'
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'

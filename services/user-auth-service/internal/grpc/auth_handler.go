@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"time"
 
 	pb "slate/services/user-auth-service/api/proto"
 	authpb "slate/services/user-auth-service/api/proto/authpb"
@@ -50,3 +51,13 @@ func (s *AuthServiceServer) ValidateToken(ctx context.Context, req *authpb.Valid
 
 	return authResp, nil
 }
+
+// HealthCheck returns the health status of the auth service
+func (s *AuthServiceServer) HealthCheck(ctx context.Context, req *authpb.HealthCheckRequest) (*authpb.HealthCheckResponse, error) {
+	return &authpb.HealthCheckResponse{
+		Status:    "healthy",
+		Service:   "user-auth-service",
+		Timestamp: time.Now().Format(time.RFC3339),
+	}, nil
+}
+

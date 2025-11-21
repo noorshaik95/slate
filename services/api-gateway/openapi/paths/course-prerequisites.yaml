@@ -1,0 +1,339 @@
+# Course Prerequisite Endpoints
+
+/api/courses/{course_id}/prerequisites:
+  post:
+    tags:
+      - Courses
+    summary: Add prerequisite to course
+    description: |
+      Add a prerequisite course requirement to a course.
+      
+      **Prerequisites:**
+      - Courses that must be completed before enrolling
+      - Enforced during student self-enrollment
+      - Can be bypassed by instructor/admin enrollment
+      
+      **Authorization:**
+      - Instructors can add prerequisites to courses they teach
+      - Co-instructors can add prerequisites to courses they co-teach
+      - Admins can add prerequisites to any course
+      
+      **Business Rules:**
+      - Prerequisite course must exist
+      - Cannot create circular prerequisites (A requires B, B requires A)
+      - Cannot add duplicate prerequisites
+      - Prerequisites are checked during self-enrollment
+      - Instructor/admin enrollment bypasses prerequisite checks
+      
+      **Use Cases:**
+      - Define course sequence (CS101 before CS102)
+      - Ensure students have required knowledge
+      - Create curriculum pathways
+    operationId: addPrerequisite
+    parameters:
+      - name: course_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Course ID to add prerequisite to
+        example: "c7f8e9d0-1234-5678-90ab-cdef12345678"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - prerequisite_course_id
+            properties:
+              prerequisite_course_id:
+                type: string
+                format: uuid
+                description: ID of the prerequisite course
+                example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+          example:
+            prerequisite_course_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+    responses:
+      '200':
+        description: Prerequisite added successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                course:
+                  $ref: '../openapi.yaml#/components/schemas/Course'
+            example:
+              course:
+                id: "c7f8e9d0-1234-5678-90ab-cdef12345678"
+                title: "Advanced Computer Science"
+                description: "Advanced topics in computer science"
+                term: "Fall 2024"
+                syllabus: "Week 1: Advanced Algorithms"
+                instructor_id: "550e8400-e29b-41d4-a716-446655440000"
+                co_instructor_ids: []
+                is_published: true
+                prerequisite_course_ids: ["a1b2c3d4-e5f6-7890-abcd-ef1234567890"]
+                template_id: null
+                cross_listing_group_id: null
+                created_at: "2024-01-15T10:30:00Z"
+                updated_at: "2024-01-22T14:00:00Z"
+                metadata:
+                  max_students: 30
+                  department: "Computer Science"
+                  course_code: "CS201"
+                  credits: 3
+                  tags: ["advanced", "algorithms"]
+      '400':
+        description: Invalid prerequisite
+        content:
+          application/json:
+            schema:
+              $ref: '../openapi.yaml#/components/schemas/Error'
+            examples:
+              circular_dependency:
+                value:
+                  error: "Cannot add prerequisite - would create circular dependency"
+                  code: "CIRCULAR_PREREQUISITE"
+              duplicate:
+                value:
+                  error: "Prerequisite already exists"
+                  code: "DUPLICATE_PREREQUISITE"
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '404':
+        description: Course or prerequisite course not found
+        content:
+          application/json:
+            schema:
+              $ref: '../openapi.yaml#/components/schemas/Error'
+            example:
+              error: "Prerequisite course not found"
+              code: "NOT_FOUND"
+      '429':
+        $ref: '../openapi.yaml#/components/responses/RateLimitError'
+
+/api/courses/{course_id}/prerequisites/{prerequisite_id}:
+  delete:
+    tags:
+      - Courses
+    summary: Remove prerequisite from course
+    description: |
+      Remove a prerequisite requirement from a course.
+      
+      **Removal Effects:**
+      - Prerequisite is no longer required for enrollment
+      - Does not affect existing enrollments
+      - Students can now enroll without completing the prerequisite
+      
+      **Authorization:**
+      - Instructors can remove prerequisites from courses they teach
+      - Co-instructors can remove prerequisites from courses they co-teach
+      - Admins can remove prerequisites from any course
+      
+      **Business Rules:**
+      - Prerequisite must exist on the course
+      - Removal is immediate
+      - Does not affect students already enrolled
+      
+      **Use Cases:**
+      - Remove outdated prerequisite requirements
+      - Adjust course requirements
+      - Open course to more students
+    operationId: removePrerequisite
+    parameters:
+      - name: course_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Course ID to remove prerequisite from
+        example: "c7f8e9d0-1234-5678-90ab-cdef12345678"
+      - name: prerequisite_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Prerequisite course ID to remove
+        example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+    responses:
+      '200':
+        description: Prerequisite removed successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                course:
+                  $ref: '../openapi.yaml#/components/schemas/Course'
+            example:
+              course:
+                id: "c7f8e9d0-1234-5678-90ab-cdef12345678"
+                title: "Advanced Computer Science"
+                description: "Advanced topics in computer science"
+                term: "Fall 2024"
+                syllabus: "Week 1: Advanced Algorithms"
+                instructor_id: "550e8400-e29b-41d4-a716-446655440000"
+                co_instructor_ids: []
+                is_published: true
+                prerequisite_course_ids: []
+                template_id: null
+                cross_listing_group_id: null
+                created_at: "2024-01-15T10:30:00Z"
+                updated_at: "2024-01-22T15:00:00Z"
+                metadata:
+                  max_students: 30
+                  department: "Computer Science"
+                  course_code: "CS201"
+                  credits: 3
+                  tags: ["advanced", "algorithms"]
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '404':
+        description: Course or prerequisite not found
+        content:
+          application/json:
+            schema:
+              $ref: '../openapi.yaml#/components/schemas/Error'
+            example:
+              error: "Prerequisite not found on course"
+              code: "NOT_FOUND"
+      '429':
+        $ref: '../openapi.yaml#/components/responses/RateLimitError'
+
+/api/courses/{course_id}/prerequisites/check:
+  post:
+    tags:
+      - Courses
+    summary: Check if student meets prerequisites
+    description: |
+      Check if a student has completed all prerequisite courses for a course.
+      
+      **Prerequisite Check:**
+      - Verifies student has completed all required prerequisites
+      - Returns list of missing prerequisites if any
+      - Includes course details for missing prerequisites
+      
+      **Check Logic:**
+      - Student must have COMPLETED status in prerequisite courses
+      - ACTIVE or DROPPED enrollments do not count
+      - Returns detailed information about missing prerequisites
+      
+      **Authorization:**
+      - Students can check their own prerequisites
+      - Instructors can check prerequisites for any student
+      - Admins can check prerequisites for any student
+      
+      **Use Cases:**
+      - Verify eligibility before enrollment
+      - Display prerequisite status to students
+      - Provide guidance on required courses
+      - Automated enrollment validation
+      
+      **Response:**
+      - has_prerequisites: boolean indicating if all prerequisites are met
+      - missing_prerequisite_ids: array of course IDs not completed
+      - missing_prerequisites: array of full course objects for missing prerequisites
+    operationId: checkPrerequisites
+    parameters:
+      - name: course_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Course ID to check prerequisites for
+        example: "c7f8e9d0-1234-5678-90ab-cdef12345678"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - student_id
+            properties:
+              student_id:
+                type: string
+                format: uuid
+                description: Student user ID to check prerequisites for
+                example: "550e8400-e29b-41d4-a716-446655440000"
+          example:
+            student_id: "550e8400-e29b-41d4-a716-446655440000"
+    responses:
+      '200':
+        description: Prerequisite check completed
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                has_prerequisites:
+                  type: boolean
+                  description: True if all prerequisites are met
+                  example: false
+                missing_prerequisite_ids:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  description: Array of missing prerequisite course IDs
+                  example: ["a1b2c3d4-e5f6-7890-abcd-ef1234567890"]
+                missing_prerequisites:
+                  type: array
+                  items:
+                    $ref: '../openapi.yaml#/components/schemas/Course'
+                  description: Array of full course objects for missing prerequisites
+            examples:
+              prerequisites_not_met:
+                value:
+                  has_prerequisites: false
+                  missing_prerequisite_ids: ["a1b2c3d4-e5f6-7890-abcd-ef1234567890"]
+                  missing_prerequisites:
+                    - id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                      title: "Introduction to Computer Science"
+                      description: "Foundational CS course"
+                      term: "Spring 2024"
+                      syllabus: "Week 1: Basics"
+                      instructor_id: "660e8400-e29b-41d4-a716-446655440001"
+                      co_instructor_ids: []
+                      is_published: true
+                      prerequisite_course_ids: []
+                      template_id: null
+                      cross_listing_group_id: null
+                      created_at: "2024-01-01T10:00:00Z"
+                      updated_at: "2024-01-10T10:00:00Z"
+                      metadata:
+                        max_students: 30
+                        department: "Computer Science"
+                        course_code: "CS101"
+                        credits: 3
+                        tags: ["introductory"]
+              prerequisites_met:
+                value:
+                  has_prerequisites: true
+                  missing_prerequisite_ids: []
+                  missing_prerequisites: []
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '404':
+        description: Course or student not found
+        content:
+          application/json:
+            schema:
+              $ref: '../openapi.yaml#/components/schemas/Error'
+            example:
+              error: "Course not found"
+              code: "NOT_FOUND"
+      '429':
+        $ref: '../openapi.yaml#/components/responses/RateLimitError'

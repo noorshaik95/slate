@@ -1,0 +1,134 @@
+/api/users/{user_id}/roles:
+  get:
+    tags:
+      - Roles
+    summary: Get user roles
+    description: Retrieve roles assigned to a user
+    parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        description: User roles
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                roles:
+                  type: array
+                  items:
+                    type: string
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'
+
+  post:
+    tags:
+      - Roles
+    summary: Assign role
+    description: Assign a role to a user (admin only)
+    parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - role
+            properties:
+              role:
+                type: string
+                enum: [user, admin, moderator]
+    responses:
+      '200':
+        description: Role assigned
+      '400':
+        $ref: '../openapi.yaml#/components/responses/ValidationError'
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'
+
+  delete:
+    tags:
+      - Roles
+    summary: Remove role
+    description: Remove a role from a user (admin only)
+    parameters:
+      - name: user_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - role
+            properties:
+              role:
+                type: string
+    responses:
+      '200':
+        description: Role removed
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'
+
+/api/permissions/check:
+  post:
+    tags:
+      - Roles
+    summary: Check permission
+    description: Check if user has a specific permission
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - user_id
+              - permission
+            properties:
+              user_id:
+                type: string
+                format: uuid
+              permission:
+                type: string
+    responses:
+      '200':
+        description: Permission check result
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                has_permission:
+                  type: boolean
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'

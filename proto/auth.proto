@@ -6,6 +6,7 @@ option go_package = "slate/services/user-auth-service/api/proto/authpb";
 
 service AuthService {
   rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
 }
 
 message ValidateTokenRequest {
@@ -17,4 +18,12 @@ message ValidateTokenResponse {
   string user_id = 2;
   repeated string roles = 3;
   string error = 4;
+}
+
+message HealthCheckRequest {}
+
+message HealthCheckResponse {
+  string status = 1;
+  string service = 2;
+  string timestamp = 3;
 }

@@ -1,0 +1,93 @@
+/api/progress/{resource_id}:
+  post:
+    tags:
+      - Progress
+    summary: Mark resource as complete/incomplete
+    parameters:
+      - name: resource_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              completed:
+                type: boolean
+    responses:
+      '204':
+        description: Progress updated
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+      '404':
+        $ref: '../openapi.yaml#/components/responses/NotFoundError'
+
+/api/progress/course/{course_id}:
+  get:
+    tags:
+      - Progress
+    summary: Get course progress
+    parameters:
+      - name: course_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        description: Course progress
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/content-management-schemas.yaml#/components/schemas/ProgressResponse'
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+
+/api/progress/report/{course_id}:
+  get:
+    tags:
+      - Progress
+    summary: Get progress report (Instructor/Admin)
+    parameters:
+      - name: course_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: start_date
+        in: query
+        schema:
+          type: string
+          format: date
+      - name: end_date
+        in: query
+        schema:
+          type: string
+          format: date
+      - name: completion_status
+        in: query
+        schema:
+          type: string
+          enum: [all, completed, incomplete]
+    responses:
+      '200':
+        description: Progress report
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/content-management-schemas.yaml#/components/schemas/ProgressReport'
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'

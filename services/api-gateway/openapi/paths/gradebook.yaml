@@ -1,0 +1,111 @@
+/api/gradebook/student/{student_id}:
+  get:
+    tags:
+      - Gradebook
+    summary: Get student gradebook
+    parameters:
+      - name: student_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: course_id
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        description: Student gradebook
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/assignment-grading-schemas.yaml#/components/schemas/GetStudentGradebookResponse'
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+
+/api/gradebook/course/{course_id}:
+  get:
+    tags:
+      - Gradebook
+    summary: Get course gradebook
+    parameters:
+      - name: course_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        description: Course gradebook
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/assignment-grading-schemas.yaml#/components/schemas/GetCourseGradebookResponse'
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+
+/api/gradebook/statistics/{assignment_id}:
+  get:
+    tags:
+      - Gradebook
+    summary: Get assignment statistics
+    parameters:
+      - name: assignment_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      '200':
+        description: Assignment statistics
+        content:
+          application/json:
+            schema:
+              $ref: '../schemas/assignment-grading-schemas.yaml#/components/schemas/GradeStatistics'
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
+
+/api/gradebook/export/{course_id}:
+  get:
+    tags:
+      - Gradebook
+    summary: Export grades
+    parameters:
+      - name: course_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: format
+        in: query
+        schema:
+          type: string
+          enum: [csv, json]
+          default: csv
+    responses:
+      '200':
+        description: Exported grades
+        content:
+          text/csv:
+            schema:
+              type: string
+              format: binary
+          application/json:
+            schema:
+              type: object
+      '401':
+        $ref: '../openapi.yaml#/components/responses/UnauthorizedError'
+      '403':
+        $ref: '../openapi.yaml#/components/responses/ForbiddenError'
