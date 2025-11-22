@@ -26,7 +26,7 @@ import configuration from './config/configuration';
           connection.on('connected', () => {
             console.log('MongoDB connected successfully');
           });
-          connection.on('error', (error) => {
+          connection.on('error', (error: Error) => {
             console.error('MongoDB connection error:', error);
           });
           return connection;

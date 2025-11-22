@@ -11,6 +11,7 @@ use std::time::{Duration, Instant};
 use tracing::{debug, error, info, warn};
 
 use crate::auth::middleware::AuthContext;
+use crate::observability::extract_trace_id_from_span;
 use crate::rate_limit::RateLimiter;
 use crate::shared::state::AppState;
 
@@ -20,15 +21,13 @@ use super::types::{GatewayError, map_grpc_error_to_status};
 /// Main gateway handler with timeout wrapper
 ///
 /// Wraps the actual handler with a configurable timeout to prevent hanging requests
+#[tracing::instrument(name = "gateway_handler",skip(state,headers,request))]
 pub async fn gateway_handler(
     State(state): State<Arc<AppState>>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
     request: Request<Body>,
 ) -> Response {
-    // Extract trace ID from request before processing
-    let trace_id = super::error::extract_trace_id(&request);
-    
     let timeout_duration = Duration::from_millis(state.config.server.request_timeout_ms);
 
     let start = Instant::now();
@@ -38,6 +37,8 @@ pub async fn gateway_handler(
     ).await {
         Ok(result) => result,
         Err(_) => {
+            // Extract trace ID from OpenTelemetry span for timeout error logging
+            let trace_id = extract_trace_id_from_span();
             let duration_ms = start.elapsed().as_millis();
             error!(
                 timeout_ms = ?timeout_duration.as_millis(),
@@ -50,10 +51,11 @@ pub async fn gateway_handler(
         }
     };
 
-    // Convert result to response with trace ID
+    // Convert result to response with trace ID from OpenTelemetry span
     match result {
         Ok(response) => {
             // Add trace ID header to successful responses
+            let trace_id = extract_trace_id_from_span();
             let (mut parts, body) = response.into_parts();
             if let Ok(header_value) = trace_id.parse() {
                 parts.headers.insert("x-trace-id", header_value);
@@ -61,7 +63,8 @@ pub async fn gateway_handler(
             Response::from_parts(parts, body)
         }
         Err(error) => {
-            // Convert error to response with trace ID
+            // Convert error to response with trace ID from OpenTelemetry span
+            let trace_id = extract_trace_id_from_span();
             error.into_response_with_trace_id(trace_id)
         }
     }
@@ -79,6 +82,7 @@ pub async fn gateway_handler(
 /// 7. Converts gRPC response to HTTP
 /// 8. Handles errors and maps to appropriate HTTP status codes
 /// 9. Emits traces and metrics
+#[tracing::instrument(name = "gateway_handler_inner",skip(state,addr,headers,request))]
 async fn gateway_handler_inner(
     State(state): State<Arc<AppState>>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
@@ -89,8 +93,8 @@ async fn gateway_handler_inner(
     let path = request.uri().path().to_string();
     let method = request.method().as_str().to_string();
     
-    // Extract trace ID for logging
-    let trace_id = super::error::extract_trace_id(&request);
+    // Extract trace ID from OpenTelemetry span for consistent logging
+    let trace_id = extract_trace_id_from_span();
     
     info!(
         path = %path,
@@ -160,6 +164,7 @@ async fn gateway_handler_inner(
         service = %routing_decision.service,
         grpc_method = %routing_decision.grpc_method,
         path_params = ?routing_decision.path_params,
+        trace_id = %trace_id,
         "Request routed to backend service"
     );
 
@@ -214,6 +219,7 @@ async fn gateway_handler_inner(
         service = %routing_decision.service,
         grpc_method = %routing_decision.grpc_method,
         payload_size = grpc_request.len(),
+        trace_id = %trace_id,
         "Calling backend service via gRPC"
     );
 
@@ -251,6 +257,7 @@ async fn gateway_handler_inner(
                     grpc_method = %routing_decision.grpc_method,
                     path = %path,
                     method = %method,
+                    trace_id = %trace_id,
                     duration_ms = %duration_ms,
                     error_type = "grpc_error",
                     error = %e,
@@ -277,6 +284,7 @@ async fn gateway_handler_inner(
             Err(e) => {
                 error!(
                     service = %routing_decision.service,
+                    trace_id = %trace_id,
                     grpc_method = %routing_decision.grpc_method,
                     error = %e,
                     "Backend service call failed"
@@ -298,8 +306,9 @@ async fn gateway_handler_inner(
         }
     };
 
-    debug!(
+    info!(
         service = %routing_decision.service,
+        trace_id = %trace_id,
         response_size = grpc_response.len(),
         "Received response from backend service"
     );

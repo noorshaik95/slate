@@ -2,6 +2,7 @@ auth_enabled: false
 
 server:
   http_listen_port: 3100
+  log_level: warn  # Only log warnings and errors to reduce verbosity
 
 common:
   path_prefix: /loki

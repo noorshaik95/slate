@@ -3,6 +3,7 @@ package tracing
 import (
 	"context"
 	"slate/services/user-auth-service/pkg/logger"
+	"unicode/utf8"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -15,10 +16,53 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// LoggingUnaryInterceptor logs incoming gRPC metadata and trace context for debugging
-func LoggingUnaryInterceptor() grpc.UnaryServerInterceptor {
-	log := logger.NewLogger("debug")
+const (
+	// maxMetadataValueLength is the maximum length for metadata values before truncation
+	maxMetadataValueLength = 1000
+)
 
+// sanitizeMetadataValue ensures metadata values are safe to log by:
+// - Truncating long values to prevent log bloat
+// - Validating UTF-8 encoding
+// - Handling nil/empty values gracefully
+//
+// Zerolog handles JSON escaping automatically, but we validate the input
+// to ensure it's valid UTF-8 and not excessively long.
+func sanitizeMetadataValue(value string) string {
+	// Handle empty values
+	if value == "" {
+		return ""
+	}
+
+	// Validate UTF-8 encoding
+	if !utf8.ValidString(value) {
+		return "[invalid UTF-8]"
+	}
+
+	// Truncate if too long
+	if len(value) > maxMetadataValueLength {
+		return value[:maxMetadataValueLength] + "...[truncated]"
+	}
+
+	return value
+}
+
+// sanitizeMetadataValues sanitizes all values in a metadata slice
+func sanitizeMetadataValues(values []string) []string {
+	if len(values) == 0 {
+		return values
+	}
+
+	sanitized := make([]string, len(values))
+	for i, v := range values {
+		sanitized[i] = sanitizeMetadataValue(v)
+	}
+	return sanitized
+}
+
+// LoggingUnaryInterceptor logs incoming gRPC metadata and trace context for debugging.
+// It accepts a logger instance to respect the global log level configuration.
+func LoggingUnaryInterceptor(log *logger.Logger) grpc.UnaryServerInterceptor {
 	return func(
 		ctx context.Context,
 		req any,
@@ -33,10 +77,11 @@ func LoggingUnaryInterceptor() grpc.UnaryServerInterceptor {
 				Int("metadata_keys", len(md)).
 				Msg("gRPC interceptor called")
 
-			// Log trace-related headers
+			// Log trace-related headers with sanitization
 			if traceparent := md.Get("traceparent"); len(traceparent) > 0 {
+				sanitizedValues := sanitizeMetadataValues(traceparent)
 				log.Debug().
-					Str("traceparent", traceparent[0]).
+					Str("traceparent", sanitizedValues[0]).
 					Msg("Traceparent header found")
 			} else {
 				log.Warn().
@@ -45,8 +90,9 @@ func LoggingUnaryInterceptor() grpc.UnaryServerInterceptor {
 			}
 
 			if tracestate := md.Get("tracestate"); len(tracestate) > 0 {
+				sanitizedValues := sanitizeMetadataValues(tracestate)
 				log.Debug().
-					Str("tracestate", tracestate[0]).
+					Str("tracestate", sanitizedValues[0]).
 					Msg("Tracestate header found")
 			}
 		} else {

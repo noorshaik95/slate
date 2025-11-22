@@ -21,7 +21,7 @@ func NewSubmissionServiceServer(svc service.SubmissionService) *SubmissionServic
 
 // SubmitAssignment accepts a student submission with file content
 func (s *SubmissionServiceServer) SubmitAssignment(ctx context.Context, req *pb.SubmitAssignmentRequest) (*pb.SubmitAssignmentResponse, error) {
-	log.Info().
+	log.WithContext(ctx).
 		Str("assignment_id", req.AssignmentId).
 		Str("student_id", req.StudentId).
 		Str("file_name", req.FileName).
@@ -38,7 +38,7 @@ func (s *SubmissionServiceServer) SubmitAssignment(ctx context.Context, req *pb.
 	)
 
 	if err != nil {
-		log.Error().
+		log.ErrorWithContext(ctx).
 			Err(err).
 			Str("assignment_id", req.AssignmentId).
 			Str("student_id", req.StudentId).
@@ -46,7 +46,7 @@ func (s *SubmissionServiceServer) SubmitAssignment(ctx context.Context, req *pb.
 		return nil, mapError(err)
 	}
 
-	log.Info().
+	log.WithContext(ctx).
 		Str("submission_id", submission.ID).
 		Str("assignment_id", req.AssignmentId).
 		Str("student_id", req.StudentId).
@@ -60,20 +60,20 @@ func (s *SubmissionServiceServer) SubmitAssignment(ctx context.Context, req *pb.
 
 // GetSubmission retrieves a submission by ID
 func (s *SubmissionServiceServer) GetSubmission(ctx context.Context, req *pb.GetSubmissionRequest) (*pb.GetSubmissionResponse, error) {
-	log.Info().
+	log.WithContext(ctx).
 		Str("submission_id", req.Id).
 		Msg("GetSubmission called")
 
 	submission, err := s.service.GetSubmission(ctx, req.Id)
 	if err != nil {
-		log.Error().
+		log.ErrorWithContext(ctx).
 			Err(err).
 			Str("submission_id", req.Id).
 			Msg("Failed to get submission")
 		return nil, mapError(err)
 	}
 
-	log.Info().
+	log.WithContext(ctx).
 		Str("submission_id", submission.ID).
 		Msg("Submission retrieved successfully")
 
@@ -84,7 +84,7 @@ func (s *SubmissionServiceServer) GetSubmission(ctx context.Context, req *pb.Get
 
 // ListSubmissions lists all submissions for an assignment with sorting
 func (s *SubmissionServiceServer) ListSubmissions(ctx context.Context, req *pb.ListSubmissionsRequest) (*pb.ListSubmissionsResponse, error) {
-	log.Info().
+	log.WithContext(ctx).
 		Str("assignment_id", req.AssignmentId).
 		Str("sort_by", req.SortBy).
 		Str("order", req.Order).
@@ -98,7 +98,7 @@ func (s *SubmissionServiceServer) ListSubmissions(ctx context.Context, req *pb.L
 	)
 
 	if err != nil {
-		log.Error().
+		log.ErrorWithContext(ctx).
 			Err(err).
 			Str("assignment_id", req.AssignmentId).
 			Msg("Failed to list submissions")
@@ -111,7 +111,7 @@ func (s *SubmissionServiceServer) ListSubmissions(ctx context.Context, req *pb.L
 		protoSubmissions = append(protoSubmissions, submissionToProto(submission))
 	}
 
-	log.Info().
+	log.WithContext(ctx).
 		Str("assignment_id", req.AssignmentId).
 		Int("count", len(submissions)).
 		Msg("Submissions listed successfully")
@@ -123,7 +123,7 @@ func (s *SubmissionServiceServer) ListSubmissions(ctx context.Context, req *pb.L
 
 // ListStudentSubmissions lists all submissions by a student for a course
 func (s *SubmissionServiceServer) ListStudentSubmissions(ctx context.Context, req *pb.ListStudentSubmissionsRequest) (*pb.ListStudentSubmissionsResponse, error) {
-	log.Info().
+	log.WithContext(ctx).
 		Str("student_id", req.StudentId).
 		Str("course_id", req.CourseId).
 		Msg("ListStudentSubmissions called")
@@ -135,7 +135,7 @@ func (s *SubmissionServiceServer) ListStudentSubmissions(ctx context.Context, re
 	)
 
 	if err != nil {
-		log.Error().
+		log.ErrorWithContext(ctx).
 			Err(err).
 			Str("student_id", req.StudentId).
 			Str("course_id", req.CourseId).
@@ -149,7 +149,7 @@ func (s *SubmissionServiceServer) ListStudentSubmissions(ctx context.Context, re
 		protoSubmissions = append(protoSubmissions, submissionToProto(submission))
 	}
 
-	log.Info().
+	log.WithContext(ctx).
 		Str("student_id", req.StudentId).
 		Str("course_id", req.CourseId).
 		Int("count", len(submissions)).

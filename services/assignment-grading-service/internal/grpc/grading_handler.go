@@ -21,7 +21,7 @@ func NewGradingServiceServer(svc service.GradingService) *GradingServiceServer {
 
 // CreateGrade creates a draft grade with score and feedback
 func (s *GradingServiceServer) CreateGrade(ctx context.Context, req *pb.CreateGradeRequest) (*pb.CreateGradeResponse, error) {
-	log.Info().
+	log.WithContext(ctx).
 		Str("submission_id", req.SubmissionId).
 		Float64("score", req.Score).
 		Str("graded_by", req.GradedBy).
@@ -37,14 +37,14 @@ func (s *GradingServiceServer) CreateGrade(ctx context.Context, req *pb.CreateGr
 	)
 
 	if err != nil {
-		log.Error().
+		log.ErrorWithContext(ctx).
 			Err(err).
 			Str("submission_id", req.SubmissionId).
 			Msg("Failed to create grade")
 		return nil, mapError(err)
 	}
 
-	log.Info().
+	log.WithContext(ctx).
 		Str("grade_id", grade.ID).
 		Str("submission_id", req.SubmissionId).
 		Float64("score", grade.Score).
@@ -58,7 +58,7 @@ func (s *GradingServiceServer) CreateGrade(ctx context.Context, req *pb.CreateGr
 
 // UpdateGrade updates a draft grade's score and feedback
 func (s *GradingServiceServer) UpdateGrade(ctx context.Context, req *pb.UpdateGradeRequest) (*pb.UpdateGradeResponse, error) {
-	log.Info().
+	log.WithContext(ctx).
 		Str("grade_id", req.Id).
 		Float64("score", req.Score).
 		Msg("UpdateGrade called")
@@ -72,14 +72,14 @@ func (s *GradingServiceServer) UpdateGrade(ctx context.Context, req *pb.UpdateGr
 	)
 
 	if err != nil {
-		log.Error().
+		log.ErrorWithContext(ctx).
 			Err(err).
 			Str("grade_id", req.Id).
 			Msg("Failed to update grade")
 		return nil, mapError(err)
 	}
 
-	log.Info().
+	log.WithContext(ctx).
 		Str("grade_id", grade.ID).
 		Float64("score", grade.Score).
 		Float64("adjusted_score", grade.AdjustedScore).
@@ -92,21 +92,21 @@ func (s *GradingServiceServer) UpdateGrade(ctx context.Context, req *pb.UpdateGr
 
 // PublishGrade publishes a grade to make it visible to students
 func (s *GradingServiceServer) PublishGrade(ctx context.Context, req *pb.PublishGradeRequest) (*pb.PublishGradeResponse, error) {
-	log.Info().
+	log.WithContext(ctx).
 		Str("grade_id", req.Id).
 		Msg("PublishGrade called")
 
 	// Call service layer (updates status and published_at timestamp)
 	grade, err := s.service.PublishGrade(ctx, req.Id)
 	if err != nil {
-		log.Error().
+		log.ErrorWithContext(ctx).
 			Err(err).
 			Str("grade_id", req.Id).
 			Msg("Failed to publish grade")
 		return nil, mapError(err)
 	}
 
-	log.Info().
+	log.WithContext(ctx).
 		Str("grade_id", grade.ID).
 		Str("status", grade.Status).
 		Msg("Grade published successfully")
@@ -118,20 +118,20 @@ func (s *GradingServiceServer) PublishGrade(ctx context.Context, req *pb.Publish
 
 // GetGrade retrieves a grade by ID
 func (s *GradingServiceServer) GetGrade(ctx context.Context, req *pb.GetGradeRequest) (*pb.GetGradeResponse, error) {
-	log.Info().
+	log.WithContext(ctx).
 		Str("grade_id", req.Id).
 		Msg("GetGrade called")
 
 	grade, err := s.service.GetGrade(ctx, req.Id)
 	if err != nil {
-		log.Error().
+		log.ErrorWithContext(ctx).
 			Err(err).
 			Str("grade_id", req.Id).
 			Msg("Failed to get grade")
 		return nil, mapError(err)
 	}
 
-	log.Info().
+	log.WithContext(ctx).
 		Str("grade_id", grade.ID).
 		Msg("Grade retrieved successfully")
 

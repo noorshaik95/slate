@@ -1,4 +1,55 @@
-use tracing::{span, Level, Span};
+use tracing::{span, Level, Span, warn};
+use tracing_opentelemetry::OpenTelemetrySpanExt;
+use opentelemetry::trace::TraceContextExt;
+
+/// Extract trace ID from the current OpenTelemetry span
+///
+/// Returns the trace ID as a hex string (32 characters) from the current span context.
+/// If no span is active or trace ID is invalid, generates a UUID as fallback.
+///
+/// # Examples
+///
+/// ```
+/// use crate::observability::tracing_utils::extract_trace_id_from_span;
+///
+/// let trace_id = extract_trace_id_from_span();
+/// info!(trace_id = %trace_id, "Processing request");
+/// ```
+///
+/// # Fallback Behavior
+///
+/// This function will generate a UUID v4 as fallback in the following cases:
+/// - No active OpenTelemetry span exists
+/// - The span context has an invalid trace ID (all zeros)
+/// - Any error occurs during trace ID extraction
+///
+/// A warning is logged when fallback is used to help with debugging.
+pub fn extract_trace_id_from_span() -> String {
+    let current_span = tracing::Span::current();
+    let context = current_span.context();
+    let span_ref = context.span();
+    let span_context = span_ref.span_context();
+    
+    // Check if we have a valid trace ID
+    let trace_id = span_context.trace_id();
+    
+    // OpenTelemetry trace ID is invalid if it's all zeros or empty
+    let trace_id_str = trace_id.to_string();
+    if !trace_id_str.is_empty() && trace_id_str != "00000000000000000000000000000000" {
+        // Convert trace ID to lowercase hex string (32 characters)
+        trace_id_str
+    } else {
+        // Generate fallback UUID
+        let fallback_trace_id = uuid::Uuid::new_v4().to_string();
+        
+        warn!(
+            trace_id = %fallback_trace_id,
+            "No active OpenTelemetry span or invalid trace ID, using fallback trace ID"
+        );
+        
+        fallback_trace_id
+    }
+}
 
 /// Attributes for creating structured spans
 #[derive(Debug, Clone)]
@@ -190,5 +241,33 @@ mod tests {
 
         assert_eq!(attrs.http_method, "POST");
         assert_eq!(attrs.rpc_service.unwrap(), "user.UserService");
+    }
+
+    #[test]
+    fn test_extract_trace_id_fallback_no_span() {
+        // When no active span exists, should generate UUID fallback
+        let trace_id = super::extract_trace_id_from_span();
+        
+        // UUID format: 8-4-4-4-12 characters with hyphens (36 total)
+        assert_eq!(trace_id.len(), 36);
+        assert_eq!(trace_id.chars().filter(|c| *c == '-').count(), 4);
+    }
+
+    #[test]
+    fn test_trace_id_format() {
+        // Test that the returned trace ID is a valid format
+        let trace_id = super::extract_trace_id_from_span();
+        
+        // Should be either:
+        // - 32 hex characters (OpenTelemetry trace ID)
+        // - 36 characters with hyphens (UUID fallback)
+        assert!(
+            trace_id.len() == 32 || trace_id.len() == 36,
+            "Trace ID should be 32 hex chars or 36 char UUID, got length: {}",
+            trace_id.len()
+        );
+        
+        // Should be lowercase
+        assert_eq!(trace_id, trace_id.to_lowercase());
     }
 }

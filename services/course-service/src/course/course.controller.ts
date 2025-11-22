@@ -20,7 +20,7 @@ export class CourseController {
       description: data.description,
       term: data.term,
       syllabus: data.syllabus,
-      instructorId: data.instructorId,
+      instructorId: data.instructor_id,
       metadata: data.metadata,
     });
 
@@ -55,7 +55,7 @@ export class CourseController {
   @GrpcMethod('CourseService', 'ListCourses')
   async listCourses(data: any) {
     const { courses, total } = await this.courseService.listCourses({
-      instructorId: data.instructorId,
+      instructorId: data.instructor_id,
       term: data.term,
       isPublished: data.isPublished,
       page: data.page || 1,
@@ -99,7 +99,7 @@ export class CourseController {
     const enrollment = await this.enrollmentService.instructorAddStudent(
       data.courseId,
       data.studentId,
-      data.instructorId,
+      data.instructor_id,
       data.sectionId,
     );
     return { enrollment: this.toEnrollmentProto(enrollment) };
@@ -156,8 +156,8 @@ export class CourseController {
   }
 
   @GrpcMethod('CourseService', 'GetCourseTemplate')
-  async getCourseTemplate(data: { templateId: string }) {
-    const template = await this.courseService.getTemplate(data.templateId);
+  async getCourseTemplate(data: { template_id: string }) {
+    const template = await this.courseService.getTemplate(data.template_id);
     return { template: this.toTemplateProto(template) };
   }
 
@@ -176,10 +176,10 @@ export class CourseController {
 
   @GrpcMethod('CourseService', 'CreateCourseFromTemplate')
   async createCourseFromTemplate(data: any) {
-    const course = await this.courseService.createCourseFromTemplate(data.templateId, {
+    const course = await this.courseService.createCourseFromTemplate(data.template_id, {
       title: data.title,
       term: data.term,
-      instructorId: data.instructorId,
+      instructorId: data.instructor_id,
       description: data.description,
     });
 
@@ -218,13 +218,13 @@ export class CourseController {
   // Co-teaching
   @GrpcMethod('CourseService', 'AddCoInstructor')
   async addCoInstructor(data: any) {
-    const course = await this.courseService.addCoInstructor(data.courseId, data.coInstructorId);
+    const course = await this.courseService.addCoInstructor(data.courseId, data.co_instructor_id);
     return { course: this.toCourseProto(course) };
   }
 
   @GrpcMethod('CourseService', 'RemoveCoInstructor')
   async removeCoInstructor(data: any) {
-    const course = await this.courseService.removeCoInstructor(data.courseId, data.coInstructorId);
+    const course = await this.courseService.removeCoInstructor(data.courseId, data.co_instructor_id);
     return { course: this.toCourseProto(course) };
   }
 
@@ -234,7 +234,7 @@ export class CourseController {
     const section = await this.courseService.createSection({
       courseId: data.courseId,
       sectionNumber: data.sectionNumber,
-      instructorId: data.instructorId,
+      instructorId: data.instructor_id,
       schedule: data.schedule,
       location: data.location,
       maxStudents: data.maxStudents,
@@ -253,7 +253,7 @@ export class CourseController {
   async updateSection(data: any) {
     const updates: any = {};
     if (data.sectionNumber) updates.sectionNumber = data.sectionNumber;
-    if (data.instructorId) updates.instructorId = data.instructorId;
+    if (data.instructor_id) updates.instructorId = data.instructor_id;
     if (data.schedule) updates.schedule = data.schedule;
     if (data.location) updates.location = data.location;
     if (data.maxStudents !== undefined) updates.maxStudents = data.maxStudents;
@@ -314,11 +314,11 @@ export class CourseController {
       description: course.description,
       term: course.term,
       syllabus: course.syllabus || '',
-      instructorId: course.instructorId,
-      coInstructorIds: course.coInstructorIds || [],
+      instructor_id: course.instructorId,
+      co_instructor_ids: course.coInstructorIds || [],
       isPublished: course.isPublished,
       prerequisiteCourseIds: course.prerequisiteCourseIds || [],
-      templateId: course.templateId?.toString() || '',
+      template_id: course.templateId?.toString() || '',
       crossListingGroupId: course.crossListingGroupId || '',
       createdAt: course.createdAt,
       updatedAt: course.updatedAt,
@@ -356,7 +356,7 @@ export class CourseController {
       id: section._id.toString(),
       courseId: section.courseId.toString(),
       sectionNumber: section.sectionNumber,
-      instructorId: section.instructorId,
+      instructor_id: section.instructorId,
       schedule: section.schedule,
       location: section.location || '',
       maxStudents: section.maxStudents,

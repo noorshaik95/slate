@@ -21,7 +21,7 @@ func NewGradebookServiceServer(svc service.GradebookService) *GradebookServiceSe
 
 // GetStudentGradebook returns all grades for a student in a course
 func (s *GradebookServiceServer) GetStudentGradebook(ctx context.Context, req *pb.GetStudentGradebookRequest) (*pb.GetStudentGradebookResponse, error) {
-	log.Info().
+	log.WithContext(ctx).
 		Str("student_id", req.StudentId).
 		Str("course_id", req.CourseId).
 		Msg("GetStudentGradebook called")
@@ -29,7 +29,7 @@ func (s *GradebookServiceServer) GetStudentGradebook(ctx context.Context, req *p
 	// Call service layer (computes totals, percentages, letter grades)
 	gradebook, err := s.service.GetStudentGradebook(ctx, req.StudentId, req.CourseId)
 	if err != nil {
-		log.Error().
+		log.ErrorWithContext(ctx).
 			Err(err).
 			Str("student_id", req.StudentId).
 			Str("course_id", req.CourseId).
@@ -37,7 +37,7 @@ func (s *GradebookServiceServer) GetStudentGradebook(ctx context.Context, req *p
 		return nil, mapError(err)
 	}
 
-	log.Info().
+	log.WithContext(ctx).
 		Str("student_id", req.StudentId).
 		Str("course_id", req.CourseId).
 		Int("entries", len(gradebook.Entries)).
@@ -50,21 +50,21 @@ func (s *GradebookServiceServer) GetStudentGradebook(ctx context.Context, req *p
 
 // GetCourseGradebook returns grades for all students in a course
 func (s *GradebookServiceServer) GetCourseGradebook(ctx context.Context, req *pb.GetCourseGradebookRequest) (*pb.GetCourseGradebookResponse, error) {
-	log.Info().
+	log.WithContext(ctx).
 		Str("course_id", req.CourseId).
 		Msg("GetCourseGradebook called")
 
 	// Call service layer (aggregates all student grades)
 	gradebook, err := s.service.GetCourseGradebook(ctx, req.CourseId)
 	if err != nil {
-		log.Error().
+		log.ErrorWithContext(ctx).
 			Err(err).
 			Str("course_id", req.CourseId).
 			Msg("Failed to get course gradebook")
 		return nil, mapError(err)
 	}
 
-	log.Info().
+	log.WithContext(ctx).
 		Str("course_id", req.CourseId).
 		Int("students", len(gradebook.Students)).
 		Msg("Course gradebook retrieved successfully")
@@ -74,21 +74,21 @@ func (s *GradebookServiceServer) GetCourseGradebook(ctx context.Context, req *pb
 
 // GetGradeStatistics calculates statistical metrics for an assignment
 func (s *GradebookServiceServer) GetGradeStatistics(ctx context.Context, req *pb.GetGradeStatisticsRequest) (*pb.GetGradeStatisticsResponse, error) {
-	log.Info().
+	log.WithContext(ctx).
 		Str("assignment_id", req.AssignmentId).
 		Msg("GetGradeStatistics called")
 
 	// Call service layer (computes mean, median, std deviation, min, max)
 	statistics, err := s.service.GetGradeStatistics(ctx, req.AssignmentId)
 	if err != nil {
-		log.Error().
+		log.ErrorWithContext(ctx).
 			Err(err).
 			Str("assignment_id", req.AssignmentId).
 			Msg("Failed to get grade statistics")
 		return nil, mapError(err)
 	}
 
-	log.Info().
+	log.WithContext(ctx).
 		Str("assignment_id", req.AssignmentId).
 		Int("total_submissions", statistics.TotalSubmissions).
 		Int("graded_count", statistics.GradedCount).
@@ -102,7 +102,7 @@ func (s *GradebookServiceServer) GetGradeStatistics(ctx context.Context, req *pb
 
 // ExportGrades generates CSV or JSON export of course grades
 func (s *GradebookServiceServer) ExportGrades(ctx context.Context, req *pb.ExportGradesRequest) (*pb.ExportGradesResponse, error) {
-	log.Info().
+	log.WithContext(ctx).
 		Str("course_id", req.CourseId).
 		Str("format", req.Format).
 		Msg("ExportGrades called")
@@ -110,7 +110,7 @@ func (s *GradebookServiceServer) ExportGrades(ctx context.Context, req *pb.Expor
 	// Call service layer (generates export in requested format)
 	data, err := s.service.ExportGrades(ctx, req.CourseId, req.Format)
 	if err != nil {
-		log.Error().
+		log.ErrorWithContext(ctx).
 			Err(err).
 			Str("course_id", req.CourseId).
 			Str("format", req.Format).
@@ -118,7 +118,7 @@ func (s *GradebookServiceServer) ExportGrades(ctx context.Context, req *pb.Expor
 		return nil, mapError(err)
 	}
 
-	log.Info().
+	log.WithContext(ctx).
 		Str("course_id", req.CourseId).
 		Str("format", req.Format).
 		Int("size_bytes", len(data)).

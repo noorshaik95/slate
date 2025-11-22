@@ -166,7 +166,8 @@ func main() {
 	grpcServer := grpc.NewServer(
 		grpc.StatsHandler(otelgrpc.NewServerHandler()),
 		grpc.ChainUnaryInterceptor(
-			tracing.LoggingUnaryInterceptor(),
+			tracing.TracingUnaryInterceptor(), // Extract trace context from metadata
+			tracing.LoggingUnaryInterceptor(log), // Debug logging
 		),
 	)
 

@@ -71,8 +71,8 @@ func (s *UserServiceServer) Login(ctx context.Context, req *pb.LoginRequest) (*p
 	// Security: Check rate limit before processing authentication to prevent brute-force attacks.
 	// Rate limiting is applied per client IP address to prevent distributed attacks.
 	// If Redis is unavailable, requests are allowed through (fail-open) to maintain availability.
+	clientIP := getClientIP(ctx)
 	if s.rateLimiter != nil {
-		clientIP := getClientIP(ctx)
 		allowed, retryAfter, err := s.rateLimiter.AllowLogin(clientIP)
 		if err != nil {
 			// Log error but don't fail the request (fail-open design for availability)
@@ -82,6 +82,7 @@ func (s *UserServiceServer) Login(ctx context.Context, req *pb.LoginRequest) (*p
 			// Retry-after duration is included in the error message to inform clients when they can retry.
 			// This helps legitimate users while still preventing brute-force attacks.
 			msg := fmt.Sprintf("too many login attempts, please try again in %d seconds", int(retryAfter.Seconds()))
+			s.log.ErrorWithContext(ctx).Err(err).Str("client_ip", clientIP).Msg(msg)
 			return nil, status.Error(codes.ResourceExhausted, msg)
 		}
 	}
@@ -90,6 +91,10 @@ func (s *UserServiceServer) Login(ctx context.Context, req *pb.LoginRequest) (*p
 	if err != nil {
 		return nil, status.Errorf(codes.Unauthenticated, "login failed: %v", err)
 	}
+	s.log.WithContext(ctx).
+		Str("user_id", user.ID).
+		Str("client_ip", clientIP).
+		Msg("Auth authentication successful")
 
 	return &pb.LoginResponse{
 		AccessToken:  tokens.AccessToken,

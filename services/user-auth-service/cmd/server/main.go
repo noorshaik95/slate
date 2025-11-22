@@ -257,8 +257,8 @@ func main() {
 	grpcServer := grpc.NewServer(
 		grpc.StatsHandler(otelgrpc.NewServerHandler()), // OpenTelemetry stats handler (new API)
 		grpc.ChainUnaryInterceptor(
-			tracing.TracingUnaryInterceptor(), // Explicit trace context extraction and span creation
-			tracing.LoggingUnaryInterceptor(), // Debug interceptor
+			tracing.TracingUnaryInterceptor(),    // Explicit trace context extraction and span creation
+			tracing.LoggingUnaryInterceptor(log), // Debug interceptor with logger instance
 		),
 	)
 

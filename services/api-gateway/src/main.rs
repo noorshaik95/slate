@@ -93,15 +93,10 @@ async fn main() -> anyhow::Result<()> {
         )
         .build();
 
-    // Create JSON formatter for Loki compatibility
+    // Create JSON formatter for Loki compatibility with flattened trace_id
+    // Uses custom formatter to place trace_id at root level instead of nested in fields
     let fmt_layer = tracing_subscriber::fmt::layer()
-        .json()
-        .with_timer(tracing_subscriber::fmt::time::uptime())
-        .with_level(true)
-        .with_target(true)
-        .with_thread_ids(true)
-        .with_file(true)
-        .with_line_number(true);
+        .event_format(observability::FlattenedJsonFormat::new());
 
     let tracer = tracer_provider.tracer(service_name.clone());
     global::set_tracer_provider(tracer_provider);

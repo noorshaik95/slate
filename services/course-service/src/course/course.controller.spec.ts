@@ -281,7 +281,7 @@ describe('CourseController', () => {
       });
 
       expect(courseService.addCoInstructor).toHaveBeenCalledWith('course-1', 'co-instructor-1');
-      expect(result.course.coInstructorIds).toContain('co-instructor-1');
+      expect(result.course.co_instructor_ids).toContain('co-instructor-1');
     });
   });
 });

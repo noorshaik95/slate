@@ -37,7 +37,7 @@ fn inject_trace_context<T>(mut request: tonic::Request<T>) -> tonic::Request<T> 
 }
 
 /// Handle user service gRPC calls with proper protobuf types
-#[tracing::instrument(skip(channel, json_payload), fields(grpc.service = "user.UserService", grpc.method = %method))]
+#[tracing::instrument(name = "call_user_service", skip(channel, json_payload), fields(grpc.service = "user.UserService", grpc.method = %method))]
 pub async fn call_user_service(
     channel: Channel,
     method: &str,
