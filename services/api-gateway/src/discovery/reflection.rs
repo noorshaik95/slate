@@ -130,12 +130,8 @@ impl ReflectionClient {
         match response_stream.next().await {
             Some(Ok(response)) => Ok(response),
             Some(Err(status)) => {
-                // Check if this is an UNIMPLEMENTED error (service doesn't support reflection)
-                if status.code() == tonic::Code::Unimplemented {
-                    Err(ReflectionError::GrpcError(status))
-                } else {
-                    Err(ReflectionError::GrpcError(status))
-                }
+                // All gRPC errors are handled the same way
+                Err(ReflectionError::GrpcError(status))
             }
             None => Err(ReflectionError::ProtocolError(
                 "No response received from server".to_string(),
@@ -144,6 +140,7 @@ impl ReflectionClient {
     }
 
     /// Parse file descriptor protos to extract method information
+    #[allow(clippy::result_large_err)]
     fn parse_file_descriptors(
         &self,
         file_descriptor_protos: Vec<Vec<u8>>,
@@ -193,6 +190,7 @@ impl ReflectionClient {
 
     /// Extract methods from a specific service in the file descriptor
     /// Returns Some(methods) if the service is found, None otherwise
+    #[allow(clippy::result_large_err)]
     fn extract_methods_from_service(
         &self,
         services: &[prost_types::ServiceDescriptorProto],

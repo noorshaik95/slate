@@ -57,6 +57,7 @@ impl ErrorResponse {
 /// 3. x-trace-id header
 /// 4. x-request-id header
 /// 5. Generate new UUID
+#[allow(dead_code)]
 pub fn extract_trace_id<B>(request: &Request<B>) -> String {
     // Try to get trace ID from OpenTelemetry context (set by tracing middleware)
     if let Some(trace_ctx) = request
@@ -109,6 +110,7 @@ pub fn extract_trace_id<B>(request: &Request<B>) -> String {
 ///
 /// Format: 00-{trace-id}-{parent-id}-{trace-flags}
 /// Returns the trace-id portion (32 hex characters)
+#[allow(dead_code)]
 fn parse_trace_id_from_traceparent(traceparent: &str) -> Option<String> {
     let parts: Vec<&str> = traceparent.split('-').collect();
 

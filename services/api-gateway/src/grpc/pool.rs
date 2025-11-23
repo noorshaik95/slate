@@ -1,3 +1,9 @@
+//! Connection pooling for gRPC clients.
+//!
+//! This module provides connection pooling functionality.
+
+#![allow(dead_code)]
+
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use tonic::transport::{Channel, Endpoint};
@@ -102,6 +108,7 @@ impl ConnectionPool {
     }
 
     /// Get the number of connections in the pool
+    #[allow(dead_code)]
     pub fn size(&self) -> usize {
         self.channels.len()
     }
@@ -121,6 +128,7 @@ impl ConnectionPool {
     }
 
     /// Get statistics about the pool
+    #[allow(dead_code)]
     pub fn stats(&self) -> PoolStats {
         PoolStats {
             total_connections: self.channels.len(),

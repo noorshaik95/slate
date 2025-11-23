@@ -4,8 +4,6 @@
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
     // Note: PathValidator tests are in src/security/validator.rs
     // This file contains integration-level security tests
 
@@ -73,8 +71,8 @@ mod tests {
     #[tokio::test]
     async fn test_cors_configuration() {
         // Test that CORS configuration has sensible defaults
-        let default_allowed_methods = vec!["GET", "POST", "PUT", "DELETE", "OPTIONS"];
-        let default_allowed_headers = vec!["content-type", "authorization", "x-trace-id"];
+        let default_allowed_methods = ["GET", "POST", "PUT", "DELETE", "OPTIONS"];
+        let default_allowed_headers = ["content-type", "authorization", "x-trace-id"];
         let default_max_age = 3600u64;
 
         assert_eq!(default_allowed_methods.len(), 5);

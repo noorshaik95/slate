@@ -36,7 +36,7 @@ mod tests {
     #[test]
     fn test_trace_context_injection_into_metadata() {
         // Trace context should be injected into gRPC metadata, not payload
-        let trace_headers = vec![
+        let trace_headers = [
             "traceparent",
             "tracestate",
             "x-trace-id",
@@ -50,7 +50,7 @@ mod tests {
     #[test]
     fn test_span_attributes() {
         // Span should include standard OpenTelemetry attributes
-        let required_attributes = vec![
+        let required_attributes = [
             "http.method",
             "http.target",
             "http.route",
@@ -85,14 +85,14 @@ mod tests {
     #[test]
     fn test_error_recording_in_span() {
         // When request fails, span should record error details
-        let error_attributes = vec!["error", "error.message", "error.type"];
+        let error_attributes = ["error", "error.message", "error.type"];
         assert_eq!(error_attributes.len(), 3);
     }
 
     #[test]
     fn test_trace_context_propagation_chain() {
         // Trace context should flow: Client → Gateway → Backend Service
-        let chain = vec!["client", "gateway", "backend"];
+        let chain = ["client", "gateway", "backend"];
         assert_eq!(chain.len(), 3);
     }
 

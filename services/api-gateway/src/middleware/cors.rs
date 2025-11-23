@@ -124,6 +124,7 @@ impl CorsConfig {
     /// Reads:
     /// - CORS_ALLOWED_ORIGINS: Comma-separated list of allowed origins
     /// - DEV_MODE or ENVIRONMENT: Set to "development" or "dev" for dev mode
+    #[allow(dead_code)]
     pub fn from_env() -> Self {
         let allowed_origins_str = std::env::var("CORS_ALLOWED_ORIGINS").unwrap_or_default();
 

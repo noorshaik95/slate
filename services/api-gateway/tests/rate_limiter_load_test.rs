@@ -1,5 +1,5 @@
 use api_gateway::config::RateLimitConfig;
-use api_gateway::rate_limit::RateLimiter;
+use common_rust::rate_limit::RateLimiter;
 use std::net::IpAddr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -13,7 +13,7 @@ async fn test_concurrent_requests_from_same_ip() {
         requests_per_minute: 60, // 1 per second
         window_seconds: 60,
     };
-    let limiter = Arc::new(RateLimiter::new(config));
+    let limiter = Arc::new(RateLimiter::new(config, 10000));
     let test_ip: IpAddr = "192.168.1.100".parse().unwrap();
 
     // Spawn 100 concurrent requests
@@ -58,7 +58,7 @@ async fn test_concurrent_requests_from_multiple_ips() {
         requests_per_minute: 30,
         window_seconds: 60,
     };
-    let limiter = Arc::new(RateLimiter::new(config));
+    let limiter = Arc::new(RateLimiter::new(config, 10000));
 
     // Create 10 different IPs, each making 15 requests
     let mut handles = vec![];
@@ -86,12 +86,12 @@ async fn test_concurrent_requests_from_multiple_ips() {
     // With 10 IPs making 15 requests each = 150 total requests
     // Each IP allows 15 requests (under the 30 limit), so all should be allowed
     assert!(
-        total_allowed >= 140 && total_allowed <= 150,
+        (140..=150).contains(&total_allowed),
         "Allowed {} requests, expected 140-150",
         total_allowed
     );
     assert!(
-        total_denied >= 0 && total_denied <= 10,
+        (0..=10).contains(&total_denied),
         "Denied {} requests, expected 0-10",
         total_denied
     );
@@ -105,7 +105,7 @@ async fn test_lru_cache_eviction() {
         requests_per_minute: 60,
         window_seconds: 60,
     };
-    let limiter = Arc::new(RateLimiter::new(config));
+    let limiter = Arc::new(RateLimiter::new(config, 10000));
 
     // Make requests from many different IPs to trigger LRU eviction
     // The cache size is 10,000, so we'll use 10,500 IPs
@@ -173,7 +173,7 @@ async fn test_rate_limit_recovery() {
         requests_per_minute: 60, // 1 per second
         window_seconds: 60,
     };
-    let limiter = Arc::new(RateLimiter::new(config));
+    let limiter = Arc::new(RateLimiter::new(config, 10000));
     let test_ip: IpAddr = "192.168.1.200".parse().unwrap();
 
     // Make initial requests
@@ -199,7 +199,7 @@ async fn test_sustained_load() {
         requests_per_minute: 120, // 120 requests in 60 second window
         window_seconds: 60,
     };
-    let limiter = Arc::new(RateLimiter::new(config));
+    let limiter = Arc::new(RateLimiter::new(config, 10000));
     let test_ip: IpAddr = "192.168.1.250".parse().unwrap();
 
     let mut total_allowed = 0;
@@ -217,7 +217,7 @@ async fn test_sustained_load() {
 
     // Should allow up to 120 requests in the window (all within 1 second are in the window)
     assert!(
-        total_allowed >= 80 && total_allowed <= 120,
+        (80..=120).contains(&total_allowed),
         "Allowed {} requests in 1 second, expected 80-120",
         total_allowed
     );
@@ -232,7 +232,7 @@ async fn test_cleanup_preserves_active_limits() {
         requests_per_minute: 60,
         window_seconds: 60,
     };
-    let limiter = Arc::new(RateLimiter::new(config));
+    let limiter = Arc::new(RateLimiter::new(config, 10000));
     let test_ip: IpAddr = "192.168.1.150".parse().unwrap();
 
     // Exhaust limit
@@ -255,7 +255,7 @@ async fn test_high_concurrency_single_ip() {
         requests_per_minute: 300, // 5 per second
         window_seconds: 60,
     };
-    let limiter = Arc::new(RateLimiter::new(config));
+    let limiter = Arc::new(RateLimiter::new(config, 10000));
     let test_ip: IpAddr = "192.168.1.99".parse().unwrap();
 
     // Spawn 500 concurrent requests
@@ -293,7 +293,7 @@ async fn test_thread_safety() {
         requests_per_minute: 600, // 10 per second
         window_seconds: 60,
     };
-    let limiter = Arc::new(RateLimiter::new(config));
+    let limiter = Arc::new(RateLimiter::new(config, 10000));
 
     // Spawn multiple tasks making requests from different IPs
     let mut handles = vec![];
@@ -324,7 +324,7 @@ async fn test_thread_safety() {
     // 10 tasks * 20 IPs = 200 unique IPs, each can make 600 requests
     // But we only make 10 requests per IP, so all should be allowed
     assert!(
-        total_allowed >= 1900 && total_allowed <= 2000,
+        (1900..=2000).contains(&total_allowed),
         "Allowed {} requests, expected ~2000",
         total_allowed
     );

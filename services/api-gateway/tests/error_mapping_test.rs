@@ -172,7 +172,7 @@ fn test_timeout_error_mapping() {
     assert_eq!(msg, "Request timeout");
 
     // Cancelled
-    let (status, msg) = map_grpc_error_with_context(
+    let (status, _msg) = map_grpc_error_with_context(
         Code::Cancelled,
         "user-service",
         "CreateUser",

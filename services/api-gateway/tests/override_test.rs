@@ -37,6 +37,7 @@ fn test_path_override() {
         grpc_method: "user.UserService/ListUsers".to_string(),
         http_path: Some("/v1/users".to_string()),
         http_method: None,
+        service: None,
     }];
 
     let result = OverrideHandler::apply_overrides(routes, &overrides);
@@ -58,6 +59,7 @@ fn test_method_override() {
         grpc_method: "user.UserService/ListUsers".to_string(),
         http_path: None,
         http_method: Some("POST".to_string()),
+        service: None,
     }];
 
     let result = OverrideHandler::apply_overrides(routes, &overrides);
@@ -79,6 +81,7 @@ fn test_full_override() {
         grpc_method: "user.UserService/ListUsers".to_string(),
         http_path: Some("/v1/all-users".to_string()),
         http_method: Some("POST".to_string()),
+        service: None,
     }];
 
     let result = OverrideHandler::apply_overrides(routes, &overrides);
@@ -99,6 +102,7 @@ fn test_partial_override() {
         grpc_method: "user.UserService/ListUsers".to_string(),
         http_path: Some("/v1/users".to_string()),
         http_method: None,
+        service: None,
     }];
 
     let result = OverrideHandler::apply_overrides(routes, &overrides);
@@ -132,11 +136,13 @@ fn test_multiple_overrides() {
             grpc_method: "user.UserService/ListUsers".to_string(),
             http_path: Some("/v1/users".to_string()),
             http_method: None,
+            service: None,
         },
         RouteOverride {
             grpc_method: "post.PostService/ListPosts".to_string(),
             http_path: None,
             http_method: Some("POST".to_string()),
+            service: None,
         },
     ];
 
@@ -168,6 +174,7 @@ fn test_override_nonexistent_route() {
         grpc_method: "post.PostService/ListPosts".to_string(),
         http_path: Some("/v1/posts".to_string()),
         http_method: None,
+        service: None,
     }];
 
     let result = OverrideHandler::apply_overrides(routes, &overrides);
@@ -185,6 +192,7 @@ fn test_empty_routes_with_overrides() {
         grpc_method: "user.UserService/ListUsers".to_string(),
         http_path: Some("/v1/users".to_string()),
         http_method: None,
+        service: None,
     }];
 
     let result = OverrideHandler::apply_overrides(routes, &overrides);
@@ -203,6 +211,7 @@ fn test_preserve_service_name() {
         grpc_method: "user.UserService/ListUsers".to_string(),
         http_path: Some("/v1/users".to_string()),
         http_method: Some("POST".to_string()),
+        service: None,
     }];
 
     let result = OverrideHandler::apply_overrides(routes, &overrides);

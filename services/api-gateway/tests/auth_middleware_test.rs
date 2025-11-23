@@ -1,7 +1,8 @@
 use api_gateway::auth::middleware::{
     map_auth_error_to_response, AuthContext, AuthMiddlewareResponse,
 };
-use api_gateway::auth::{AuthError, AuthResult, TokenClaims};
+use api_gateway::auth::types::TokenClaims;
+use api_gateway::auth::{AuthError, AuthResult};
 
 #[test]
 fn test_auth_context_unauthenticated() {

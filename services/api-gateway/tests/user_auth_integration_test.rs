@@ -13,10 +13,7 @@ mod tests {
     // Test helper to check if user-auth-service is available
     async fn is_service_available() -> bool {
         // Try to connect to the service
-        match tokio::net::TcpStream::connect("localhost:50051").await {
-            Ok(_) => true,
-            Err(_) => false,
-        }
+        (tokio::net::TcpStream::connect("localhost:50051").await).is_ok()
     }
 
     #[tokio::test]

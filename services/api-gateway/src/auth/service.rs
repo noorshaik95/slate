@@ -64,14 +64,14 @@ impl AuthService {
         headers
             .get("authorization")
             .and_then(|value| value.to_str().ok())
-            .and_then(|auth_header| {
+            .map(|auth_header| {
                 // Support both "Bearer <token>" and raw token formats
-                if auth_header.starts_with("Bearer ") {
-                    Some(auth_header[7..].to_string())
-                } else if auth_header.starts_with("bearer ") {
-                    Some(auth_header[7..].to_string())
+                if let Some(token) = auth_header.strip_prefix("Bearer ") {
+                    token.to_string()
+                } else if let Some(token) = auth_header.strip_prefix("bearer ") {
+                    token.to_string()
                 } else {
-                    Some(auth_header.to_string())
+                    auth_header.to_string()
                 }
             })
     }
@@ -304,6 +304,7 @@ impl AuthService {
     }
 
     /// Clear the policy cache (useful for testing or manual refresh)
+    #[allow(dead_code)]
     pub fn clear_policy_cache(&self) -> Result<(), AuthError> {
         let mut cache = self
             .policy_cache
@@ -315,6 +316,7 @@ impl AuthService {
     }
 
     /// Get cache statistics
+    #[allow(dead_code)]
     pub fn cache_stats(&self) -> Result<(usize, usize), AuthError> {
         let cache = self
             .policy_cache

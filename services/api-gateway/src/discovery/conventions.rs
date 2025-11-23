@@ -247,12 +247,12 @@ impl ConventionMapper {
         }
 
         // Words ending in 'y' -> 'ies' (e.g., category -> categories)
-        if word.ends_with('y') {
+        if let Some(stem) = word.strip_suffix('y') {
             // Check if the character before 'y' is a consonant
-            if word.len() > 1 {
-                let before_y = word.chars().nth(word.len() - 2).unwrap();
+            if !stem.is_empty() {
+                let before_y = stem.chars().last().unwrap();
                 if !matches!(before_y, 'a' | 'e' | 'i' | 'o' | 'u') {
-                    return format!("{}ies", &word[..word.len() - 1]);
+                    return format!("{}ies", stem);
                 }
             }
         }

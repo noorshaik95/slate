@@ -1,3 +1,9 @@
+//! Body size limit middleware.
+//!
+//! This module provides middleware for enforcing body size limits.
+
+#![allow(dead_code)]
+
 use axum::{
     body::Body,
     extract::Request,

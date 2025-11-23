@@ -17,5 +17,6 @@ pub use types::GatewayError;
 
 // Re-export public functions from gateway
 
-// Re-export public functions from admin
-pub use admin::refresh_routes_handler;
+// Re-export public functions and types from admin
+#[allow(unused_imports)]
+pub use admin::{refresh_routes_handler, RefreshResponse};

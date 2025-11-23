@@ -1,4 +1,5 @@
 use super::*;
+use super::types::{GrpcError, GrpcRequest};
 use std::collections::HashMap;
 
 #[test]
@@ -21,7 +22,7 @@ fn test_service_config_creation() {
     assert_eq!(config.endpoint, "http://localhost:50051");
     assert_eq!(config.timeout_ms, 5000);
     assert_eq!(config.connection_pool_size, 5);
-    assert_eq!(config.auto_discover, true);
+    assert!(config.auto_discover);
 }
 
 #[test]

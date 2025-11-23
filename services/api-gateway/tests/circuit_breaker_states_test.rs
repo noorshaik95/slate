@@ -1,4 +1,4 @@
-use api_gateway::circuit_breaker::{CircuitBreaker, CircuitBreakerConfig};
+use common_rust::circuit_breaker::{CircuitBreaker, CircuitBreakerConfig, CircuitBreakerError};
 use std::time::Duration;
 use tokio::time::sleep;
 
@@ -29,7 +29,7 @@ async fn test_closed_to_open_transition() {
     assert!(result.is_err());
     assert!(matches!(
         result.unwrap_err(),
-        api_gateway::circuit_breaker::CircuitBreakerError::Open
+        CircuitBreakerError::Open
     ));
 }
 
@@ -122,7 +122,7 @@ async fn test_half_open_to_open_transition() {
     assert!(result.is_err());
     assert!(matches!(
         result.unwrap_err(),
-        api_gateway::circuit_breaker::CircuitBreakerError::Open
+        CircuitBreakerError::Open
     ));
 }
 

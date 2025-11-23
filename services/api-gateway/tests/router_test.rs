@@ -106,8 +106,8 @@ impl RoutePattern {
             .split('/')
             .filter(|s| !s.is_empty())
             .map(|segment| {
-                if segment.starts_with(':') {
-                    PathSegment::Dynamic(segment[1..].to_string())
+                if let Some(stripped) = segment.strip_prefix(':') {
+                    PathSegment::Dynamic(stripped.to_string())
                 } else {
                     PathSegment::Static(segment.to_string())
                 }

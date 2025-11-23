@@ -1,3 +1,9 @@
+//! Authentication type definitions.
+//!
+//! These types are part of the public API for authentication.
+
+#![allow(dead_code)]
+
 use std::time::{Duration, Instant};
 
 /// Error types for authorization operations

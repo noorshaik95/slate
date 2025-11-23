@@ -35,4 +35,5 @@ pub const ERR_CACHE_READ: &str = "Failed to read policy cache";
 pub const ERR_CACHE_WRITE: &str = "Failed to write policy cache";
 
 /// Error message for cache clear failure
+#[allow(dead_code)]
 pub const ERR_CACHE_CLEAR: &str = "Failed to clear policy cache";

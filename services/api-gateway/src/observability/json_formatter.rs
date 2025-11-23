@@ -1,10 +1,9 @@
 use opentelemetry::trace::TraceContextExt;
 use serde_json::{json, Map, Value};
 use std::fmt;
-use std::io::Write;
 use tracing::{Event, Subscriber};
 use tracing_subscriber::fmt::format::Writer;
-use tracing_subscriber::fmt::{FmtContext, FormatEvent, FormatFields, FormattedFields};
+use tracing_subscriber::fmt::{FmtContext, FormatEvent, FormatFields};
 use tracing_subscriber::registry::LookupSpan;
 
 /// Custom JSON event formatter that places OpenTelemetry trace fields at root level
@@ -51,7 +50,7 @@ where
 {
     fn format_event(
         &self,
-        ctx: &FmtContext<'_, S, N>,
+        _ctx: &FmtContext<'_, S, N>,
         mut writer: Writer<'_>,
         event: &Event<'_>,
     ) -> fmt::Result {
@@ -175,21 +174,19 @@ mod tests {
 
     #[test]
     fn test_flattened_json_format_creation() {
-        let formatter = FlattenedJsonFormat::new();
-        // Just verify it can be created
-        assert!(true);
+        let _formatter = FlattenedJsonFormat::new();
+        // Just verify it can be created without panicking
     }
 
     #[test]
     fn test_flattened_json_format_default() {
-        let formatter = FlattenedJsonFormat::default();
-        // Just verify default works
-        assert!(true);
+        let _formatter = FlattenedJsonFormat;
+        // Just verify default works without panicking
     }
 
     #[test]
     fn test_json_visitor_message() {
-        let mut visitor = JsonVisitor::new();
+        let visitor = JsonVisitor::new();
 
         // Verify initial state
         assert!(visitor.message.is_none());

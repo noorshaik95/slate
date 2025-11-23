@@ -231,7 +231,7 @@ mod tests {
             "phone": "+9876543210"
         });
 
-        let request_url = format!("http://localhost:8080/api/users/{}", user_id);
+        let _request_url = format!("http://localhost:8080/api/users/{}", user_id);
 
         println!("Testing PUT /api/users/{}", user_id);
         println!("Payload: {}", update_payload);
@@ -290,7 +290,7 @@ mod tests {
         assert!(admin_token.is_some(), "Failed to get admin token");
         let admin_token = admin_token.unwrap();
 
-        let request_url = format!("http://localhost:8080/api/users/{}", user_id);
+        let _request_url = format!("http://localhost:8080/api/users/{}", user_id);
 
         println!("Testing DELETE /api/users/{}", user_id);
         println!("Authorization: Bearer {}", admin_token);
@@ -591,9 +591,9 @@ mod tests {
 
         let result = create_and_login_test_user(&test_email, test_password, "Trace", "Test").await;
         assert!(result.is_some(), "Failed to create test user");
-        let (user_id, token) = result.unwrap();
+        let (user_id, _token) = result.unwrap();
 
-        let request_url = format!("http://localhost:8080/api/users/{}", user_id);
+        let _request_url = format!("http://localhost:8080/api/users/{}", user_id);
 
         println!(
             "Testing trace context propagation for GET /api/users/{}",

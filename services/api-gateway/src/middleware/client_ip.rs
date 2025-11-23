@@ -16,6 +16,7 @@ impl ClientIpConfig {
     }
 
     /// Create a configuration with no trusted proxies (direct connections only)
+    #[allow(dead_code)]
     pub fn direct_only() -> Self {
         Self {
             trusted_proxies: Vec::new(),
@@ -114,6 +115,7 @@ impl ClientIpExtractor {
     }
 
     /// Get the list of trusted proxies
+    #[allow(dead_code)]
     pub fn trusted_proxies(&self) -> &[IpAddr] {
         &self.config.trusted_proxies
     }
@@ -122,7 +124,7 @@ impl ClientIpExtractor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::http::HeaderValue;
+    
 
     #[test]
     fn test_direct_connection() {

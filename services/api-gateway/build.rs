@@ -7,10 +7,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // Compile auth service proto
-    tonic_build::compile_protos(&format!("{}/auth.proto", proto_path))?;
+    tonic_build::compile_protos(format!("{}/auth.proto", proto_path))?;
 
     // Compile service auth policy proto
-    tonic_build::compile_protos(&format!("{}/service_auth.proto", proto_path))?;
+    tonic_build::compile_protos(format!("{}/service_auth.proto", proto_path))?;
 
     // Compile user service proto
     tonic_build::configure()

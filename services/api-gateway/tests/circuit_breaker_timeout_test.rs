@@ -1,4 +1,4 @@
-use api_gateway::circuit_breaker::{CircuitBreaker, CircuitBreakerConfig};
+use common_rust::circuit_breaker::{CircuitBreaker, CircuitBreakerConfig};
 use std::time::Duration;
 use tokio::time::sleep;
 

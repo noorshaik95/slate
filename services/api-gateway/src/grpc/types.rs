@@ -1,3 +1,9 @@
+//! gRPC type definitions.
+//!
+//! These types are part of the public API and may be used by external code.
+
+#![allow(dead_code)]
+
 use std::collections::HashMap;
 use tonic::Status;
 

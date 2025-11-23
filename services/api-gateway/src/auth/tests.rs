@@ -1,4 +1,4 @@
-use super::types::PolicyCacheKey;
+use super::types::{AuthPolicy, PolicyCacheKey};
 use super::*;
 use axum::http::HeaderMap;
 use std::time::{Duration, Instant};

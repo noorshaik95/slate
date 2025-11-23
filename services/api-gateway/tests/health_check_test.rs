@@ -30,7 +30,7 @@ mod tests {
         // - timestamp: ISO 8601 timestamp
         // - services: map of service health states
 
-        let expected_fields = vec!["status", "timestamp", "services"];
+        let expected_fields = ["status", "timestamp", "services"];
         assert_eq!(expected_fields.len(), 3);
     }
 
@@ -61,7 +61,7 @@ mod tests {
     #[tokio::test]
     async fn test_liveness_response_format() {
         // Liveness response should be simple JSON with status and timestamp
-        let response_fields = vec!["status", "timestamp"];
+        let response_fields = ["status", "timestamp"];
         assert_eq!(response_fields.len(), 2);
         assert!(response_fields.contains(&"status"));
         assert!(response_fields.contains(&"timestamp"));
@@ -72,7 +72,7 @@ mod tests {
         // Readiness response should include details about each service
         // Format: { "service_name": { "status": "healthy/unhealthy", "last_check": "timestamp" } }
 
-        let service_health_fields = vec!["name", "status", "last_check"];
+        let service_health_fields = ["name", "status", "last_check"];
         assert_eq!(service_health_fields.len(), 3);
     }
 

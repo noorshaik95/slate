@@ -258,6 +258,127 @@ impl RouteDiscoveryService {
         OverrideHandler::apply_overrides(discovered, overrides)
     }
 
+    /// Handle route discovery for a single service with error handling.
+    async fn handle_service_discovery(
+        &self,
+        service_name: &str,
+        service_config: &ServiceConfig,
+        router: &Arc<RwLock<RequestRouter>>,
+        stats: &mut RefreshStats,
+    ) -> Vec<RouteConfig> {
+        match self
+            .discover_service_routes(service_name, service_config)
+            .await
+        {
+            Ok(routes) => {
+                info!(
+                    service = %service_name,
+                    routes = routes.len(),
+                    "Successfully refreshed routes from service"
+                );
+                stats.success_count += 1;
+                routes
+            }
+            Err(DiscoveryError::ConnectionFailed(ref e)) => {
+                warn!(
+                    service = %service_name,
+                    error = %e,
+                    "Service unreachable during refresh, retaining existing routes"
+                );
+                stats.failure_count += 1;
+                self.retain_existing_routes(service_name, router, stats)
+                    .await
+            }
+            Err(DiscoveryError::EmptyService(_)) => {
+                info!(
+                    service = %service_name,
+                    "Service has no discoverable methods, removing routes"
+                );
+                stats.success_count += 1;
+                Vec::new()
+            }
+            Err(e) => {
+                error!(
+                    service = %service_name,
+                    error = %e,
+                    "Failed to refresh routes from service, skipping"
+                );
+                stats.failure_count += 1;
+                self.retain_existing_routes(service_name, router, stats)
+                    .await
+            }
+        }
+    }
+
+    /// Retain existing routes for a service.
+    async fn retain_existing_routes(
+        &self,
+        service_name: &str,
+        router: &Arc<RwLock<RequestRouter>>,
+        stats: &mut RefreshStats,
+    ) -> Vec<RouteConfig> {
+        let router_guard = router.read().await;
+        let existing = router_guard.get_routes_for_service(service_name);
+        let existing_count = existing.len();
+        drop(router_guard);
+
+        if existing_count > 0 {
+            info!(
+                service = %service_name,
+                routes = existing_count,
+                "Retained existing routes"
+            );
+            stats.retained_count += existing_count;
+        }
+        existing
+    }
+
+    /// Perform a single refresh cycle.
+    async fn perform_refresh_cycle(
+        &self,
+        router: &Arc<RwLock<RequestRouter>>,
+        services: &HashMap<String, ServiceConfig>,
+        route_overrides: &[RouteOverride],
+    ) -> RefreshStats {
+        let cycle_start = std::time::Instant::now();
+        let mut stats = RefreshStats::default();
+        let mut all_routes = Vec::new();
+
+        // Discover routes from each service
+        for (service_name, service_config) in services {
+            if !service_config.auto_discover {
+                debug!(
+                    service = %service_name,
+                    "Skipping service (auto_discover is false)"
+                );
+                continue;
+            }
+
+            let routes = self
+                .handle_service_discovery(service_name, service_config, router, &mut stats)
+                .await;
+            all_routes.extend(routes);
+        }
+
+        // Apply overrides and deduplicate
+        let all_routes = self.apply_overrides(all_routes, route_overrides);
+        info!(
+            overrides_configured = route_overrides.len(),
+            "Applied route overrides during periodic refresh"
+        );
+
+        let all_routes = RouteValidator::deduplicate_routes(all_routes);
+
+        // Update router
+        stats.total_routes = all_routes.len();
+        let mut router_guard = router.write().await;
+        router_guard.update_routes(all_routes);
+        drop(router_guard);
+
+        stats.duration = cycle_start.elapsed();
+        stats
+    }
+
     /// Start periodic refresh background task
     ///
     /// This spawns a background tokio task that periodically re-discovers routes
@@ -289,134 +410,35 @@ impl RouteDiscoveryService {
 
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(Duration::from_secs(interval_secs));
-
-            // Skip the first tick (immediate fire)
-            interval.tick().await;
+            interval.tick().await; // Skip first tick
 
             loop {
                 interval.tick().await;
-
                 info!("Starting periodic route refresh cycle");
-                let cycle_start = std::time::Instant::now();
 
-                // Discover routes per service (partial failure support)
-                let mut all_routes = Vec::new();
-                let mut success_count = 0;
-                let mut failure_count = 0;
-                let mut retained_count = 0;
-
-                for (service_name, service_config) in &services {
-                    // Skip services with auto_discover disabled
-                    if !service_config.auto_discover {
-                        debug!(
-                            service = %service_name,
-                            "Skipping service (auto_discover is false)"
-                        );
-                        continue;
-                    }
-
-                    match self
-                        .discover_service_routes(service_name, service_config)
-                        .await
-                    {
-                        Ok(routes) => {
-                            info!(
-                                service = %service_name,
-                                routes = routes.len(),
-                                "Successfully refreshed routes from service"
-                            );
-                            all_routes.extend(routes);
-                            success_count += 1;
-                        }
-                        Err(DiscoveryError::ConnectionFailed(ref e)) => {
-                            // Service down - retain existing routes
-                            warn!(
-                                service = %service_name,
-                                error = %e,
-                                "Service unreachable during refresh, retaining existing routes"
-                            );
-                            failure_count += 1;
-
-                            // Get existing routes for this service from router
-                            let router_guard = router.read().await;
-                            let existing = router_guard.get_routes_for_service(service_name);
-                            let existing_count = existing.len();
-                            drop(router_guard);
-
-                            if existing_count > 0 {
-                                info!(
-                                    service = %service_name,
-                                    routes = existing_count,
-                                    "Retained existing routes for unreachable service"
-                                );
-                                all_routes.extend(existing);
-                                retained_count += existing_count;
-                            }
-                        }
-                        Err(DiscoveryError::EmptyService(_)) => {
-                            // Service responded but has no methods - remove all routes
-                            info!(
-                                service = %service_name,
-                                "Service has no discoverable methods, removing routes"
-                            );
-                            success_count += 1;
-                            // Don't add any routes for this service (effectively removes them)
-                        }
-                        Err(e) => {
-                            // Other errors - log and skip service
-                            error!(
-                                service = %service_name,
-                                error = %e,
-                                "Failed to refresh routes from service, skipping"
-                            );
-                            failure_count += 1;
-
-                            // Retain existing routes for this service
-                            let router_guard = router.read().await;
-                            let existing = router_guard.get_routes_for_service(service_name);
-                            let existing_count = existing.len();
-                            drop(router_guard);
-
-                            if existing_count > 0 {
-                                warn!(
-                                    service = %service_name,
-                                    routes = existing_count,
-                                    "Retained existing routes due to refresh error"
-                                );
-                                all_routes.extend(existing);
-                                retained_count += existing_count;
-                            }
-                        }
-                    }
-                }
-
-                // Apply route overrides before deduplication
-                let all_routes = self.apply_overrides(all_routes, &route_overrides);
-                info!(
-                    overrides_configured = route_overrides.len(),
-                    "Applied route overrides during periodic refresh"
-                );
-
-                // Deduplicate routes (in case of conflicts across services)
-                let all_routes = RouteValidator::deduplicate_routes(all_routes);
-
-                // Update router with combined routes (including overrides)
-                let route_count = all_routes.len();
-                let mut router_guard = router.write().await;
-                router_guard.update_routes(all_routes);
-                drop(router_guard);
-
-                let cycle_duration = cycle_start.elapsed();
+                let stats = self
+                    .perform_refresh_cycle(&router, &services, &route_overrides)
+                    .await;
 
                 info!(
-                    total_routes = route_count,
-                    services_success = success_count,
-                    services_failed = failure_count,
-                    routes_retained = retained_count,
-                    duration_ms = cycle_duration.as_millis(),
+                    total_routes = stats.total_routes,
+                    services_success = stats.success_count,
+                    services_failed = stats.failure_count,
+                    routes_retained = stats.retained_count,
+                    duration_ms = stats.duration.as_millis(),
                     "Route refresh cycle completed"
                 );
             }
         })
     }
+}
+
+/// Statistics for a refresh cycle.
+#[derive(Default)]
+struct RefreshStats {
+    total_routes: usize,
+    success_count: usize,
+    failure_count: usize,
+    retained_count: usize,
+    duration: Duration,
 }

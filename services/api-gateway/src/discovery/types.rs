@@ -1,3 +1,9 @@
+//! Discovery type definitions.
+//!
+//! These types are part of the public API for route discovery.
+
+#![allow(dead_code)]
+
 use thiserror::Error;
 
 /// Errors that can occur during route discovery

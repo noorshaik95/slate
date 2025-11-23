@@ -1,3 +1,9 @@
+//! Error mapping utilities.
+//!
+//! This module provides utilities for mapping errors between different formats.
+
+#![allow(dead_code)]
+
 use axum::http::StatusCode;
 use tonic::Code;
 use tracing::error;

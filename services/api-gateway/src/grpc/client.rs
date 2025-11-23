@@ -248,6 +248,7 @@ impl GrpcClientPool {
     }
 
     /// Check if a service exists in the pool
+    #[allow(dead_code)]
     pub fn has_service(&self, service: &str) -> bool {
         self.pools.contains_key(service)
     }
@@ -273,7 +274,7 @@ impl GrpcClientPool {
         let result = tokio::time::timeout(shutdown_timeout, async {
             let mut closed_count = 0;
 
-            for (service_name, _pool) in &self.pools {
+            for service_name in self.pools.keys() {
                 debug!(service = %service_name, "Closing connection pool");
                 // Note: tonic::transport::Channel doesn't have an explicit close method
                 // Connections will be dropped when the pool is dropped

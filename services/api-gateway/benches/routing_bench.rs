@@ -7,6 +7,7 @@ use std::sync::Arc;
 struct RoutingDecisionOld {
     pub service: String,
     pub grpc_method: String,
+    #[allow(dead_code)]
     pub path_params: HashMap<String, String>,
 }
 
@@ -15,6 +16,7 @@ struct RoutingDecisionOld {
 struct RoutingDecisionNew {
     pub service: Arc<str>,
     pub grpc_method: Arc<str>,
+    #[allow(dead_code)]
     pub path_params: HashMap<String, String>,
 }
 

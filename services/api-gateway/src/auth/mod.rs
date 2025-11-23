@@ -1,4 +1,5 @@
 // Include generated proto code
+#[allow(clippy::module_inception)]
 pub mod auth {
     tonic::include_proto!("auth");
 }
@@ -10,7 +11,7 @@ pub mod gateway {
 // Declare submodules
 mod constants;
 mod service;
-mod types;
+pub mod types;
 
 // Export middleware module
 pub mod middleware;

@@ -45,6 +45,13 @@ pub struct GatewayMetrics {
 
 impl GatewayMetrics {
     pub fn new(registry: &Registry) -> Self {
+        let metrics = Self::create_metrics();
+        Self::register_metrics(registry, &metrics);
+        metrics
+    }
+
+    /// Create all metric instances.
+    fn create_metrics() -> Self {
         let request_counter = IntCounterVec::new(
             Opts::new(
                 "gateway_requests_total",
@@ -110,7 +117,6 @@ impl GatewayMetrics {
         )
         .expect("Failed to create active_connections metric");
 
-        // Rate limiter metrics
         let rate_limiter_tracked_clients = IntGauge::new(
             "gateway_rate_limiter_tracked_clients",
             "Current number of clients being tracked by the rate limiter",
@@ -123,34 +129,6 @@ impl GatewayMetrics {
         )
         .expect("Failed to create rate_limiter_evictions_total metric");
 
-        registry
-            .register(Box::new(request_counter.clone()))
-            .expect("Failed to register request_counter metric");
-        registry
-            .register(Box::new(request_duration.clone()))
-            .expect("Failed to register request_duration metric");
-        registry
-            .register(Box::new(grpc_call_counter.clone()))
-            .expect("Failed to register grpc_call_counter metric");
-        registry
-            .register(Box::new(auth_failure_counter.clone()))
-            .expect("Failed to register auth_failure_counter metric");
-        registry
-            .register(Box::new(rate_limit_counter.clone()))
-            .expect("Failed to register rate_limit_counter metric");
-        registry
-            .register(Box::new(circuit_breaker_state.clone()))
-            .expect("Failed to register circuit_breaker_state metric");
-        registry
-            .register(Box::new(active_connections.clone()))
-            .expect("Failed to register active_connections metric");
-        registry
-            .register(Box::new(rate_limiter_tracked_clients.clone()))
-            .expect("Failed to register rate_limiter_tracked_clients metric");
-        registry
-            .register(Box::new(rate_limiter_evictions_total.clone()))
-            .expect("Failed to register rate_limiter_evictions_total metric");
-
         GatewayMetrics {
             request_counter,
             request_duration,
@@ -162,6 +140,37 @@ impl GatewayMetrics {
             rate_limiter_tracked_clients,
             rate_limiter_evictions_total,
         }
+    }
+
+    /// Register all metrics with the registry.
+    fn register_metrics(registry: &Registry, metrics: &GatewayMetrics) {
+        registry
+            .register(Box::new(metrics.request_counter.clone()))
+            .expect("Failed to register request_counter metric");
+        registry
+            .register(Box::new(metrics.request_duration.clone()))
+            .expect("Failed to register request_duration metric");
+        registry
+            .register(Box::new(metrics.grpc_call_counter.clone()))
+            .expect("Failed to register grpc_call_counter metric");
+        registry
+            .register(Box::new(metrics.auth_failure_counter.clone()))
+            .expect("Failed to register auth_failure_counter metric");
+        registry
+            .register(Box::new(metrics.rate_limit_counter.clone()))
+            .expect("Failed to register rate_limit_counter metric");
+        registry
+            .register(Box::new(metrics.circuit_breaker_state.clone()))
+            .expect("Failed to register circuit_breaker_state metric");
+        registry
+            .register(Box::new(metrics.active_connections.clone()))
+            .expect("Failed to register active_connections metric");
+        registry
+            .register(Box::new(metrics.rate_limiter_tracked_clients.clone()))
+            .expect("Failed to register rate_limiter_tracked_clients metric");
+        registry
+            .register(Box::new(metrics.rate_limiter_evictions_total.clone()))
+            .expect("Failed to register rate_limiter_evictions_total metric");
     }
 }
 

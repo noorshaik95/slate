@@ -1,4 +1,5 @@
-use super::gateway::{convert_grpc_to_http, convert_http_to_grpc};
+use super::gateway::conversion::{convert_grpc_to_http, convert_http_to_grpc};
+use super::types::map_grpc_error_to_status;
 use super::*;
 use axum::http::StatusCode;
 

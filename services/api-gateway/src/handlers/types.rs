@@ -1,3 +1,9 @@
+//! Gateway handler type definitions.
+//!
+//! These types are part of the public API for gateway handlers.
+
+#![allow(dead_code)]
+
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},

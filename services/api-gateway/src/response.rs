@@ -1,3 +1,9 @@
+//! Response type definitions.
+//!
+//! These types are part of the public API for responses.
+
+#![allow(dead_code)]
+
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
