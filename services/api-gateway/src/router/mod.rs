@@ -43,7 +43,7 @@ struct RouteKey {
 }
 
 /// Result of routing decision
-/// 
+///
 /// Performance: Uses Arc<str> for service and grpc_method to avoid cloning strings
 /// in the hot path. Cloning Arc is cheap (atomic reference count increment) compared
 /// to cloning the actual string data.
@@ -84,11 +84,11 @@ impl RequestRouter {
             dynamic_routes: Vec::new(),
             service_route_map: HashMap::new(),
         };
-        
+
         router.update_routes(routes);
         router
     }
-    
+
     /// Update routes dynamically (thread-safe when wrapped in Arc<RwLock<>>)
     /// Replaces entire route table with new routes
     pub fn update_routes(&mut self, routes: Vec<RouteConfig>) {
@@ -108,7 +108,7 @@ impl RequestRouter {
         // Populate static and dynamic routes
         for route in routes {
             let pattern = RoutePattern::parse(&route.path, &route.method);
-            
+
             if pattern.is_static() {
                 // Static routes go into the hash map for O(1) lookup
                 let key = RouteKey {
@@ -122,7 +122,7 @@ impl RequestRouter {
             }
         }
     }
-    
+
     /// Get routes for a specific service (for partial refresh)
     pub fn get_routes_for_service(&self, service: &str) -> Vec<RouteConfig> {
         self.service_route_map
@@ -130,24 +130,24 @@ impl RequestRouter {
             .cloned()
             .unwrap_or_default()
     }
-    
+
     /// Get current route count
     #[allow(dead_code)]
     pub fn route_count(&self) -> usize {
         self.routes.len() + self.dynamic_routes.len()
     }
-    
+
     /// Get all routes (for admin endpoint)
     #[allow(dead_code)]
     pub fn get_all_routes(&self) -> Vec<RouteConfig> {
         let mut all_routes = Vec::new();
-        
+
         // Add static routes
         all_routes.extend(self.routes.values().cloned());
-        
+
         // Add dynamic routes
         all_routes.extend(self.dynamic_routes.iter().map(|(_, route)| route.clone()));
-        
+
         all_routes
     }
 
@@ -317,7 +317,7 @@ mod tests {
     #[test]
     fn test_static_route_matching() {
         let router = RequestRouter::new(create_test_routes());
-        
+
         let result = router.route("/api/users", "GET").unwrap();
         assert_eq!(result.service.as_ref(), "user-service");
         assert_eq!(result.grpc_method.as_ref(), "user.UserService/ListUsers");
@@ -327,7 +327,7 @@ mod tests {
     #[test]
     fn test_dynamic_route_single_param() {
         let router = RequestRouter::new(create_test_routes());
-        
+
         let result = router.route("/api/users/123", "GET").unwrap();
         assert_eq!(result.service.as_ref(), "user-service");
         assert_eq!(result.grpc_method.as_ref(), "user.UserService/GetUser");
@@ -337,22 +337,25 @@ mod tests {
     #[test]
     fn test_dynamic_route_multiple_params() {
         let router = RequestRouter::new(create_test_routes());
-        
+
         let result = router.route("/api/posts/456/comments/789", "GET").unwrap();
         assert_eq!(result.service.as_ref(), "post-service");
         assert_eq!(result.grpc_method.as_ref(), "post.PostService/GetComment");
         assert_eq!(result.path_params.get("post_id"), Some(&"456".to_string()));
-        assert_eq!(result.path_params.get("comment_id"), Some(&"789".to_string()));
+        assert_eq!(
+            result.path_params.get("comment_id"),
+            Some(&"789".to_string())
+        );
     }
 
     #[test]
     fn test_method_matching() {
         let router = RequestRouter::new(create_test_routes());
-        
+
         // GET should match GetUser
         let result = router.route("/api/users/123", "GET").unwrap();
         assert_eq!(result.grpc_method.as_ref(), "user.UserService/GetUser");
-        
+
         // DELETE should match DeleteUser
         let result = router.route("/api/users/123", "DELETE").unwrap();
         assert_eq!(result.grpc_method.as_ref(), "user.UserService/DeleteUser");
@@ -361,7 +364,7 @@ mod tests {
     #[test]
     fn test_case_insensitive_method() {
         let router = RequestRouter::new(create_test_routes());
-        
+
         // Lowercase method should work
         let result = router.route("/api/users", "get").unwrap();
         assert_eq!(result.service.as_ref(), "user-service");
@@ -370,16 +373,19 @@ mod tests {
     #[test]
     fn test_route_not_found() {
         let router = RequestRouter::new(create_test_routes());
-        
+
         let result = router.route("/api/nonexistent", "GET");
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), RouterError::RouteNotFound { .. }));
+        assert!(matches!(
+            result.unwrap_err(),
+            RouterError::RouteNotFound { .. }
+        ));
     }
 
     #[test]
     fn test_wrong_method() {
         let router = RequestRouter::new(create_test_routes());
-        
+
         // POST not configured for /api/users
         let result = router.route("/api/users", "POST");
         assert!(result.is_err());
@@ -388,7 +394,7 @@ mod tests {
     #[test]
     fn test_trailing_slash_handling() {
         let router = RequestRouter::new(create_test_routes());
-        
+
         // Without trailing slash should work
         let result = router.route("/api/users", "GET");
         assert!(result.is_ok());
@@ -397,11 +403,11 @@ mod tests {
     #[test]
     fn test_segment_count_mismatch() {
         let router = RequestRouter::new(create_test_routes());
-        
+
         // Too many segments
         let result = router.route("/api/users/123/extra", "GET");
         assert!(result.is_err());
-        
+
         // Too few segments for dynamic route
         let result = router.route("/api/posts/456/comments", "GET");
         assert!(result.is_err());
@@ -410,29 +416,27 @@ mod tests {
     #[test]
     fn test_update_routes() {
         let mut router = RequestRouter::new(create_test_routes());
-        
+
         // Initial route count
         assert_eq!(router.route_count(), 4);
-        
+
         // Update with new routes
-        let new_routes = vec![
-            RouteConfig {
-                path: "/api/products".to_string(),
-                method: "GET".to_string(),
-                service: "product-service".to_string(),
-                grpc_method: "product.ProductService/ListProducts".to_string(),
-            },
-        ];
-        
+        let new_routes = vec![RouteConfig {
+            path: "/api/products".to_string(),
+            method: "GET".to_string(),
+            service: "product-service".to_string(),
+            grpc_method: "product.ProductService/ListProducts".to_string(),
+        }];
+
         router.update_routes(new_routes);
-        
+
         // Should have only 1 route now
         assert_eq!(router.route_count(), 1);
-        
+
         // Old routes should not work
         let result = router.route("/api/users", "GET");
         assert!(result.is_err());
-        
+
         // New route should work
         let result = router.route("/api/products", "GET").unwrap();
         assert_eq!(result.service.as_ref(), "product-service");
@@ -441,15 +445,15 @@ mod tests {
     #[test]
     fn test_get_routes_for_service() {
         let router = RequestRouter::new(create_test_routes());
-        
+
         // Get routes for user-service
         let user_routes = router.get_routes_for_service("user-service");
         assert_eq!(user_routes.len(), 3);
-        
+
         // Get routes for post-service
         let post_routes = router.get_routes_for_service("post-service");
         assert_eq!(post_routes.len(), 1);
-        
+
         // Get routes for non-existent service
         let empty_routes = router.get_routes_for_service("nonexistent-service");
         assert_eq!(empty_routes.len(), 0);
@@ -459,7 +463,7 @@ mod tests {
     fn test_route_count() {
         let router = RequestRouter::new(create_test_routes());
         assert_eq!(router.route_count(), 4);
-        
+
         let empty_router = RequestRouter::new(vec![]);
         assert_eq!(empty_router.route_count(), 0);
     }
@@ -467,10 +471,10 @@ mod tests {
     #[test]
     fn test_get_all_routes() {
         let router = RequestRouter::new(create_test_routes());
-        
+
         let all_routes = router.get_all_routes();
         assert_eq!(all_routes.len(), 4);
-        
+
         // Verify all routes are present
         let services: Vec<String> = all_routes.iter().map(|r| r.service.clone()).collect();
         assert!(services.contains(&"user-service".to_string()));
@@ -499,13 +503,13 @@ mod tests {
                 grpc_method: "product.ProductService/ListProducts".to_string(),
             },
         ];
-        
+
         let router = RequestRouter::new(routes);
-        
+
         // Verify service route map
         let user_routes = router.get_routes_for_service("user-service");
         assert_eq!(user_routes.len(), 2);
-        
+
         let product_routes = router.get_routes_for_service("product-service");
         assert_eq!(product_routes.len(), 1);
     }

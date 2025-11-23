@@ -38,9 +38,9 @@ mod tests {
 
         // TODO: Implement actual HTTP request to gateway
         // This would test: POST /api/auth/register → user.UserService/Register
-        
+
         println!("Test registration payload: {}", register_payload);
-        
+
         // For now, this is a placeholder
         // In a real test, we would:
         // 1. Start the gateway
@@ -65,9 +65,9 @@ mod tests {
 
         // TODO: Implement actual HTTP request to gateway
         // This would test: POST /api/auth/login → user.UserService/Login
-        
+
         println!("Test login payload: {}", login_payload);
-        
+
         // For now, this is a placeholder
         // In a real test, we would:
         // 1. Start the gateway
@@ -86,7 +86,7 @@ mod tests {
 
         // TODO: Implement actual HTTP request to gateway
         // This would test: GET /api/users → user.UserService/ListUsers
-        
+
         // For now, this is a placeholder
         // In a real test, we would:
         // 1. Login to get a token
@@ -114,9 +114,9 @@ mod tests {
 
         // TODO: Implement actual HTTP request to gateway
         // This would test: POST /api/users → user.UserService/CreateUser
-        
+
         println!("Test create user payload: {}", create_user_payload);
-        
+
         // For now, this is a placeholder
         // In a real test, we would:
         // 1. Try to create user without auth - should fail with 401
@@ -135,7 +135,7 @@ mod tests {
 
         // TODO: Implement actual HTTP request to gateway
         // This would test: POST /api/auth/validate → user.UserService/ValidateToken
-        
+
         // For now, this is a placeholder
         // In a real test, we would:
         // 1. Login to get a token

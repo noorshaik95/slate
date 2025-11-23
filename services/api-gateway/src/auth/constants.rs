@@ -19,7 +19,8 @@ pub const ERR_INVALID_TOKEN: &str = "Token validation failed";
 pub const ERR_NO_CLAIMS: &str = "No claims in token";
 
 /// Error message prefix for insufficient permissions
-pub const ERR_INSUFFICIENT_PERMISSIONS_PREFIX: &str = "User does not have any of the required roles";
+pub const ERR_INSUFFICIENT_PERMISSIONS_PREFIX: &str =
+    "User does not have any of the required roles";
 
 /// Error message for invalid auth endpoint
 pub const ERR_INVALID_ENDPOINT: &str = "Invalid auth endpoint";

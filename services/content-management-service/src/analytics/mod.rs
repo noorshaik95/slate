@@ -1,7 +1,7 @@
+pub mod errors;
 pub mod events;
 pub mod publisher;
-pub mod errors;
 
+pub use errors::{AnalyticsError, Result};
 pub use events::*;
 pub use publisher::AnalyticsPublisher;
-pub use errors::{AnalyticsError, Result};

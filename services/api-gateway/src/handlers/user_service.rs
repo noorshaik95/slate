@@ -8,9 +8,9 @@ use tracing::{debug, error};
 fn inject_trace_context<T>(mut request: tonic::Request<T>) -> tonic::Request<T> {
     use opentelemetry::propagation::Injector;
     use tracing_opentelemetry::OpenTelemetrySpanExt;
-    
+
     struct MetadataInjector<'a>(&'a mut tonic::metadata::MetadataMap);
-    
+
     impl<'a> Injector for MetadataInjector<'a> {
         fn set(&mut self, key: &str, value: String) {
             if let Ok(metadata_key) = tonic::metadata::MetadataKey::from_bytes(key.as_bytes()) {
@@ -21,18 +21,18 @@ fn inject_trace_context<T>(mut request: tonic::Request<T>) -> tonic::Request<T> 
             }
         }
     }
-    
+
     // CRITICAL: Extract the OpenTelemetry context from the current tracing span
     // This ensures we propagate the correct trace context across service boundaries
     let current_span = tracing::Span::current();
     let context = current_span.context();
-    
+
     // Inject the context into gRPC metadata using the global propagator
     let mut injector = MetadataInjector(request.metadata_mut());
     opentelemetry::global::get_text_map_propagator(|propagator| {
         propagator.inject_context(&context, &mut injector);
     });
-    
+
     request
 }
 
@@ -67,17 +67,14 @@ pub async fn call_user_service(
             };
 
             debug!(email = %request.email, "Registering user");
-            
+
             let mut grpc_request = tonic::Request::new(request);
             grpc_request = inject_trace_context(grpc_request);
-            
-            let response = client
-                .register(grpc_request)
-                .await
-                .map_err(|e| {
-                    error!(error = %e, "Register call failed");
-                    GatewayError::GrpcCallFailed(format!("Register failed: {}", e))
-                })?;
+
+            let response = client.register(grpc_request).await.map_err(|e| {
+                error!(error = %e, "Register call failed");
+                GatewayError::GrpcCallFailed(format!("Register failed: {}", e))
+            })?;
 
             let resp = response.into_inner();
             let json_response = serde_json::json!({
@@ -94,8 +91,9 @@ pub async fn call_user_service(
                 }))
             });
 
-            Ok(serde_json::to_vec(&json_response)
-                .map_err(|e| GatewayError::ConversionError(format!("Failed to serialize response: {}", e)))?)
+            Ok(serde_json::to_vec(&json_response).map_err(|e| {
+                GatewayError::ConversionError(format!("Failed to serialize response: {}", e))
+            })?)
         }
         "Login" => {
             let request = LoginRequest {
@@ -104,17 +102,14 @@ pub async fn call_user_service(
             };
 
             debug!(email = %request.email, "Logging in user");
-            
+
             let mut grpc_request = tonic::Request::new(request);
             grpc_request = inject_trace_context(grpc_request);
-            
-            let response = client
-                .login(grpc_request)
-                .await
-                .map_err(|e| {
-                    error!(error = %e, "Login call failed");
-                    GatewayError::GrpcCallFailed(format!("Login failed: {}", e))
-                })?;
+
+            let response = client.login(grpc_request).await.map_err(|e| {
+                error!(error = %e, "Login call failed");
+                GatewayError::GrpcCallFailed(format!("Login failed: {}", e))
+            })?;
 
             let resp = response.into_inner();
             let json_response = serde_json::json!({
@@ -132,8 +127,9 @@ pub async fn call_user_service(
                 }))
             });
 
-            Ok(serde_json::to_vec(&json_response)
-                .map_err(|e| GatewayError::ConversionError(format!("Failed to serialize response: {}", e)))?)
+            Ok(serde_json::to_vec(&json_response).map_err(|e| {
+                GatewayError::ConversionError(format!("Failed to serialize response: {}", e))
+            })?)
         }
         "ValidateToken" => {
             let request = ValidateTokenRequest {
@@ -141,17 +137,14 @@ pub async fn call_user_service(
             };
 
             debug!("Validating token");
-            
+
             let mut grpc_request = tonic::Request::new(request);
             grpc_request = inject_trace_context(grpc_request);
-            
-            let response = client
-                .validate_token(grpc_request)
-                .await
-                .map_err(|e| {
-                    error!(error = %e, "ValidateToken call failed");
-                    GatewayError::GrpcCallFailed(format!("ValidateToken failed: {}", e))
-                })?;
+
+            let response = client.validate_token(grpc_request).await.map_err(|e| {
+                error!(error = %e, "ValidateToken call failed");
+                GatewayError::GrpcCallFailed(format!("ValidateToken failed: {}", e))
+            })?;
 
             let resp = response.into_inner();
             let json_response = serde_json::json!({
@@ -161,8 +154,9 @@ pub async fn call_user_service(
                 "error": resp.error,
             });
 
-            Ok(serde_json::to_vec(&json_response)
-                .map_err(|e| GatewayError::ConversionError(format!("Failed to serialize response: {}", e)))?)
+            Ok(serde_json::to_vec(&json_response).map_err(|e| {
+                GatewayError::ConversionError(format!("Failed to serialize response: {}", e))
+            })?)
         }
         "GetOAuthAuthorizationURL" => {
             let request = OAuthAuthRequest {
@@ -170,10 +164,10 @@ pub async fn call_user_service(
             };
 
             debug!(provider = %request.provider, "Getting OAuth authorization URL");
-            
+
             let mut grpc_request = tonic::Request::new(request);
             grpc_request = inject_trace_context(grpc_request);
-            
+
             let response = client
                 .get_o_auth_authorization_url(grpc_request)
                 .await
@@ -188,8 +182,9 @@ pub async fn call_user_service(
                 "state": resp.state,
             });
 
-            Ok(serde_json::to_vec(&json_response)
-                .map_err(|e| GatewayError::ConversionError(format!("Failed to serialize response: {}", e)))?)
+            Ok(serde_json::to_vec(&json_response).map_err(|e| {
+                GatewayError::ConversionError(format!("Failed to serialize response: {}", e))
+            })?)
         }
         "HandleOAuthCallback" => {
             let request = OAuthCallbackRequest {
@@ -199,10 +194,10 @@ pub async fn call_user_service(
             };
 
             debug!(provider = %request.provider, "Handling OAuth callback");
-            
+
             let mut grpc_request = tonic::Request::new(request);
             grpc_request = inject_trace_context(grpc_request);
-            
+
             let response = client
                 .handle_o_auth_callback(grpc_request)
                 .await
@@ -227,19 +222,23 @@ pub async fn call_user_service(
                 }))
             });
 
-            Ok(serde_json::to_vec(&json_response)
-                .map_err(|e| GatewayError::ConversionError(format!("Failed to serialize response: {}", e)))?)
+            Ok(serde_json::to_vec(&json_response).map_err(|e| {
+                GatewayError::ConversionError(format!("Failed to serialize response: {}", e))
+            })?)
         }
         "GetSAMLAuthRequest" => {
             let request = SamlAuthRequest {
-                organization_id: json_value["organization_id"].as_str().unwrap_or("").to_string(),
+                organization_id: json_value["organization_id"]
+                    .as_str()
+                    .unwrap_or("")
+                    .to_string(),
             };
 
             debug!(organization_id = %request.organization_id, "Getting SAML auth request");
-            
+
             let mut grpc_request = tonic::Request::new(request);
             grpc_request = inject_trace_context(grpc_request);
-            
+
             let response = client
                 .get_saml_auth_request(grpc_request)
                 .await
@@ -254,19 +253,23 @@ pub async fn call_user_service(
                 "sso_url": resp.sso_url,
             });
 
-            Ok(serde_json::to_vec(&json_response)
-                .map_err(|e| GatewayError::ConversionError(format!("Failed to serialize response: {}", e)))?)
+            Ok(serde_json::to_vec(&json_response).map_err(|e| {
+                GatewayError::ConversionError(format!("Failed to serialize response: {}", e))
+            })?)
         }
         "HandleSAMLAssertion" => {
             let request = SamlAssertionRequest {
-                saml_response: json_value["saml_response"].as_str().unwrap_or("").to_string(),
+                saml_response: json_value["saml_response"]
+                    .as_str()
+                    .unwrap_or("")
+                    .to_string(),
             };
 
             debug!("Handling SAML assertion");
-            
+
             let mut grpc_request = tonic::Request::new(request);
             grpc_request = inject_trace_context(grpc_request);
-            
+
             let response = client
                 .handle_saml_assertion(grpc_request)
                 .await
@@ -291,36 +294,38 @@ pub async fn call_user_service(
                 }))
             });
 
-            Ok(serde_json::to_vec(&json_response)
-                .map_err(|e| GatewayError::ConversionError(format!("Failed to serialize response: {}", e)))?)
+            Ok(serde_json::to_vec(&json_response).map_err(|e| {
+                GatewayError::ConversionError(format!("Failed to serialize response: {}", e))
+            })?)
         }
         "GetSAMLMetadata" => {
             let request = SamlMetadataRequest {};
 
             debug!("Getting SAML metadata");
-            
+
             let mut grpc_request = tonic::Request::new(request);
             grpc_request = inject_trace_context(grpc_request);
-            
-            let response = client
-                .get_saml_metadata(grpc_request)
-                .await
-                .map_err(|e| {
-                    error!(error = %e, "GetSAMLMetadata call failed");
-                    GatewayError::GrpcCallFailed(format!("GetSAMLMetadata failed: {}", e))
-                })?;
+
+            let response = client.get_saml_metadata(grpc_request).await.map_err(|e| {
+                error!(error = %e, "GetSAMLMetadata call failed");
+                GatewayError::GrpcCallFailed(format!("GetSAMLMetadata failed: {}", e))
+            })?;
 
             let resp = response.into_inner();
             let json_response = serde_json::json!({
                 "metadata_xml": resp.metadata_xml,
             });
 
-            Ok(serde_json::to_vec(&json_response)
-                .map_err(|e| GatewayError::ConversionError(format!("Failed to serialize response: {}", e)))?)
+            Ok(serde_json::to_vec(&json_response).map_err(|e| {
+                GatewayError::ConversionError(format!("Failed to serialize response: {}", e))
+            })?)
         }
         _ => {
             error!(method = %method, "Unsupported user service method");
-            Err(GatewayError::ConversionError(format!("Unsupported method: {}", method)))
+            Err(GatewayError::ConversionError(format!(
+                "Unsupported method: {}",
+                method
+            )))
         }
     }
 }

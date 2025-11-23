@@ -89,7 +89,7 @@ impl ConventionMapper {
         for pattern in CONVENTION_PATTERNS {
             if method_name.starts_with(pattern) {
                 let resource = method_name.strip_prefix(pattern)?;
-                
+
                 tracing::debug!(
                     method_name = %method_name,
                     pattern = %pattern,
@@ -118,7 +118,7 @@ impl ConventionMapper {
 
                 // Extract and normalize the resource name
                 let resource_name = self.extract_resource(resource, &method_type);
-                
+
                 tracing::debug!(
                     method_name = %method_name,
                     method_type = ?method_type,
@@ -150,7 +150,7 @@ impl ConventionMapper {
         // For List operations, the resource is already plural (e.g., "ListUsers")
         // For other operations, we need to pluralize (e.g., "GetUser" -> "users")
         let normalized = resource.to_lowercase();
-        
+
         match method_type {
             MethodType::List => {
                 // Already plural, just return lowercase
@@ -231,10 +231,13 @@ impl ConventionMapper {
             return word.to_string();
         }
 
-
         // Words ending in 'ch', 'sh', 'ss', 'x', 'z' -> add 'es'
-        if word.ends_with("ch") || word.ends_with("sh") || word.ends_with("ss") 
-            || word.ends_with('x') || word.ends_with('z') {
+        if word.ends_with("ch")
+            || word.ends_with("sh")
+            || word.ends_with("ss")
+            || word.ends_with('x')
+            || word.ends_with('z')
+        {
             return format!("{}es", word);
         }
 

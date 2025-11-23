@@ -23,12 +23,9 @@ pub struct BodyLimitConfig {
 impl Default for BodyLimitConfig {
     fn default() -> Self {
         Self {
-            default_limit: 1024 * 1024,      // 1MB
-            upload_limit: 10 * 1024 * 1024,  // 10MB
-            upload_paths: vec![
-                "/upload".to_string(),
-                "/api/upload".to_string(),
-            ],
+            default_limit: 1024 * 1024,     // 1MB
+            upload_limit: 10 * 1024 * 1024, // 10MB
+            upload_paths: vec!["/upload".to_string(), "/api/upload".to_string()],
         }
     }
 }
@@ -115,10 +112,7 @@ pub async fn body_limit_middleware(
                         }
                     });
 
-                    return Err((
-                        StatusCode::PAYLOAD_TOO_LARGE,
-                        axum::Json(error_body),
-                    ));
+                    return Err((StatusCode::PAYLOAD_TOO_LARGE, axum::Json(error_body)));
                 }
 
                 debug!(

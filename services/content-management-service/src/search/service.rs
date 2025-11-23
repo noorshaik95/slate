@@ -1,9 +1,7 @@
-use crate::circuit_breaker::{CircuitBreaker, CircuitBreakerConfig, CircuitBreakerError};
 use crate::models::{Lesson, Module, Resource};
 use crate::search::{ElasticsearchClient, SearchError};
-use elasticsearch::{
-    DeleteParts, IndexParts, SearchParts,
-};
+use common_rust::circuit_breaker::{CircuitBreaker, CircuitBreakerConfig, CircuitBreakerError};
+use elasticsearch::{DeleteParts, IndexParts, SearchParts};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::sync::Arc;
@@ -58,12 +56,16 @@ pub struct SearchService {
 impl SearchService {
     /// Creates a new SearchService with circuit breaker
     pub fn new(es_client: Arc<ElasticsearchClient>) -> Self {
-        let circuit_breaker = Arc::new(CircuitBreaker::new(
+        let circuit_breaker = Arc::new(CircuitBreaker::with_name(
             "elasticsearch".to_string(),
-            CircuitBreakerConfig::elasticsearch(),
+            CircuitBreakerConfig {
+                failure_threshold: 5,
+                success_threshold: 2,
+                timeout_seconds: 60,
+            },
         ));
-        
-        Self { 
+
+        Self {
             es_client,
             circuit_breaker,
         }
@@ -102,8 +104,9 @@ impl SearchService {
         let resource_id = resource.id;
         let resource_name = resource.name.clone();
 
-        let result = self.circuit_breaker.call(|| async {
-            let index_operation = || async {
+        let result = self
+            .circuit_breaker
+            .call(async move {
                 let response = es_client
                     .client()
                     .index(IndexParts::IndexId(
@@ -113,7 +116,9 @@ impl SearchService {
                     .body(json!(document))
                     .send()
                     .await
-                    .map_err(|e| SearchError::IndexError(format!("Failed to index document: {}", e)))?;
+                    .map_err(|e| {
+                        SearchError::IndexError(format!("Failed to index document: {}", e))
+                    })?;
 
                 if !response.status_code().is_success() {
                     let error_text = response
@@ -132,19 +137,17 @@ impl SearchService {
                     "Successfully indexed content"
                 );
                 Ok(())
-            };
-
-            es_client.with_retry(index_operation).await
-        }).await;
+            })
+            .await;
 
         match result {
             Ok(()) => Ok(()),
-            Err(CircuitBreakerError::CircuitOpen) => {
+            Err(CircuitBreakerError::Open) => {
                 warn!("ElasticSearch circuit breaker is open, skipping indexing");
                 // Don't fail the operation, just log and continue
                 Ok(())
             }
-            Err(CircuitBreakerError::OperationFailed(e)) => Err(e),
+            Err(CircuitBreakerError::OperationFailed(e)) => Err(SearchError::IndexError(e)),
         }
     }
 
@@ -161,7 +164,9 @@ impl SearchService {
                 ))
                 .send()
                 .await
-                .map_err(|e| SearchError::IndexError(format!("Failed to delete document: {}", e)))?;
+                .map_err(|e| {
+                    SearchError::IndexError(format!("Failed to delete document: {}", e))
+                })?;
 
             // 404 is acceptable - document might not exist
             if !response.status_code().is_success() && response.status_code().as_u16() != 404 {
@@ -198,21 +203,19 @@ impl SearchService {
 
         // Limit results to maximum of 50
         let limit = limit.min(50);
-        
+
         let query_str = query.to_string();
         let es_client = self.es_client.clone();
 
         // Build the search query
-        let mut must_clauses = vec![
-            json!({
-                "multi_match": {
-                    "query": query,
-                    "fields": ["resource_name^3", "description^2", "module_name", "lesson_name"],
-                    "type": "best_fields",
-                    "fuzziness": "AUTO"
-                }
-            })
-        ];
+        let mut must_clauses = vec![json!({
+            "multi_match": {
+                "query": query,
+                "fields": ["resource_name^3", "description^2", "module_name", "lesson_name"],
+                "type": "best_fields",
+                "fuzziness": "AUTO"
+            }
+        })];
 
         // Filter by course if specified
         if let Some(cid) = course_id {
@@ -256,115 +259,94 @@ impl SearchService {
 
         debug!(query = %query_str, course_id = ?course_id, user_role = ?user_role, "Executing search query");
 
-        let result = self.circuit_breaker.call(|| {
-            let es_client = es_client.clone();
-            let search_body = search_body.clone();
-            let query_str = query_str.clone();
-            
-            async move {
-                let search_operation = || async {
-            let response = es_client
-                .client()
-                .search(SearchParts::Index(&[es_client.index_name()]))
-                .body(search_body.clone())
-                .send()
-                .await
-                .map_err(|e| SearchError::QueryError(format!("Failed to execute search: {}", e)))?;
-
-            if !response.status_code().is_success() {
-                let error_text = response
-                    .text()
+        let result = self
+            .circuit_breaker
+            .call(async move {
+                let response = es_client
+                    .client()
+                    .search(SearchParts::Index(&[es_client.index_name()]))
+                    .body(search_body.clone())
+                    .send()
                     .await
-                    .unwrap_or_else(|_| "Unknown error".to_string());
-                return Err(SearchError::QueryError(format!(
-                    "Search query failed: {}",
-                    error_text
-                )));
-            }
+                    .map_err(|e| {
+                        SearchError::QueryError(format!("Failed to execute search: {}", e))
+                    })?;
 
-            let response_body = response
-                .json::<serde_json::Value>()
-                .await
-                .map_err(|e| SearchError::SerializationError(format!("Failed to parse response: {}", e)))?;
+                if !response.status_code().is_success() {
+                    let error_text = response
+                        .text()
+                        .await
+                        .unwrap_or_else(|_| "Unknown error".to_string());
+                    return Err(SearchError::QueryError(format!(
+                        "Search query failed: {}",
+                        error_text
+                    )));
+                }
 
-            // Parse search results
-            let hits = response_body["hits"]["hits"]
-                .as_array()
-                .ok_or_else(|| SearchError::QueryError("Invalid response format".to_string()))?;
+                let response_body = response.json::<serde_json::Value>().await.map_err(|e| {
+                    SearchError::SerializationError(format!("Failed to parse response: {}", e))
+                })?;
 
-            let mut results = Vec::new();
-            for hit in hits {
-                let score = hit["_score"].as_f64().unwrap_or(0.0) as f32;
-                let source = &hit["_source"];
-                let highlight = &hit["highlight"];
+                // Parse search results
+                let hits = response_body["hits"]["hits"].as_array().ok_or_else(|| {
+                    SearchError::QueryError("Invalid response format".to_string())
+                })?;
 
-                // Extract highlighted snippets
-                let mut highlighted_snippets = Vec::new();
-                if let Some(highlights) = highlight.as_object() {
-                    for (_, snippets) in highlights {
-                        if let Some(arr) = snippets.as_array() {
-                            for snippet in arr {
-                                if let Some(text) = snippet.as_str() {
-                                    highlighted_snippets.push(text.to_string());
+                let mut results = Vec::new();
+                for hit in hits {
+                    let score = hit["_score"].as_f64().unwrap_or(0.0) as f32;
+                    let source = &hit["_source"];
+                    let highlight = &hit["highlight"];
+
+                    // Extract highlighted snippets
+                    let mut highlighted_snippets = Vec::new();
+                    if let Some(highlights) = highlight.as_object() {
+                        for (_, snippets) in highlights {
+                            if let Some(arr) = snippets.as_array() {
+                                for snippet in arr {
+                                    if let Some(text) = snippet.as_str() {
+                                        highlighted_snippets.push(text.to_string());
+                                    }
                                 }
                             }
                         }
                     }
+
+                    let result = SearchResult {
+                        resource_id: source["resource_id"].as_str().unwrap_or("").to_string(),
+                        resource_name: source["resource_name"].as_str().unwrap_or("").to_string(),
+                        resource_type: source["resource_type"].as_str().unwrap_or("").to_string(),
+                        description: source["description"].as_str().map(|s| s.to_string()),
+                        module_name: source["module_name"].as_str().unwrap_or("").to_string(),
+                        lesson_name: source["lesson_name"].as_str().unwrap_or("").to_string(),
+                        hierarchical_path: source["hierarchical_path"]
+                            .as_str()
+                            .unwrap_or("")
+                            .to_string(),
+                        relevance_score: score,
+                        highlighted_snippets,
+                    };
+
+                    results.push(result);
                 }
 
-                let result = SearchResult {
-                    resource_id: source["resource_id"]
-                        .as_str()
-                        .unwrap_or("")
-                        .to_string(),
-                    resource_name: source["resource_name"]
-                        .as_str()
-                        .unwrap_or("")
-                        .to_string(),
-                    resource_type: source["resource_type"]
-                        .as_str()
-                        .unwrap_or("")
-                        .to_string(),
-                    description: source["description"].as_str().map(|s| s.to_string()),
-                    module_name: source["module_name"]
-                        .as_str()
-                        .unwrap_or("")
-                        .to_string(),
-                    lesson_name: source["lesson_name"]
-                        .as_str()
-                        .unwrap_or("")
-                        .to_string(),
-                    hierarchical_path: source["hierarchical_path"]
-                        .as_str()
-                        .unwrap_or("")
-                        .to_string(),
-                    relevance_score: score,
-                    highlighted_snippets,
-                };
+                info!(
+                    query = %query_str,
+                    results_count = results.len(),
+                    "Search completed successfully"
+                );
 
-                results.push(result);
-            }
-
-            info!(
-                query = %query_str,
-                results_count = results.len(),
-                "Search completed successfully"
-            );
-
-            Ok(results)
-        };
-
-        es_client.with_retry(search_operation).await
-            }
-        }).await;
+                Ok(results)
+            })
+            .await;
 
         match result {
             Ok(results) => Ok(results),
-            Err(CircuitBreakerError::CircuitOpen) => {
+            Err(CircuitBreakerError::Open) => {
                 warn!("ElasticSearch circuit breaker is open, returning empty results");
                 Err(SearchError::ServiceUnavailable)
             }
-            Err(CircuitBreakerError::OperationFailed(e)) => Err(e),
+            Err(CircuitBreakerError::OperationFailed(e)) => Err(SearchError::QueryError(e)),
         }
     }
 }
@@ -372,8 +354,8 @@ impl SearchService {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::Utc;
     use crate::models::{ContentType, CopyrightSetting};
+    use chrono::Utc;
 
     fn create_test_resource() -> Resource {
         Resource {
@@ -444,7 +426,10 @@ mod tests {
 
         assert_eq!(doc.resource_name, "Introduction to Rust");
         assert_eq!(doc.resource_type, "video");
-        assert_eq!(doc.hierarchical_path, "Rust Fundamentals → Getting Started → Introduction to Rust");
+        assert_eq!(
+            doc.hierarchical_path,
+            "Rust Fundamentals → Getting Started → Introduction to Rust"
+        );
         assert!(doc.published);
     }
 

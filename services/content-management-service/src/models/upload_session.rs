@@ -167,9 +167,18 @@ mod tests {
     #[test]
     fn test_calculate_total_chunks() {
         let chunk_size = 5 * 1024 * 1024; // 5MB
-        assert_eq!(UploadSession::calculate_total_chunks(5 * 1024 * 1024, chunk_size), 1);
-        assert_eq!(UploadSession::calculate_total_chunks(10 * 1024 * 1024, chunk_size), 2);
-        assert_eq!(UploadSession::calculate_total_chunks(12 * 1024 * 1024, chunk_size), 3);
+        assert_eq!(
+            UploadSession::calculate_total_chunks(5 * 1024 * 1024, chunk_size),
+            1
+        );
+        assert_eq!(
+            UploadSession::calculate_total_chunks(10 * 1024 * 1024, chunk_size),
+            2
+        );
+        assert_eq!(
+            UploadSession::calculate_total_chunks(12 * 1024 * 1024, chunk_size),
+            3
+        );
     }
 
     #[test]

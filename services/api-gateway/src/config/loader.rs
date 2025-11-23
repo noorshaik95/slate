@@ -21,10 +21,10 @@ impl GatewayConfig {
             .build()?;
 
         let gateway_config: GatewayConfig = config.try_deserialize()?;
-        
+
         // Validate the configuration
         gateway_config.validate()?;
-        
+
         Ok(gateway_config)
     }
 
@@ -42,9 +42,11 @@ impl GatewayConfig {
         // Validate discovery configuration
         if self.discovery.enabled {
             // Validate refresh interval is within acceptable range (60-3600 seconds)
-            if self.discovery.refresh_interval_seconds < 60 || self.discovery.refresh_interval_seconds > 3600 {
+            if self.discovery.refresh_interval_seconds < 60
+                || self.discovery.refresh_interval_seconds > 3600
+            {
                 return Err(ConfigError::Message(
-                    "Discovery refresh interval must be between 60 and 3600 seconds".to_string()
+                    "Discovery refresh interval must be between 60 and 3600 seconds".to_string(),
                 ));
             }
         }
@@ -53,7 +55,7 @@ impl GatewayConfig {
         for override_config in &self.route_overrides {
             if override_config.grpc_method.is_empty() {
                 return Err(ConfigError::Message(
-                    "Route override must specify a grpc_method".to_string()
+                    "Route override must specify a grpc_method".to_string(),
                 ));
             }
         }
@@ -121,7 +123,9 @@ impl GatewayConfig {
         }
 
         if self.observability.service_name.is_empty() {
-            return Err(ConfigError::Message(ERR_EMPTY_OBSERVABILITY_SERVICE_NAME.to_string()));
+            return Err(ConfigError::Message(
+                ERR_EMPTY_OBSERVABILITY_SERVICE_NAME.to_string(),
+            ));
         }
 
         Ok(())

@@ -1,15 +1,12 @@
 use anyhow::Result;
+use axum::Router;
 use content_management_service::{
     config::Config,
     db::DatabasePool,
     health::HealthChecker,
     health_server::health_routes,
-    observability::{
-        init_metrics, init_tracing, log_configuration_loaded, log_graceful_shutdown,
-        log_service_startup, log_shutdown_complete, shutdown_tracing,
-    },
+    observability::{init_metrics, init_tracing, shutdown_tracing},
 };
-use axum::Router;
 use std::sync::Arc;
 use tracing::{error, info};
 
@@ -27,19 +24,21 @@ async fn main() -> Result<()> {
     )?;
 
     // Log service startup
-    log_service_startup(
-        &config.observability.service_name,
-        VERSION,
-        config.server.grpc_port,
-        config.server.metrics_port,
+    info!(
+        service_name = %config.observability.service_name,
+        version = %VERSION,
+        grpc_port = %config.server.grpc_port,
+        metrics_port = %config.server.metrics_port,
+        "Service starting"
     );
 
     // Log configuration
-    log_configuration_loaded(
-        &config.database.url,
-        &config.s3.endpoint,
-        &config.elasticsearch.url,
-        &config.redis.url,
+    info!(
+        database_url = %config.database.url.split('@').last().unwrap_or("***"),
+        s3_endpoint = %config.s3.endpoint,
+        elasticsearch_url = %config.elasticsearch.url,
+        redis_url = %config.redis.url.split('@').last().unwrap_or("***"),
+        "Configuration loaded"
     );
 
     // Initialize metrics
@@ -126,19 +125,31 @@ async fn main() -> Result<()> {
     // Initialize ElasticSearch client
     info!("Initializing ElasticSearch client...");
     let es_client = Arc::new(
-        content_management_service::search::ElasticsearchClient::new(&config.elasticsearch)?
+        content_management_service::search::ElasticsearchClient::new(&config.elasticsearch)?,
     );
     info!("ElasticSearch client initialized");
 
     // Initialize repositories
-    let upload_session_repo = Arc::new(content_management_service::db::repositories::UploadSessionRepository::new(db_pool.pool().clone()));
-    let resource_repo = Arc::new(content_management_service::db::repositories::ResourceRepository::new(db_pool.pool().clone()));
-    let _transcoding_job_repo = Arc::new(content_management_service::db::repositories::TranscodingJobRepository::new(db_pool.pool().clone()));
+    let upload_session_repo = Arc::new(
+        content_management_service::db::repositories::UploadSessionRepository::new(
+            db_pool.pool().clone(),
+        ),
+    );
+    let resource_repo = Arc::new(
+        content_management_service::db::repositories::ResourceRepository::new(
+            db_pool.pool().clone(),
+        ),
+    );
+    let _transcoding_job_repo = Arc::new(
+        content_management_service::db::repositories::TranscodingJobRepository::new(
+            db_pool.pool().clone(),
+        ),
+    );
     info!("Repositories initialized");
 
     // Initialize service components
     info!("Initializing service components...");
-    
+
     // Initialize analytics publisher first (needed by other services)
     let analytics_publisher = Arc::new(
         content_management_service::analytics::AnalyticsPublisher::new(
@@ -146,7 +157,7 @@ async fn main() -> Result<()> {
             &config.analytics.service_url,
         )?,
     );
-    
+
     let content_manager = Arc::new(content_management_service::content::ContentManager::new(
         db_pool.pool().clone(),
     ));
@@ -157,15 +168,25 @@ async fn main() -> Result<()> {
         s3_client.clone(),
     ));
 
-    let streaming_service = Arc::new(content_management_service::streaming::StreamingService::with_analytics(
-        content_management_service::db::repositories::ResourceRepository::new(db_pool.pool().clone()),
-        content_management_service::db::repositories::ProgressRepository::new(db_pool.pool().clone()),
-        analytics_publisher.clone(),
-    ));
+    let streaming_service = Arc::new(
+        content_management_service::streaming::StreamingService::with_analytics(
+            content_management_service::db::repositories::ResourceRepository::new(
+                db_pool.pool().clone(),
+            ),
+            content_management_service::db::repositories::ProgressRepository::new(
+                db_pool.pool().clone(),
+            ),
+            analytics_publisher.clone(),
+        ),
+    );
 
     let progress_tracker = Arc::new(content_management_service::progress::ProgressTracker::new(
-        content_management_service::db::repositories::ProgressRepository::new(db_pool.pool().clone()),
-        content_management_service::db::repositories::ResourceRepository::new(db_pool.pool().clone()),
+        content_management_service::db::repositories::ProgressRepository::new(
+            db_pool.pool().clone(),
+        ),
+        content_management_service::db::repositories::ResourceRepository::new(
+            db_pool.pool().clone(),
+        ),
         content_management_service::db::repositories::LessonRepository::new(db_pool.pool().clone()),
         content_management_service::db::repositories::ModuleRepository::new(db_pool.pool().clone()),
     ));
@@ -175,8 +196,12 @@ async fn main() -> Result<()> {
     ));
 
     let download_manager = Arc::new(content_management_service::download::DownloadManager::new(
-        content_management_service::db::repositories::ResourceRepository::new(db_pool.pool().clone()),
-        content_management_service::db::repositories::DownloadTrackingRepository::new(db_pool.pool().clone()),
+        content_management_service::db::repositories::ResourceRepository::new(
+            db_pool.pool().clone(),
+        ),
+        content_management_service::db::repositories::DownloadTrackingRepository::new(
+            db_pool.pool().clone(),
+        ),
         (*s3_client).clone(),
         analytics_publisher.clone(),
     ));
@@ -184,21 +209,26 @@ async fn main() -> Result<()> {
     info!("Service components initialized");
 
     // Create gRPC service implementations
-    let content_service = content_management_service::grpc::ContentServiceImpl::new(content_manager.clone());
-    let upload_service = content_management_service::grpc::UploadServiceImpl::new(upload_handler.clone());
-    let streaming_service_impl = content_management_service::grpc::StreamingServiceImpl::new(streaming_service.clone());
-    let progress_service = content_management_service::grpc::ProgressServiceImpl::new(progress_tracker.clone());
-    let search_service_handler = content_management_service::grpc::SearchServiceHandler::new(search_service.clone());
-    let download_service_handler = content_management_service::grpc::DownloadServiceHandler::new(download_manager.clone());
+    let content_service =
+        content_management_service::grpc::ContentServiceImpl::new(content_manager.clone());
+    let upload_service =
+        content_management_service::grpc::UploadServiceImpl::new(upload_handler.clone());
+    let streaming_service_impl =
+        content_management_service::grpc::StreamingServiceImpl::new(streaming_service.clone());
+    let progress_service =
+        content_management_service::grpc::ProgressServiceImpl::new(progress_tracker.clone());
+    let search_service_handler =
+        content_management_service::grpc::SearchServiceHandler::new(search_service.clone());
+    let download_service_handler =
+        content_management_service::grpc::DownloadServiceHandler::new(download_manager.clone());
 
     // Import gRPC server traits
     use content_management_service::proto::content::{
         content_service_server::ContentServiceServer,
-        upload_service_server::UploadServiceServer,
-        streaming_service_server::StreamingServiceServer,
-        progress_service_server::ProgressServiceServer,
-        search_service_server::SearchServiceServer,
         download_service_server::DownloadServiceServer,
+        progress_service_server::ProgressServiceServer, search_service_server::SearchServiceServer,
+        streaming_service_server::StreamingServiceServer,
+        upload_service_server::UploadServiceServer,
     };
 
     // Start background workers
@@ -207,7 +237,7 @@ async fn main() -> Result<()> {
     // Start video transcoding workers
     let worker_count = config.transcoding.worker_count;
     let work_dir = std::path::PathBuf::from("/tmp/transcoding");
-    
+
     for i in 0..worker_count {
         let redis_url = config.redis.url.clone();
         let queue_name = config.redis.queue_name.clone();
@@ -221,7 +251,11 @@ async fn main() -> Result<()> {
 
         tokio::spawn(async move {
             // Create a new queue connection for this worker
-            let queue = match content_management_service::transcoding::TranscodingQueue::new(&redis_url, queue_name).await {
+            let queue = match content_management_service::transcoding::TranscodingQueue::new(
+                &redis_url, queue_name,
+            )
+            .await
+            {
                 Ok(q) => q,
                 Err(e) => {
                     error!("Failed to create queue for worker {}: {}", i, e);
@@ -236,7 +270,9 @@ async fn main() -> Result<()> {
                 s3_access_key,
                 s3_secret_key,
                 bucket.clone(),
-            ).await {
+            )
+            .await
+            {
                 Ok(client) => client,
                 Err(e) => {
                     error!("Failed to create S3 client for worker {}: {}", i, e);
@@ -245,7 +281,8 @@ async fn main() -> Result<()> {
             };
 
             // Create database pool for this worker
-            let worker_pool = match content_management_service::db::DatabasePool::new(&db_url).await {
+            let worker_pool = match content_management_service::db::DatabasePool::new(&db_url).await
+            {
                 Ok(pool) => pool,
                 Err(e) => {
                     error!("Failed to create database pool for worker {}: {}", i, e);
@@ -256,8 +293,12 @@ async fn main() -> Result<()> {
             let mut worker = content_management_service::transcoding::VideoTranscoder::new(
                 queue,
                 worker_s3,
-                content_management_service::db::repositories::TranscodingJobRepository::new(worker_pool.pool().clone()),
-                content_management_service::db::repositories::ResourceRepository::new(worker_pool.pool().clone()),
+                content_management_service::db::repositories::TranscodingJobRepository::new(
+                    worker_pool.pool().clone(),
+                ),
+                content_management_service::db::repositories::ResourceRepository::new(
+                    worker_pool.pool().clone(),
+                ),
                 work_dir,
                 bucket,
             );
@@ -313,9 +354,10 @@ async fn main() -> Result<()> {
     // Add OpenTelemetry gRPC layer for automatic trace propagation
     // The tower-http TraceLayer will automatically extract trace context from gRPC metadata
     let grpc_server = tonic::transport::Server::builder()
-        .layer(tower::ServiceBuilder::new()
-            // Add OpenTelemetry tracing layer for automatic trace propagation
-            .layer(tower_http::trace::TraceLayer::new_for_grpc())
+        .layer(
+            tower::ServiceBuilder::new()
+                // Add OpenTelemetry tracing layer for automatic trace propagation
+                .layer(tower_http::trace::TraceLayer::new_for_grpc()),
         )
         .add_service(reflection_service)
         .add_service(ContentServiceServer::new(content_service))
@@ -336,7 +378,7 @@ async fn main() -> Result<()> {
     grpc_server.await?;
 
     // Graceful shutdown initiated
-    log_graceful_shutdown();
+    info!("Initiating graceful shutdown");
     info!("Initiating graceful shutdown...");
 
     // Give background workers time to finish current tasks
@@ -356,7 +398,7 @@ async fn main() -> Result<()> {
 
     // Shutdown tracing
     shutdown_tracing();
-    log_shutdown_complete();
+    info!("Shutdown complete");
 
     info!("Graceful shutdown complete");
 

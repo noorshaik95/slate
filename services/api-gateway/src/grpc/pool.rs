@@ -59,10 +59,9 @@ impl ConnectionPool {
     async fn create_channel(config: &ServiceConfig) -> Result<Channel, GrpcError> {
         use std::time::Duration;
 
-        let endpoint = config
-            .endpoint
-            .parse::<Endpoint>()
-            .map_err(|e| GrpcError::InvalidConfig(format!("Invalid endpoint {}: {}", config.endpoint, e)))?;
+        let endpoint = config.endpoint.parse::<Endpoint>().map_err(|e| {
+            GrpcError::InvalidConfig(format!("Invalid endpoint {}: {}", config.endpoint, e))
+        })?;
 
         let timeout = Duration::from_millis(config.timeout_ms);
 

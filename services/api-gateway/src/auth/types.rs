@@ -5,22 +5,22 @@ use std::time::{Duration, Instant};
 pub enum AuthError {
     #[error("Missing authentication token")]
     MissingToken,
-    
+
     #[error("Invalid authentication token: {0}")]
     InvalidToken(String),
-    
+
     #[error("Expired authentication token")]
     ExpiredToken,
-    
+
     #[error("Insufficient permissions: {0}")]
     InsufficientPermissions(String),
-    
+
     #[error("Auth service error: {0}")]
     ServiceError(String),
-    
+
     #[error("Connection error: {0}")]
     ConnectionError(String),
-    
+
     #[error("Policy cache error: {0}")]
     CacheError(String),
 }

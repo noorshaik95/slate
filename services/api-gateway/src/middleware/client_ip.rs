@@ -24,7 +24,7 @@ impl ClientIpConfig {
 }
 
 /// Extractor for determining the real client IP address
-/// 
+///
 /// This handles X-Forwarded-For headers securely by only trusting them
 /// from configured proxy IPs to prevent IP spoofing attacks.
 #[derive(Clone)]
@@ -39,7 +39,7 @@ impl ClientIpExtractor {
     }
 
     /// Extract the real client IP from a request
-    /// 
+    ///
     /// # Security
     /// - Only trusts X-Forwarded-For from configured proxy IPs
     /// - Uses leftmost IP in X-Forwarded-For chain (original client)
@@ -74,7 +74,7 @@ impl ClientIpExtractor {
                 // Get leftmost IP (original client) from comma-separated list
                 if let Some(first_ip_str) = xff_str.split(',').next() {
                     let trimmed = first_ip_str.trim();
-                    
+
                     // Validate and parse IP
                     match trimmed.parse::<IpAddr>() {
                         Ok(ip) => {
@@ -130,10 +130,7 @@ mod tests {
         let extractor = ClientIpExtractor::new(config);
 
         // Create a mock request
-        let mut request = Request::builder()
-            .uri("/")
-            .body(())
-            .unwrap();
+        let mut request = Request::builder().uri("/").body(()).unwrap();
 
         // Add ConnectInfo extension
         let addr: SocketAddr = "192.168.1.100:12345".parse().unwrap();

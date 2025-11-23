@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use super::types::{HealthState, HealthStatus, ServiceHealth};
+use std::collections::HashMap;
 
 #[test]
 fn test_health_state_serialization() {

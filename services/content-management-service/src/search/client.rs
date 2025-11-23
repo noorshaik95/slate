@@ -29,7 +29,9 @@ impl ElasticsearchClient {
         let transport = TransportBuilder::new(conn_pool)
             .timeout(Duration::from_secs(config.timeout_seconds))
             .build()
-            .map_err(|e| SearchError::ConnectionError(format!("Failed to build transport: {}", e)))?;
+            .map_err(|e| {
+                SearchError::ConnectionError(format!("Failed to build transport: {}", e))
+            })?;
 
         let client = Elasticsearch::new(transport);
 
@@ -50,7 +52,9 @@ impl ElasticsearchClient {
             .exists(IndicesExistsParts::Index(&[&self.index_name]))
             .send()
             .await
-            .map_err(|e| SearchError::IndexError(format!("Failed to check index existence: {}", e)))?;
+            .map_err(|e| {
+                SearchError::IndexError(format!("Failed to check index existence: {}", e))
+            })?;
 
         if exists_response.status_code().is_success() {
             info!("ElasticSearch index '{}' already exists", self.index_name);
@@ -59,7 +63,7 @@ impl ElasticsearchClient {
 
         // Create index with mappings
         info!("Creating ElasticSearch index '{}'", self.index_name);
-        
+
         let mappings = json!({
             "mappings": {
                 "properties": {
@@ -111,7 +115,10 @@ impl ElasticsearchClient {
             )));
         }
 
-        info!("Successfully created ElasticSearch index '{}'", self.index_name);
+        info!(
+            "Successfully created ElasticSearch index '{}'",
+            self.index_name
+        );
         Ok(())
     }
 

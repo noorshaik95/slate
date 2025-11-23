@@ -33,13 +33,10 @@ pub async fn refresh_routes_handler(
     info!("Admin refresh routes endpoint called");
 
     // Get discovery service from app state
-    let discovery_service = state
-        .discovery_service
-        .as_ref()
-        .ok_or_else(|| {
-            error!("Discovery service not available in app state");
-            RefreshError::ServiceUnavailable("Route discovery is not enabled".to_string())
-        })?;
+    let discovery_service = state.discovery_service.as_ref().ok_or_else(|| {
+        error!("Discovery service not available in app state");
+        RefreshError::ServiceUnavailable("Route discovery is not enabled".to_string())
+    })?;
 
     // Discover routes from all services
     let services_queried = state
@@ -57,7 +54,10 @@ pub async fn refresh_routes_handler(
     let mut errors = Vec::new();
 
     // Perform discovery
-    let discovered_routes = match discovery_service.discover_routes(&state.config.services).await {
+    let discovered_routes = match discovery_service
+        .discover_routes(&state.config.services)
+        .await
+    {
         Ok(routes) => {
             info!(
                 routes = routes.len(),
@@ -68,7 +68,7 @@ pub async fn refresh_routes_handler(
         Err(e) => {
             error!(error = %e, "Failed to discover routes");
             errors.push(format!("Discovery failed: {}", e));
-            
+
             // Return error response
             return Ok(Json(RefreshResponse {
                 success: false,
@@ -80,10 +80,8 @@ pub async fn refresh_routes_handler(
     };
 
     // Apply route overrides
-    let final_routes = discovery_service.apply_overrides(
-        discovered_routes,
-        &state.config.route_overrides,
-    );
+    let final_routes =
+        discovery_service.apply_overrides(discovered_routes, &state.config.route_overrides);
 
     let routes_count = final_routes.len();
 

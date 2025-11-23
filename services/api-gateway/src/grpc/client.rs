@@ -3,11 +3,11 @@ use std::time::Duration;
 use tonic::transport::{Channel, Endpoint};
 use tracing::{debug, error, info, warn};
 
-use crate::circuit_breaker::CircuitBreaker;
-use crate::config::ServiceConfig;
-use super::types::{GrpcError, GrpcRequest, GrpcResponse};
 use super::constants::*;
 use super::pool::ConnectionPool;
+use super::types::{GrpcError, GrpcRequest, GrpcResponse};
+use crate::config::ServiceConfig;
+use common_rust::circuit_breaker::CircuitBreaker;
 
 /// Pool of gRPC client connections to backend services with circuit breakers
 #[derive(Clone)]
@@ -20,7 +20,10 @@ pub struct GrpcClientPool {
 impl GrpcClientPool {
     /// Create a new gRPC client pool with the given service configurations
     pub async fn new(services: HashMap<String, ServiceConfig>) -> Result<Self, GrpcError> {
-        info!("Initializing gRPC client pool with {} services", services.len());
+        info!(
+            "Initializing gRPC client pool with {} services",
+            services.len()
+        );
 
         let mut pools = HashMap::new();
         let mut circuit_breakers = HashMap::new();
@@ -53,12 +56,13 @@ impl GrpcClientPool {
             circuit_breakers,
         })
     }
-    
+
     /// Create a channel with connection pooling and timeout configuration
     #[allow(dead_code)]
     async fn create_channel(config: &ServiceConfig) -> Result<Channel, GrpcError> {
-        let endpoint = config.endpoint.parse::<Endpoint>()
-            .map_err(|e| GrpcError::InvalidConfig(format!("Invalid endpoint {}: {}", config.endpoint, e)))?;
+        let endpoint = config.endpoint.parse::<Endpoint>().map_err(|e| {
+            GrpcError::InvalidConfig(format!("Invalid endpoint {}: {}", config.endpoint, e))
+        })?;
 
         let timeout = Duration::from_millis(config.timeout_ms);
 
@@ -82,20 +86,20 @@ impl GrpcClientPool {
         }
 
         // Connect to the service
-        let channel = endpoint
-            .connect()
-            .await
-            .map_err(|e| GrpcError::ConnectionError(format!("Failed to connect to {}: {}", config.endpoint, e)))?;
+        let channel = endpoint.connect().await.map_err(|e| {
+            GrpcError::ConnectionError(format!("Failed to connect to {}: {}", config.endpoint, e))
+        })?;
 
         Ok(channel)
     }
-    
+
     /// Get a channel for a specific service from the connection pool
     pub fn get_channel(&self, service: &str) -> Result<Channel, GrpcError> {
-        let pool = self.pools
+        let pool = self
+            .pools
             .get(service)
             .ok_or_else(|| GrpcError::ServiceNotFound(service.to_string()))?;
-        
+
         // Acquire a channel from the pool using round-robin
         Ok(pool.acquire())
     }
@@ -104,31 +108,33 @@ impl GrpcClientPool {
     pub fn get_circuit_breaker(&self, service: &str) -> Option<CircuitBreaker> {
         self.circuit_breakers.get(service).cloned()
     }
-    
+
     /// Execute a generic gRPC call with retry logic
-    /// 
+    ///
     /// Note: This method is currently unused as we use DynamicGrpcClient instead.
     /// Keeping it for potential future use with typed gRPC clients.
     #[allow(dead_code)]
     pub async fn call(&self, request: GrpcRequest) -> Result<GrpcResponse, GrpcError> {
         let service_name = &request.service;
-        
+
         debug!(
             service = %service_name,
             method = %request.method,
             "Executing gRPC call"
         );
-        
+
         // Get the channel for the service
         let channel = self.get_channel(service_name)?;
-        
+
         // Get service config for timeout
-        let config = self.config.get(service_name)
+        let config = self
+            .config
+            .get(service_name)
             .ok_or_else(|| GrpcError::ServiceNotFound(service_name.to_string()))?;
-        
+
         // Execute with retry logic
         let result = self.call_with_retry(channel, &request, config).await;
-        
+
         match &result {
             Ok(response) => {
                 debug!(
@@ -145,10 +151,10 @@ impl GrpcClientPool {
                 );
             }
         }
-        
+
         result
     }
-    
+
     /// Execute a gRPC call with retry logic (max 3 attempts)
     async fn call_with_retry(
         &self,
@@ -157,7 +163,7 @@ impl GrpcClientPool {
         config: &ServiceConfig,
     ) -> Result<GrpcResponse, GrpcError> {
         let mut last_error = None;
-        
+
         for attempt in 1..=MAX_RETRIES {
             match self.execute_call(channel.clone(), request, config).await {
                 Ok(response) => return Ok(response),
@@ -170,11 +176,13 @@ impl GrpcClientPool {
                             error = %e,
                             "gRPC call failed, retrying"
                         );
-                        
+
                         // Exponential backoff
-                        let backoff = Duration::from_millis(INITIAL_BACKOFF_MS * BACKOFF_MULTIPLIER.pow(attempt - 1));
+                        let backoff = Duration::from_millis(
+                            INITIAL_BACKOFF_MS * BACKOFF_MULTIPLIER.pow(attempt - 1),
+                        );
                         tokio::time::sleep(backoff).await;
-                        
+
                         last_error = Some(e);
                     } else {
                         return Err(e);
@@ -182,10 +190,11 @@ impl GrpcClientPool {
                 }
             }
         }
-        
-        Err(last_error.unwrap_or_else(|| GrpcError::CallFailed(ERR_MAX_RETRIES_EXCEEDED.to_string())))
+
+        Err(last_error
+            .unwrap_or_else(|| GrpcError::CallFailed(ERR_MAX_RETRIES_EXCEEDED.to_string())))
     }
-    
+
     /// Execute a single gRPC call attempt
     async fn execute_call(
         &self,
@@ -197,11 +206,13 @@ impl GrpcClientPool {
         // In practice, specific service clients (auth, backend services) will use
         // the channel directly with their generated proto code
         // This method would need dynamic dispatch or code generation for truly generic calls
-        
+
         // For now, return an error indicating this needs to be implemented per-service
-        Err(GrpcError::CallFailed(ERR_GENERIC_CALLS_NOT_IMPLEMENTED.to_string()))
+        Err(GrpcError::CallFailed(
+            ERR_GENERIC_CALLS_NOT_IMPLEMENTED.to_string(),
+        ))
     }
-    
+
     /// Check if an error is retryable
     pub(crate) fn is_retryable_error(error: &GrpcError) -> bool {
         match error {
@@ -209,46 +220,47 @@ impl GrpcClientPool {
             GrpcError::ConnectionError(_) => true,
             GrpcError::CallFailed(msg) => {
                 // Retry on specific gRPC status codes
-                msg.contains(RETRYABLE_STATUS_UNAVAILABLE) || 
-                msg.contains(RETRYABLE_STATUS_DEADLINE_EXCEEDED) ||
-                msg.contains(RETRYABLE_STATUS_RESOURCE_EXHAUSTED)
+                msg.contains(RETRYABLE_STATUS_UNAVAILABLE)
+                    || msg.contains(RETRYABLE_STATUS_DEADLINE_EXCEEDED)
+                    || msg.contains(RETRYABLE_STATUS_RESOURCE_EXHAUSTED)
             }
             _ => false,
         }
     }
-    
+
     /// Check health of a specific backend service
     pub async fn health_check(&self, service: &str) -> Result<bool, GrpcError> {
         debug!(service = %service, "Performing health check");
-        
+
         // Get the connection pool for the service
-        let pool = self.pools
+        let pool = self
+            .pools
             .get(service)
             .ok_or_else(|| GrpcError::ServiceNotFound(service.to_string()))?;
-        
+
         // Perform health check on the pool
         pool.health_check().await
     }
-    
+
     /// Get all service names in the pool
     pub fn services(&self) -> Vec<String> {
         self.pools.keys().cloned().collect()
     }
-    
+
     /// Check if a service exists in the pool
     pub fn has_service(&self, service: &str) -> bool {
         self.pools.contains_key(service)
     }
 
     /// Close all gRPC connections gracefully
-    /// 
+    ///
     /// This method attempts to close all connections with a 5-second timeout.
     /// After the timeout, remaining connections are force-closed.
     /// Returns the number of connections that were closed.
     pub async fn close(&self) -> usize {
         let start = std::time::Instant::now();
         let total_services = self.pools.len();
-        
+
         info!(
             service_count = total_services,
             "Starting graceful shutdown of gRPC connection pools"
@@ -256,20 +268,21 @@ impl GrpcClientPool {
 
         // Create a timeout for graceful shutdown
         let shutdown_timeout = Duration::from_secs(5);
-        
+
         // Attempt graceful shutdown with timeout
         let result = tokio::time::timeout(shutdown_timeout, async {
             let mut closed_count = 0;
-            
+
             for (service_name, _pool) in &self.pools {
                 debug!(service = %service_name, "Closing connection pool");
                 // Note: tonic::transport::Channel doesn't have an explicit close method
                 // Connections will be dropped when the pool is dropped
                 closed_count += 1;
             }
-            
+
             closed_count
-        }).await;
+        })
+        .await;
 
         let closed_count = match result {
             Ok(count) => {

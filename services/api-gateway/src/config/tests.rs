@@ -5,20 +5,26 @@ use std::collections::HashMap;
 fn test_validate_empty_server_host() {
     let mut config = create_valid_config();
     config.server.host = String::new();
-    
+
     let result = config.validate();
     assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("host cannot be empty"));
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("host cannot be empty"));
 }
 
 #[test]
 fn test_validate_zero_port() {
     let mut config = create_valid_config();
     config.server.port = 0;
-    
+
     let result = config.validate();
     assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("port must be greater than 0"));
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("port must be greater than 0"));
 }
 
 // Routes are now discovered automatically, so these tests are no longer applicable
@@ -26,7 +32,7 @@ fn test_validate_zero_port() {
 // fn test_validate_empty_routes() {
 //     let mut config = create_valid_config();
 //     config.routes.clear();
-//     
+//
 //     let result = config.validate();
 //     assert!(result.is_err());
 //     assert!(result.unwrap_err().to_string().contains("At least one route"));
@@ -36,7 +42,7 @@ fn test_validate_zero_port() {
 // fn test_validate_route_references_unknown_service() {
 //     let mut config = create_valid_config();
 //     config.routes[0].service = "unknown-service".to_string();
-//     
+//
 //     let result = config.validate();
 //     assert!(result.is_err());
 //     assert!(result.unwrap_err().to_string().contains("unknown service"));
@@ -49,8 +55,8 @@ fn test_validate_valid_config() {
 }
 
 fn create_valid_config() -> GatewayConfig {
-    use crate::circuit_breaker::CircuitBreakerConfig;
-    
+    use common_rust::circuit_breaker::CircuitBreakerConfig;
+
     let mut services = HashMap::new();
     services.insert(
         "test-service".to_string(),

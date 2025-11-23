@@ -11,7 +11,10 @@ fn test_map_get_method() {
     assert!(result.is_some());
     let mapping = result.unwrap();
     assert_eq!(mapping.http_method, "GET");
-    assert_eq!(mapping.http_path, format!("{}/users/:id", DEFAULT_API_PREFIX));
+    assert_eq!(
+        mapping.http_path,
+        format!("{}/users/:id", DEFAULT_API_PREFIX)
+    );
     assert_eq!(mapping.grpc_method, "user.UserService/GetUser");
 }
 
@@ -30,11 +33,7 @@ fn test_map_list_method() {
 #[test]
 fn test_map_create_method() {
     let mapper = ConventionMapper::new();
-    let result = mapper.map_method(
-        "UserService",
-        "CreateUser",
-        "user.UserService/CreateUser",
-    );
+    let result = mapper.map_method("UserService", "CreateUser", "user.UserService/CreateUser");
 
     assert!(result.is_some());
     let mapping = result.unwrap();
@@ -46,32 +45,30 @@ fn test_map_create_method() {
 #[test]
 fn test_map_update_method() {
     let mapper = ConventionMapper::new();
-    let result = mapper.map_method(
-        "UserService",
-        "UpdateUser",
-        "user.UserService/UpdateUser",
-    );
+    let result = mapper.map_method("UserService", "UpdateUser", "user.UserService/UpdateUser");
 
     assert!(result.is_some());
     let mapping = result.unwrap();
     assert_eq!(mapping.http_method, "PUT");
-    assert_eq!(mapping.http_path, format!("{}/users/:id", DEFAULT_API_PREFIX));
+    assert_eq!(
+        mapping.http_path,
+        format!("{}/users/:id", DEFAULT_API_PREFIX)
+    );
     assert_eq!(mapping.grpc_method, "user.UserService/UpdateUser");
 }
 
 #[test]
 fn test_map_delete_method() {
     let mapper = ConventionMapper::new();
-    let result = mapper.map_method(
-        "UserService",
-        "DeleteUser",
-        "user.UserService/DeleteUser",
-    );
+    let result = mapper.map_method("UserService", "DeleteUser", "user.UserService/DeleteUser");
 
     assert!(result.is_some());
     let mapping = result.unwrap();
     assert_eq!(mapping.http_method, "DELETE");
-    assert_eq!(mapping.http_path, format!("{}/users/:id", DEFAULT_API_PREFIX));
+    assert_eq!(
+        mapping.http_path,
+        format!("{}/users/:id", DEFAULT_API_PREFIX)
+    );
     assert_eq!(mapping.grpc_method, "user.UserService/DeleteUser");
 }
 
@@ -218,7 +215,11 @@ fn test_pluralization_special_endings() {
         format!("{}/boxes/:id", DEFAULT_API_PREFIX)
     );
 
-    let result = mapper.map_method("ClassService", "CreateClass", "class.ClassService/CreateClass");
+    let result = mapper.map_method(
+        "ClassService",
+        "CreateClass",
+        "class.ClassService/CreateClass",
+    );
     assert!(result.is_some());
     assert_eq!(
         result.unwrap().http_path,
@@ -268,25 +269,16 @@ fn test_http_method_mapping() {
     let list_result = mapper.map_method("UserService", "ListUsers", "user.UserService/ListUsers");
     assert_eq!(list_result.unwrap().http_method, "GET");
 
-    let create_result = mapper.map_method(
-        "UserService",
-        "CreateUser",
-        "user.UserService/CreateUser",
-    );
+    let create_result =
+        mapper.map_method("UserService", "CreateUser", "user.UserService/CreateUser");
     assert_eq!(create_result.unwrap().http_method, "POST");
 
-    let update_result = mapper.map_method(
-        "UserService",
-        "UpdateUser",
-        "user.UserService/UpdateUser",
-    );
+    let update_result =
+        mapper.map_method("UserService", "UpdateUser", "user.UserService/UpdateUser");
     assert_eq!(update_result.unwrap().http_method, "PUT");
 
-    let delete_result = mapper.map_method(
-        "UserService",
-        "DeleteUser",
-        "user.UserService/DeleteUser",
-    );
+    let delete_result =
+        mapper.map_method("UserService", "DeleteUser", "user.UserService/DeleteUser");
     assert_eq!(delete_result.unwrap().http_method, "DELETE");
 }
 
@@ -298,28 +290,19 @@ fn test_path_patterns_with_id() {
     let get_result = mapper.map_method("UserService", "GetUser", "user.UserService/GetUser");
     assert!(get_result.unwrap().http_path.ends_with("/:id"));
 
-    let update_result = mapper.map_method(
-        "UserService",
-        "UpdateUser",
-        "user.UserService/UpdateUser",
-    );
+    let update_result =
+        mapper.map_method("UserService", "UpdateUser", "user.UserService/UpdateUser");
     assert!(update_result.unwrap().http_path.ends_with("/:id"));
 
-    let delete_result = mapper.map_method(
-        "UserService",
-        "DeleteUser",
-        "user.UserService/DeleteUser",
-    );
+    let delete_result =
+        mapper.map_method("UserService", "DeleteUser", "user.UserService/DeleteUser");
     assert!(delete_result.unwrap().http_path.ends_with("/:id"));
 
     // Operations that should NOT include :id
     let list_result = mapper.map_method("UserService", "ListUsers", "user.UserService/ListUsers");
     assert!(!list_result.unwrap().http_path.ends_with("/:id"));
 
-    let create_result = mapper.map_method(
-        "UserService",
-        "CreateUser",
-        "user.UserService/CreateUser",
-    );
+    let create_result =
+        mapper.map_method("UserService", "CreateUser", "user.UserService/CreateUser");
     assert!(!create_result.unwrap().http_path.ends_with("/:id"));
 }

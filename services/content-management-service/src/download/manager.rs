@@ -34,7 +34,7 @@ impl DownloadManager {
     }
 
     /// Validates download permission for a resource
-    /// 
+    ///
     /// Checks:
     /// - Resource exists
     /// - Resource is published
@@ -128,7 +128,7 @@ impl DownloadManager {
     }
 
     /// Generates a presigned download URL for a resource
-    /// 
+    ///
     /// Requirements:
     /// - 1-hour expiration for documents (PDF, DOCX)
     /// - 2-hour expiration for downloadable videos
@@ -194,7 +194,7 @@ impl DownloadManager {
     }
 
     /// Tracks a download event
-    /// 
+    ///
     /// Records in database and sends to analytics service
     #[instrument(skip(self, resource))]
     async fn track_download(

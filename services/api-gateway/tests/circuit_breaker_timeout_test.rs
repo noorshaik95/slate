@@ -78,23 +78,23 @@ async fn test_fast_service_not_affected_by_slow_service_timeout() {
 
     // Open both breakers
     for _ in 0..2 {
-        let _ = fast_breaker
-            .call(async { Err::<(), _>("failure") })
-            .await;
-        let _ = slow_breaker
-            .call(async { Err::<(), _>("failure") })
-            .await;
+        let _ = fast_breaker.call(async { Err::<(), _>("failure") }).await;
+        let _ = slow_breaker.call(async { Err::<(), _>("failure") }).await;
     }
 
     // Wait 1.5 seconds
     sleep(Duration::from_millis(1500)).await;
 
     // Fast breaker should recover
-    let fast_result = fast_breaker.call(async { Ok::<_, String>("success") }).await;
+    let fast_result = fast_breaker
+        .call(async { Ok::<_, String>("success") })
+        .await;
     assert!(fast_result.is_ok());
 
     // Slow breaker should still be open
-    let slow_result = slow_breaker.call(async { Ok::<_, String>("success") }).await;
+    let slow_result = slow_breaker
+        .call(async { Ok::<_, String>("success") })
+        .await;
     assert!(slow_result.is_err());
 }
 
@@ -111,33 +111,37 @@ async fn test_default_timeout_fallback() {
     }
 
     // Verify it's open
-    let result = default_breaker.call(async { Ok::<_, String>("test") }).await;
+    let result = default_breaker
+        .call(async { Ok::<_, String>("test") })
+        .await;
     assert!(result.is_err());
 
     // Default timeout is 30 seconds, so after 1 second it should still be open
     sleep(Duration::from_secs(1)).await;
-    let result = default_breaker.call(async { Ok::<_, String>("test") }).await;
+    let result = default_breaker
+        .call(async { Ok::<_, String>("test") })
+        .await;
     assert!(result.is_err());
 }
 
 #[tokio::test]
 async fn test_per_service_timeout_configuration() {
     // Simulate different service types with appropriate timeouts
-    
+
     // Critical fast service - 15 second timeout
     let critical_config = CircuitBreakerConfig {
         failure_threshold: 5,
         success_threshold: 2,
         timeout_seconds: 15,
     };
-    
+
     // Standard service - 30 second timeout (default)
     let standard_config = CircuitBreakerConfig {
         failure_threshold: 5,
         success_threshold: 2,
         timeout_seconds: 30,
     };
-    
+
     // Slow batch service - 60 second timeout
     let batch_config = CircuitBreakerConfig {
         failure_threshold: 3,
@@ -151,45 +155,67 @@ async fn test_per_service_timeout_configuration() {
 
     // Open all breakers
     for _ in 0..5 {
-        let _ = critical_breaker.call(async { Err::<(), _>("failure") }).await;
-        let _ = standard_breaker.call(async { Err::<(), _>("failure") }).await;
+        let _ = critical_breaker
+            .call(async { Err::<(), _>("failure") })
+            .await;
+        let _ = standard_breaker
+            .call(async { Err::<(), _>("failure") })
+            .await;
         let _ = batch_breaker.call(async { Err::<(), _>("failure") }).await;
     }
 
     // All should be open
-    assert!(critical_breaker.call(async { Ok::<_, String>("test") }).await.is_err());
-    assert!(standard_breaker.call(async { Ok::<_, String>("test") }).await.is_err());
-    assert!(batch_breaker.call(async { Ok::<_, String>("test") }).await.is_err());
+    assert!(critical_breaker
+        .call(async { Ok::<_, String>("test") })
+        .await
+        .is_err());
+    assert!(standard_breaker
+        .call(async { Ok::<_, String>("test") })
+        .await
+        .is_err());
+    assert!(batch_breaker
+        .call(async { Ok::<_, String>("test") })
+        .await
+        .is_err());
 
     // After 16 seconds, only critical should transition to half-open
     sleep(Duration::from_secs(16)).await;
-    
-    assert!(critical_breaker.call(async { Ok::<_, String>("test") }).await.is_ok());
-    assert!(standard_breaker.call(async { Ok::<_, String>("test") }).await.is_err());
-    assert!(batch_breaker.call(async { Ok::<_, String>("test") }).await.is_err());
+
+    assert!(critical_breaker
+        .call(async { Ok::<_, String>("test") })
+        .await
+        .is_ok());
+    assert!(standard_breaker
+        .call(async { Ok::<_, String>("test") })
+        .await
+        .is_err());
+    assert!(batch_breaker
+        .call(async { Ok::<_, String>("test") })
+        .await
+        .is_err());
 }
 
 #[tokio::test]
 async fn test_timeout_logged_in_state_transitions() {
     // This test verifies that timeout values are properly configured
     // The actual logging is tested through the circuit breaker implementation
-    
+
     let config = CircuitBreakerConfig {
         failure_threshold: 2,
         success_threshold: 1,
         timeout_seconds: 1,
     };
-    
+
     let breaker = CircuitBreaker::new(config);
-    
+
     // Open the breaker
     for _ in 0..2 {
         let _ = breaker.call(async { Err::<(), _>("failure") }).await;
     }
-    
+
     // Wait for timeout
     sleep(Duration::from_millis(1100)).await;
-    
+
     // This should trigger the transition to half-open (with timeout logging)
     let result = breaker.call(async { Ok::<_, String>("success") }).await;
     assert!(result.is_ok());

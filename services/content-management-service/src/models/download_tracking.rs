@@ -32,9 +32,9 @@ mod tests {
     fn test_new_download_tracking() {
         let student_id = Uuid::new_v4();
         let resource_id = Uuid::new_v4();
-        
+
         let tracking = DownloadTracking::new(student_id, resource_id);
-        
+
         assert_eq!(tracking.student_id, student_id);
         assert_eq!(tracking.resource_id, resource_id);
         assert!(tracking.downloaded_at <= Utc::now());

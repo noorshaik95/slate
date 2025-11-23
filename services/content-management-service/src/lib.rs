@@ -1,22 +1,20 @@
-pub mod config;
-pub mod models;
-pub mod db;
-pub mod content;
-pub mod grpc;
-pub mod observability;
-pub mod storage;
-pub mod upload;
-pub mod transcoding;
-pub mod streaming;
-pub mod progress;
 pub mod analytics;
-pub mod search;
+pub mod config;
+pub mod content;
+pub mod db;
 pub mod download;
 pub mod error;
-pub mod retry;
-pub mod circuit_breaker;
+pub mod grpc;
 pub mod health;
 pub mod health_server;
+pub mod models;
+pub mod observability;
+pub mod progress;
+pub mod search;
+pub mod storage;
+pub mod streaming;
+pub mod transcoding;
+pub mod upload;
 
 // Include generated protobuf code
 pub mod proto {

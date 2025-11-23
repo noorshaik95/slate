@@ -133,7 +133,9 @@ impl Config {
             let mut builder = config::Config::builder()
                 .add_source(config::File::with_name(&config_path).required(true));
 
-            let file_config = builder.build().context("Failed to build configuration from file")?;
+            let file_config = builder
+                .build()
+                .context("Failed to build configuration from file")?;
             config = file_config
                 .try_deserialize()
                 .context("Failed to deserialize configuration from file")?;
@@ -159,10 +161,12 @@ impl Config {
             config.database.url = val;
         }
         if let Ok(val) = std::env::var("DATABASE__MAX_CONNECTIONS") {
-            config.database.max_connections = val.parse().context("Invalid DATABASE__MAX_CONNECTIONS")?;
+            config.database.max_connections =
+                val.parse().context("Invalid DATABASE__MAX_CONNECTIONS")?;
         }
         if let Ok(val) = std::env::var("DATABASE__MIN_CONNECTIONS") {
-            config.database.min_connections = val.parse().context("Invalid DATABASE__MIN_CONNECTIONS")?;
+            config.database.min_connections =
+                val.parse().context("Invalid DATABASE__MIN_CONNECTIONS")?;
         }
 
         // S3
@@ -216,7 +220,8 @@ impl Config {
 
         // Upload
         if let Ok(val) = std::env::var("UPLOAD__MAX_FILE_SIZE_BYTES") {
-            config.upload.max_file_size_bytes = val.parse().context("Invalid UPLOAD__MAX_FILE_SIZE_BYTES")?;
+            config.upload.max_file_size_bytes =
+                val.parse().context("Invalid UPLOAD__MAX_FILE_SIZE_BYTES")?;
         }
 
         // Validate the configuration
@@ -399,7 +404,7 @@ impl Default for Config {
                 bucket: "content-storage".to_string(),
                 region: "us-east-1".to_string(),
                 use_path_style: true,
-                presigned_url_expiry_seconds: 3600,      // 1 hour for documents
+                presigned_url_expiry_seconds: 3600, // 1 hour for documents
                 video_presigned_url_expiry_seconds: 7200, // 2 hours for videos
             },
             elasticsearch: ElasticsearchConfig {

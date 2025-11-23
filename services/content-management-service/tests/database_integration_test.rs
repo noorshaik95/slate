@@ -23,20 +23,20 @@ async fn test_database_connection_pool() {
     }
 
     let database_url = std::env::var("TEST_DATABASE_URL").unwrap();
-    
+
     // Test connection pool creation with min 5 and max 20 connections
     let pool = PgPool::connect(&database_url)
         .await
         .expect("Failed to connect to test database");
-    
+
     // Verify connection works
     let result: (i32,) = sqlx::query_as("SELECT 1")
         .fetch_one(&pool)
         .await
         .expect("Failed to execute test query");
-    
+
     assert_eq!(result.0, 1);
-    
+
     pool.close().await;
 }
 
@@ -50,13 +50,13 @@ async fn test_database_migrations_run_successfully() {
 
     let database_url = std::env::var("TEST_DATABASE_URL").unwrap();
     let pool = PgPool::connect(&database_url).await.unwrap();
-    
+
     // Run migrations
     sqlx::migrate!("./migrations")
         .run(&pool)
         .await
         .expect("Failed to run migrations");
-    
+
     // Verify all tables exist
     let tables = vec![
         "modules",
@@ -67,19 +67,19 @@ async fn test_database_migrations_run_successfully() {
         "transcoding_jobs",
         "download_tracking",
     ];
-    
+
     for table in tables {
         let result: (bool,) = sqlx::query_as(
-            "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = $1)"
+            "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = $1)",
         )
         .bind(table)
         .fetch_one(&pool)
         .await
         .expect(&format!("Failed to check table {}", table));
-        
+
         assert!(result.0, "Table {} does not exist", table);
     }
-    
+
     pool.close().await;
 }
 

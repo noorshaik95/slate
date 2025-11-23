@@ -93,17 +93,15 @@ async fn openapi_path_file(axum::extract::Path(filename): axum::extract::Path<St
             .into_response(),
         Err(e) => {
             tracing::error!("Failed to read OpenAPI path file {}: {}", filename, e);
-            (
-                StatusCode::NOT_FOUND,
-                "Path file not found",
-            )
-                .into_response()
+            (StatusCode::NOT_FOUND, "Path file not found").into_response()
         }
     }
 }
 
 /// Handler for OpenAPI schema files
-async fn openapi_schema_file(axum::extract::Path(filename): axum::extract::Path<String>) -> Response {
+async fn openapi_schema_file(
+    axum::extract::Path(filename): axum::extract::Path<String>,
+) -> Response {
     let file_path = format!("services/api-gateway/openapi/schemas/{}", filename);
     match std::fs::read_to_string(&file_path) {
         Ok(content) => (
@@ -114,11 +112,7 @@ async fn openapi_schema_file(axum::extract::Path(filename): axum::extract::Path<
             .into_response(),
         Err(e) => {
             tracing::error!("Failed to read OpenAPI schema file {}: {}", filename, e);
-            (
-                StatusCode::NOT_FOUND,
-                "Schema file not found",
-            )
-                .into_response()
+            (StatusCode::NOT_FOUND, "Schema file not found").into_response()
         }
     }
 }
@@ -150,7 +144,12 @@ mod tests {
         let app = create_docs_router();
 
         let response = app
-            .oneshot(Request::builder().uri("/docs/ui").body(axum::body::Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/docs/ui")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
 
@@ -162,7 +161,12 @@ mod tests {
         let app = create_docs_router();
 
         let response = app
-            .oneshot(Request::builder().uri("/docs").body(axum::body::Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/docs")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
 

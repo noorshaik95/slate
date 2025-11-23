@@ -1,13 +1,13 @@
-mod types;
+pub mod admin;
 mod constants;
 pub mod gateway;
-pub mod admin;
+mod types;
 // Deprecated: user_service module is no longer used
 // All services now use the dynamic client in gateway.rs
 // Typed handler for UserService with support for all CRUD and auth methods
-pub mod user_service;
-pub mod error_mapping;
 pub mod error;
+pub mod error_mapping;
+pub mod user_service;
 
 #[cfg(test)]
 mod tests;

@@ -210,7 +210,7 @@ mod tests {
     fn test_processing_duration() {
         let now = Utc::now();
         let start = now - chrono::Duration::minutes(5);
-        
+
         let mut job = TranscodingJob {
             id: Uuid::new_v4(),
             resource_id: Uuid::new_v4(),

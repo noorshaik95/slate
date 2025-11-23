@@ -1,5 +1,5 @@
-use crate::circuit_breaker::{CircuitBreaker, CircuitState};
 use crate::db::DatabasePool;
+use common_rust::circuit_breaker::{CircuitBreaker, CircuitState};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tracing::{debug, warn};
@@ -92,9 +92,15 @@ impl HealthChecker {
         }
 
         // Determine overall status
-        let overall_status = if components.iter().any(|c| c.status == HealthStatus::Unhealthy) {
+        let overall_status = if components
+            .iter()
+            .any(|c| c.status == HealthStatus::Unhealthy)
+        {
             HealthStatus::Unhealthy
-        } else if components.iter().any(|c| c.status == HealthStatus::Degraded) {
+        } else if components
+            .iter()
+            .any(|c| c.status == HealthStatus::Degraded)
+        {
             HealthStatus::Degraded
         } else {
             HealthStatus::Healthy
@@ -140,19 +146,16 @@ impl HealthChecker {
         let stats = circuit_breaker.get_stats().await;
 
         let (status, message) = match state {
-            CircuitState::Closed => (
-                HealthStatus::Healthy,
-                format!("{} is healthy", name),
-            ),
+            CircuitState::Closed => (HealthStatus::Healthy, format!("{} is healthy", name)),
             CircuitState::HalfOpen => (
                 HealthStatus::Degraded,
                 format!("{} is recovering (half-open)", name),
             ),
-            CircuitState::Open => (
+            CircuitState::Open { .. } => (
                 HealthStatus::Degraded,
                 format!(
                     "{} circuit breaker is open (failures: {})",
-                    name, stats.failure_count
+                    name, stats.consecutive_failures
                 ),
             ),
         };
@@ -218,7 +221,9 @@ mod tests {
         ];
 
         // Should be degraded if any component is degraded
-        let has_degraded = components.iter().any(|c| c.status == HealthStatus::Degraded);
+        let has_degraded = components
+            .iter()
+            .any(|c| c.status == HealthStatus::Degraded);
         assert!(has_degraded);
     }
 }

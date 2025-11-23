@@ -112,7 +112,10 @@ impl FileValidator {
             }
             _ => {
                 // For other video types, we'll skip header validation
-                debug!("Skipping header validation for content type: {}", content_type);
+                debug!(
+                    "Skipping header validation for content type: {}",
+                    content_type
+                );
             }
         }
 

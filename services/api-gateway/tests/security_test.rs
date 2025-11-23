@@ -33,12 +33,12 @@ mod tests {
         for pattern in dangerous_patterns {
             // These patterns should be detected and blocked
             assert!(
-                pattern.contains("..") || 
-                pattern.starts_with('/') || 
-                pattern.contains('\\') ||
-                pattern.contains('\0') ||
-                pattern.to_lowercase().contains("%2e%2e") ||
-                pattern.to_lowercase().contains("%00"),
+                pattern.contains("..")
+                    || pattern.starts_with('/')
+                    || pattern.contains('\\')
+                    || pattern.contains('\0')
+                    || pattern.to_lowercase().contains("%2e%2e")
+                    || pattern.to_lowercase().contains("%00"),
                 "Pattern '{}' should be detected as dangerous",
                 pattern
             );
@@ -60,10 +60,10 @@ mod tests {
         for pattern in safe_patterns {
             // These patterns should be safe
             assert!(
-                !pattern.contains("..") && 
-                !pattern.starts_with('/') && 
-                !pattern.contains('\\') &&
-                !pattern.contains('\0'),
+                !pattern.contains("..")
+                    && !pattern.starts_with('/')
+                    && !pattern.contains('\\')
+                    && !pattern.contains('\0'),
                 "Pattern '{}' should be safe",
                 pattern
             );
@@ -107,20 +107,20 @@ mod tests {
     fn test_suspicious_encoded_patterns() {
         // Test that suspicious encoded patterns are detected
         let suspicious = vec![
-            "%00",      // Null byte
-            "%2e%2e",   // ..
-            "%252e",    // Double encoded .
-            "..%2f",    // Mixed encoding
-            "..%5c",    // Mixed encoding with backslash
+            "%00",    // Null byte
+            "%2e%2e", // ..
+            "%252e",  // Double encoded .
+            "..%2f",  // Mixed encoding
+            "..%5c",  // Mixed encoding with backslash
         ];
 
         for pattern in suspicious {
             assert!(
-                pattern.to_lowercase().contains("%00") ||
-                pattern.to_lowercase().contains("%2e%2e") ||
-                pattern.to_lowercase().contains("%252e") ||
-                pattern.to_lowercase().contains("..%2f") ||
-                pattern.to_lowercase().contains("..%5c"),
+                pattern.to_lowercase().contains("%00")
+                    || pattern.to_lowercase().contains("%2e%2e")
+                    || pattern.to_lowercase().contains("%252e")
+                    || pattern.to_lowercase().contains("..%2f")
+                    || pattern.to_lowercase().contains("..%5c"),
                 "Pattern '{}' should be detected as suspicious",
                 pattern
             );

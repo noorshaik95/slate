@@ -173,11 +173,9 @@ impl ReflectionClient {
             let package = file_descriptor.package.as_deref().unwrap_or("");
 
             // Find the target service in this file
-            if let Some(methods) = self.extract_methods_from_service(
-                &file_descriptor.service,
-                package,
-                service_name,
-            )? {
+            if let Some(methods) =
+                self.extract_methods_from_service(&file_descriptor.service, package, service_name)?
+            {
                 // Found the service, return immediately
                 debug!(
                     service = %service_name,

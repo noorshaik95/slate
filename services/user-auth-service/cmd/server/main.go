@@ -92,6 +92,9 @@ func main() {
 		}
 	}()
 
+	// Note: The tracer name is already set in tracingCfg.ServiceName above
+	// Individual handlers will use the common-go tracing package for function-level spans
+
 	// Connect to database
 	db, err := database.NewPostgresDB(cfg.Database.DSN())
 	if err != nil {

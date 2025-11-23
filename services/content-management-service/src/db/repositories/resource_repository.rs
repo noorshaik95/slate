@@ -1,4 +1,4 @@
-use crate::models::{Resource, ContentType, CopyrightSetting};
+use crate::models::{ContentType, CopyrightSetting, Resource};
 use anyhow::{anyhow, Context, Result};
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -76,7 +76,11 @@ impl ResourceRepository {
     }
 
     /// Lists all resources for a lesson, ordered by display_order
-    pub async fn list_by_lesson(&self, lesson_id: Uuid, published_only: bool) -> Result<Vec<Resource>> {
+    pub async fn list_by_lesson(
+        &self,
+        lesson_id: Uuid,
+        published_only: bool,
+    ) -> Result<Vec<Resource>> {
         let query = if published_only {
             r#"
             SELECT id, lesson_id, name, description, content_type, file_size, 
@@ -107,7 +111,11 @@ impl ResourceRepository {
     }
 
     /// Lists all resources for a module (across all lessons)
-    pub async fn list_by_module(&self, module_id: Uuid, published_only: bool) -> Result<Vec<Resource>> {
+    pub async fn list_by_module(
+        &self,
+        module_id: Uuid,
+        published_only: bool,
+    ) -> Result<Vec<Resource>> {
         let query = if published_only {
             r#"
             SELECT r.id, r.lesson_id, r.name, r.description, r.content_type, r.file_size, 
@@ -140,7 +148,11 @@ impl ResourceRepository {
     }
 
     /// Lists all resources for a course (across all modules and lessons)
-    pub async fn list_by_course(&self, course_id: Uuid, published_only: bool) -> Result<Vec<Resource>> {
+    pub async fn list_by_course(
+        &self,
+        course_id: Uuid,
+        published_only: bool,
+    ) -> Result<Vec<Resource>> {
         let query = if published_only {
             r#"
             SELECT r.id, r.lesson_id, r.name, r.description, r.content_type, r.file_size, 

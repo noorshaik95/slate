@@ -4,6 +4,11 @@ import (
 	"context"
 	pb "slate/services/assignment-grading-service/api/proto"
 	"slate/services/assignment-grading-service/internal/service"
+
+	"slate/libs/common-go/tracing"
+
+	"go.opentelemetry.io/otel/attribute"
+	otelcodes "go.opentelemetry.io/otel/codes"
 )
 
 // SubmissionServiceServer implements the SubmissionService gRPC interface
@@ -21,6 +26,11 @@ func NewSubmissionServiceServer(svc service.SubmissionService) *SubmissionServic
 
 // SubmitAssignment accepts a student submission with file content
 func (s *SubmissionServiceServer) SubmitAssignment(ctx context.Context, req *pb.SubmitAssignmentRequest) (*pb.SubmitAssignmentResponse, error) {
+	ctx, span := tracing.StartSpan(ctx, "submit_assignment_handler",
+		attribute.String("assignment_id", req.AssignmentId),
+		attribute.String("student_id", req.StudentId))
+	defer span.End()
+
 	log.WithContext(ctx).
 		Str("assignment_id", req.AssignmentId).
 		Str("student_id", req.StudentId).
@@ -38,6 +48,8 @@ func (s *SubmissionServiceServer) SubmitAssignment(ctx context.Context, req *pb.
 	)
 
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(otelcodes.Error, "submit assignment failed")
 		log.ErrorWithContext(ctx).
 			Err(err).
 			Str("assignment_id", req.AssignmentId).
@@ -53,6 +65,7 @@ func (s *SubmissionServiceServer) SubmitAssignment(ctx context.Context, req *pb.
 		Bool("is_late", submission.IsLate).
 		Msg("Assignment submitted successfully")
 
+	span.SetStatus(otelcodes.Ok, "")
 	return &pb.SubmitAssignmentResponse{
 		Submission: submissionToProto(submission),
 	}, nil
@@ -60,12 +73,18 @@ func (s *SubmissionServiceServer) SubmitAssignment(ctx context.Context, req *pb.
 
 // GetSubmission retrieves a submission by ID
 func (s *SubmissionServiceServer) GetSubmission(ctx context.Context, req *pb.GetSubmissionRequest) (*pb.GetSubmissionResponse, error) {
+	ctx, span := tracing.StartSpan(ctx, "get_submission_handler",
+		attribute.String("submission_id", req.Id))
+	defer span.End()
+
 	log.WithContext(ctx).
 		Str("submission_id", req.Id).
 		Msg("GetSubmission called")
 
 	submission, err := s.service.GetSubmission(ctx, req.Id)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(otelcodes.Error, "get submission failed")
 		log.ErrorWithContext(ctx).
 			Err(err).
 			Str("submission_id", req.Id).
@@ -77,6 +96,7 @@ func (s *SubmissionServiceServer) GetSubmission(ctx context.Context, req *pb.Get
 		Str("submission_id", submission.ID).
 		Msg("Submission retrieved successfully")
 
+	span.SetStatus(otelcodes.Ok, "")
 	return &pb.GetSubmissionResponse{
 		Submission: submissionToProto(submission),
 	}, nil
@@ -84,6 +104,10 @@ func (s *SubmissionServiceServer) GetSubmission(ctx context.Context, req *pb.Get
 
 // ListSubmissions lists all submissions for an assignment with sorting
 func (s *SubmissionServiceServer) ListSubmissions(ctx context.Context, req *pb.ListSubmissionsRequest) (*pb.ListSubmissionsResponse, error) {
+	ctx, span := tracing.StartSpan(ctx, "list_submissions_handler",
+		attribute.String("assignment_id", req.AssignmentId))
+	defer span.End()
+
 	log.WithContext(ctx).
 		Str("assignment_id", req.AssignmentId).
 		Str("sort_by", req.SortBy).
@@ -98,6 +122,8 @@ func (s *SubmissionServiceServer) ListSubmissions(ctx context.Context, req *pb.L
 	)
 
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(otelcodes.Error, "list submissions failed")
 		log.ErrorWithContext(ctx).
 			Err(err).
 			Str("assignment_id", req.AssignmentId).
@@ -116,6 +142,7 @@ func (s *SubmissionServiceServer) ListSubmissions(ctx context.Context, req *pb.L
 		Int("count", len(submissions)).
 		Msg("Submissions listed successfully")
 
+	span.SetStatus(otelcodes.Ok, "")
 	return &pb.ListSubmissionsResponse{
 		Submissions: protoSubmissions,
 	}, nil

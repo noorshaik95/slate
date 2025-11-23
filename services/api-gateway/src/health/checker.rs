@@ -3,8 +3,8 @@ use std::sync::Arc;
 use std::time::Instant;
 use tracing::{debug, error, info};
 
-use crate::grpc::client::GrpcClientPool;
 use super::types::{HealthState, HealthStatus, ServiceHealth};
+use crate::grpc::client::GrpcClientPool;
 
 /// Health checker for monitoring backend services
 pub struct HealthChecker {
@@ -21,7 +21,7 @@ impl HealthChecker {
     /// Check health of all backend services
     pub async fn check_health(&self) -> HealthStatus {
         debug!("Starting health check for all services");
-        
+
         let services = self.grpc_pool.services();
         let mut service_health_map = HashMap::new();
         let mut all_healthy = true;
@@ -29,7 +29,7 @@ impl HealthChecker {
 
         for service_name in services {
             debug!(service = %service_name, "Checking service health");
-            
+
             let health_state = match self.grpc_pool.health_check(&service_name).await {
                 Ok(true) => {
                     debug!(service = %service_name, "Service is healthy");

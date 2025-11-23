@@ -6,19 +6,19 @@ use tonic::Status;
 pub enum GrpcError {
     #[error("Connection error: {0}")]
     ConnectionError(String),
-    
+
     #[error("Service not found: {0}")]
     ServiceNotFound(String),
-    
+
     #[error("Call failed: {0}")]
     CallFailed(String),
-    
+
     #[error("Timeout error: {0}")]
     Timeout(String),
-    
+
     #[error("Invalid configuration: {0}")]
     InvalidConfig(String),
-    
+
     #[error("Conversion error: {0}")]
     ConversionError(String),
 }

@@ -142,7 +142,10 @@ impl DownloadTrackingRepository {
     }
 
     /// Gets download statistics for a course
-    pub async fn get_course_download_stats(&self, course_id: Uuid) -> Result<Vec<(Uuid, String, i64)>> {
+    pub async fn get_course_download_stats(
+        &self,
+        course_id: Uuid,
+    ) -> Result<Vec<(Uuid, String, i64)>> {
         let stats: Vec<(Uuid, String, i64)> = sqlx::query_as(
             r#"
             SELECT r.id, r.name, COUNT(dt.id)::bigint as download_count

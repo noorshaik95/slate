@@ -120,7 +120,11 @@ fn test_multiple_overrides() {
     let routes = vec![
         create_test_route("/api/users", "GET", "user.UserService/ListUsers"),
         create_test_route("/api/posts", "GET", "post.PostService/ListPosts"),
-        create_test_route("/api/comments", "GET", "comment.CommentService/ListComments"),
+        create_test_route(
+            "/api/comments",
+            "GET",
+            "comment.CommentService/ListComments",
+        ),
     ];
 
     let overrides = vec![
@@ -168,7 +172,7 @@ fn test_override_nonexistent_route() {
 
     let result = OverrideHandler::apply_overrides(routes, &overrides);
     assert_eq!(result.len(), 1);
-    
+
     // Route should remain unchanged since override doesn't match
     assert_eq!(result[0].path, "/api/users");
     assert_eq!(result[0].method, "GET");
@@ -203,7 +207,7 @@ fn test_preserve_service_name() {
 
     let result = OverrideHandler::apply_overrides(routes, &overrides);
     assert_eq!(result.len(), 1);
-    
+
     // Service name should be preserved
     assert_eq!(result[0].service, "test-service");
     assert_eq!(result[0].grpc_method, "user.UserService/ListUsers");

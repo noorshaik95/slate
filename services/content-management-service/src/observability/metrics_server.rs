@@ -16,10 +16,7 @@ pub struct MetricsState {
 }
 
 /// Start the metrics HTTP server on the specified port
-pub async fn start_metrics_server(
-    port: u16,
-    metrics: Arc<Metrics>,
-) -> anyhow::Result<()> {
+pub async fn start_metrics_server(port: u16, metrics: Arc<Metrics>) -> anyhow::Result<()> {
     let state = MetricsState { metrics };
 
     let app = Router::new()
@@ -60,11 +57,15 @@ mod tests {
         let state = MetricsState { metrics };
 
         // Increment a counter to ensure we have some metrics
-        state.metrics.uploads_total.with_label_values(&["success"]).inc();
+        state
+            .metrics
+            .uploads_total
+            .with_label_values(&["success"])
+            .inc();
 
         let response = metrics_handler(State(state)).await;
         let status = response.status();
-        
+
         assert_eq!(status, StatusCode::OK);
     }
 }

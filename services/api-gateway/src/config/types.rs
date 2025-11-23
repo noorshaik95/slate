@@ -1,8 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::circuit_breaker::CircuitBreakerConfig;
-
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct GatewayConfig {
     pub server: ServerConfig,
@@ -73,12 +71,9 @@ pub struct PublicRoute {
     pub method: String,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct RateLimitConfig {
-    pub enabled: bool,
-    pub requests_per_minute: u32,
-    pub window_seconds: u64,
-}
+// Re-export common-rust types for configuration
+pub use common_rust::circuit_breaker::CircuitBreakerConfig;
+pub use common_rust::rate_limit::RateLimitConfig;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ObservabilityConfig {
@@ -124,7 +119,6 @@ pub struct RouteOverride {
     #[serde(default)]
     pub service: Option<String>,
 }
-
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct CorsConfig {

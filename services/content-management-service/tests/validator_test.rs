@@ -1,8 +1,8 @@
 // Unit tests for file validator
 // Extracted from src/upload/validator.rs
 
-use content_management_service::upload::FileValidator;
 use bytes::Bytes;
+use content_management_service::upload::FileValidator;
 
 #[test]
 fn test_validate_mime_type() {

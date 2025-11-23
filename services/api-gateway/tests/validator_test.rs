@@ -88,12 +88,16 @@ fn test_deduplicate_keeps_first() {
         create_test_route("/api/users", "GET", "user.UserService/ListUsers"),
         create_test_route("/api/posts", "GET", "post.PostService/ListPosts"),
         create_test_route("/api/users", "GET", "user.UserService/GetAllUsers"),
-        create_test_route("/api/comments", "GET", "comment.CommentService/ListComments"),
+        create_test_route(
+            "/api/comments",
+            "GET",
+            "comment.CommentService/ListComments",
+        ),
     ];
 
     let result = RouteValidator::deduplicate_routes(routes);
     assert_eq!(result.len(), 3);
-    
+
     // First occurrence of /api/users should be kept
     assert_eq!(result[0].grpc_method, "user.UserService/ListUsers");
     assert_eq!(result[1].grpc_method, "post.PostService/ListPosts");
@@ -111,7 +115,7 @@ fn test_multiple_duplicates() {
 
     let result = RouteValidator::check_duplicates(&routes);
     assert!(result.is_err());
-    
+
     // Should report the first duplicate found
     if let Err(DiscoveryError::DuplicateRoute { http_route, .. }) = result {
         assert_eq!(http_route, "GET /api/users");

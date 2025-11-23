@@ -173,10 +173,8 @@ impl ProgressTracker {
 
         // Get all progress for the student
         let all_progress = self.progress_repo.list_by_student(student_id).await?;
-        let progress_map: HashMap<Uuid, &ProgressTracking> = all_progress
-            .iter()
-            .map(|p| (p.resource_id, p))
-            .collect();
+        let progress_map: HashMap<Uuid, &ProgressTracking> =
+            all_progress.iter().map(|p| (p.resource_id, p)).collect();
 
         let mut module_details = Vec::new();
         let mut total_course_resources = 0;
@@ -311,10 +309,7 @@ impl ProgressTracker {
             let student_id = summary.student_id;
 
             // Get detailed progress for this student
-            let student_progress = self
-                .progress_repo
-                .list_by_student(student_id)
-                .await?;
+            let student_progress = self.progress_repo.list_by_student(student_id).await?;
 
             // Filter by date range if specified
             let filtered_progress: Vec<&ProgressTracking> = student_progress
@@ -351,9 +346,8 @@ impl ProgressTracker {
                 let completed_at = progress.and_then(|p| p.completed_at);
 
                 // Calculate time spent (for videos, use last_position_seconds)
-                let time_spent_seconds = progress
-                    .and_then(|p| p.last_position_seconds)
-                    .unwrap_or(0);
+                let time_spent_seconds =
+                    progress.and_then(|p| p.last_position_seconds).unwrap_or(0);
 
                 if completed {
                     completed_count += 1;
@@ -368,10 +362,8 @@ impl ProgressTracker {
                 });
             }
 
-            let completion_percentage = ProgressSummary::calculate_percentage(
-                completed_count,
-                all_resources.len() as i32,
-            );
+            let completion_percentage =
+                ProgressSummary::calculate_percentage(completed_count, all_resources.len() as i32);
 
             // Apply completion status filter
             let include_student = match filter.completion_status {
@@ -429,9 +421,6 @@ mod tests {
         );
         assert_eq!(CompletionStatus::from_str("all"), CompletionStatus::All);
         assert_eq!(CompletionStatus::from_str(""), CompletionStatus::All);
-        assert_eq!(
-            CompletionStatus::from_str("invalid"),
-            CompletionStatus::All
-        );
+        assert_eq!(CompletionStatus::from_str("invalid"), CompletionStatus::All);
     }
 }

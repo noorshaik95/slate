@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"time"
 
+	"slate/libs/common-go/tracing"
 	"slate/services/user-auth-service/internal/models"
 	"slate/services/user-auth-service/pkg/logger"
 	"slate/services/user-auth-service/pkg/validation"
 
+	"go.opentelemetry.io/otel/attribute"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -37,7 +39,11 @@ func NewUserService(userRepo UserRepositoryInterface, roleRepo RoleRepositoryInt
 }
 
 // Register registers a new user
-func (s *UserService) Register(ctx context.Context, email, password, firstName, lastName, phone string) (*models.User, *models.TokenPair, error) {
+func (s *UserService) Register(ctx context.Context, email, password, firstName, lastName, phone string) (user *models.User, tokens *models.TokenPair, err error) {
+	ctx, span := tracing.StartSpan(ctx, "user_service.register",
+		attribute.String("email", email))
+	defer tracing.EndSpanWithError(span, &err)
+
 	start := time.Now()
 	var success bool
 	defer func() {
@@ -85,8 +91,8 @@ func (s *UserService) Register(ctx context.Context, email, password, firstName, 
 	}
 
 	// Create user with sanitized names
-	user := models.NewUser(email, string(hashedPassword), sanitizedFirstName, sanitizedLastName, phone)
-	if err := s.userRepo.Create(ctx, user); err != nil {
+	user = models.NewUser(email, string(hashedPassword), sanitizedFirstName, sanitizedLastName, phone)
+	if err = s.userRepo.Create(ctx, user); err != nil {
 		return nil, nil, err
 	}
 
@@ -114,7 +120,7 @@ func (s *UserService) Register(ctx context.Context, email, password, firstName, 
 	}
 
 	// Generate tokens
-	tokens, err := s.generateTokens(user)
+	tokens, err = s.generateTokens(user)
 	if err != nil {
 		s.logger.ErrorWithContext(ctx).
 			Str("user_id", user.ID).
@@ -138,7 +144,11 @@ func (s *UserService) Register(ctx context.Context, email, password, firstName, 
 // Login authenticates a user using normal (username/password) authentication.
 // If OAuth or SAML authentication is configured, this method will return an error
 // directing users to use the appropriate authentication method.
-func (s *UserService) Login(ctx context.Context, email, password string) (*models.User, *models.TokenPair, error) {
+func (s *UserService) Login(ctx context.Context, email, password string) (user *models.User, tokens *models.TokenPair, err error) {
+	ctx, span := tracing.StartSpan(ctx, "user_service.login",
+		attribute.String("email", email))
+	defer tracing.EndSpanWithError(span, &err)
+
 	start := time.Now()
 	var success bool
 	defer func() {
@@ -159,7 +169,34 @@ func (s *UserService) Login(ctx context.Context, email, password string) (*model
 		}
 	}
 
-	user, err := s.userRepo.GetByEmail(ctx, email)
+	// Validate credentials
+	user, err = s.validateCredentials(ctx, email, password)
+	if err != nil {
+		return nil, nil, fmt.Errorf("credential validation failed: %w", err)
+	}
+
+	// Generate tokens
+	tokens, err = s.generateTokensWithSpan(ctx, user)
+	if err != nil {
+		return nil, nil, fmt.Errorf("token generation failed: %w", err)
+	}
+
+	s.logger.WithContext(ctx).
+		Str("user_id", user.ID).
+		Str("email", s.logger.RedactEmail(user.Email)).
+		Str("operation", "login").
+		Msg("user logged in successfully")
+
+	success = true
+	return user, tokens, nil
+}
+
+// validateCredentials validates user credentials and returns the user if valid
+func (s *UserService) validateCredentials(ctx context.Context, email, password string) (user *models.User, err error) {
+	ctx, span := tracing.StartSpan(ctx, "validate_credentials")
+	defer tracing.EndSpanWithError(span, &err)
+
+	user, err = s.userRepo.GetByEmail(ctx, email)
 	if err != nil {
 		// Security: Return generic "invalid credentials" error to prevent user enumeration.
 		// This prevents attackers from determining which email addresses are registered.
@@ -169,7 +206,7 @@ func (s *UserService) Login(ctx context.Context, email, password string) (*model
 			Str("operation", "login").
 			Str("error_type", "user_not_found").
 			Msg("login attempt for non-existent user")
-		return nil, nil, fmt.Errorf("invalid credentials")
+		return nil, fmt.Errorf("invalid credentials")
 	}
 
 	if !user.IsActive {
@@ -179,7 +216,7 @@ func (s *UserService) Login(ctx context.Context, email, password string) (*model
 			Str("operation", "login").
 			Str("error_type", "inactive_account").
 			Msg("login attempt for inactive account")
-		return nil, nil, fmt.Errorf("user account is inactive")
+		return nil, fmt.Errorf("user account is inactive")
 	}
 
 	// Security: Use bcrypt.CompareHashAndPassword for timing-safe password comparison.
@@ -196,33 +233,26 @@ func (s *UserService) Login(ctx context.Context, email, password string) (*model
 			Str("error_type", "invalid_password").
 			Str("password_redacted", s.logger.RedactPassword(password)).
 			Msg("login attempt with invalid password")
-		return nil, nil, fmt.Errorf("invalid credentials")
+		return nil, fmt.Errorf("invalid credentials")
 	}
 
-	// Generate tokens
-	tokens, err := s.generateTokens(user)
-	if err != nil {
-		s.logger.ErrorWithContext(ctx).
-			Str("user_id", user.ID).
-			Str("operation", "login").
-			Str("error_type", "token_generation_failed").
-			Err(err).
-			Msg("failed to generate tokens")
-		return nil, nil, err
-	}
+	return user, nil
+}
 
-	s.logger.WithContext(ctx).
-		Str("user_id", user.ID).
-		Str("email", s.logger.RedactEmail(user.Email)).
-		Str("operation", "login").
-		Msg("user logged in successfully")
+// generateTokensWithSpan generates access and refresh tokens for a user with tracing
+func (s *UserService) generateTokensWithSpan(ctx context.Context, user *models.User) (tokens *models.TokenPair, err error) {
+	ctx, span := tracing.StartSpan(ctx, "generate_tokens",
+		attribute.String("user_id", user.ID))
+	defer tracing.EndSpanWithError(span, &err)
 
-	success = true
-	return user, tokens, nil
+	return s.generateTokens(user)
 }
 
 // Logout invalidates a user's access token by adding it to the blacklist
-func (s *UserService) Logout(ctx context.Context, token string) error {
+func (s *UserService) Logout(ctx context.Context, token string) (err error) {
+	ctx, span := tracing.StartSpan(ctx, "user_service.logout")
+	defer tracing.EndSpanWithError(span, &err)
+
 	// Validate the token to get claims (including expiration)
 	claims, err := s.tokenSvc.ValidateAccessToken(token)
 	if err != nil {
@@ -265,7 +295,10 @@ func (s *UserService) Logout(ctx context.Context, token string) error {
 }
 
 // ValidateToken validates a token and returns user info
-func (s *UserService) ValidateToken(ctx context.Context, token string) (string, []string, error) {
+func (s *UserService) ValidateToken(ctx context.Context, token string) (userID string, roles []string, err error) {
+	ctx, span := tracing.StartSpan(ctx, "user_service.validate_token")
+	defer tracing.EndSpanWithError(span, &err)
+
 	claims, err := s.tokenSvc.ValidateAccessToken(token)
 	if err != nil {
 		return "", nil, err
@@ -300,7 +333,10 @@ func (s *UserService) ValidateToken(ctx context.Context, token string) (string, 
 }
 
 // RefreshToken refreshes an access token
-func (s *UserService) RefreshToken(ctx context.Context, refreshToken string) (*models.TokenPair, error) {
+func (s *UserService) RefreshToken(ctx context.Context, refreshToken string) (tokens *models.TokenPair, err error) {
+	ctx, span := tracing.StartSpan(ctx, "user_service.refresh_token")
+	defer tracing.EndSpanWithError(span, &err)
+
 	accessToken, newRefreshToken, expiresIn, err := s.tokenSvc.RefreshAccessToken(refreshToken)
 	if err != nil {
 		return nil, err

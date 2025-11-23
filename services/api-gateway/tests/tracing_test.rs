@@ -10,7 +10,7 @@ mod tests {
     fn test_w3c_traceparent_format() {
         // W3C traceparent format: 00-{trace-id}-{parent-id}-{trace-flags}
         let traceparent = "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01";
-        
+
         let parts: Vec<&str> = traceparent.split('-').collect();
         assert_eq!(parts.len(), 4);
         assert_eq!(parts[0], "00"); // version
@@ -22,7 +22,10 @@ mod tests {
     #[test]
     fn test_trace_header_extraction() {
         let mut headers = HeaderMap::new();
-        headers.insert("traceparent", HeaderValue::from_static("00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01"));
+        headers.insert(
+            "traceparent",
+            HeaderValue::from_static("00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01"),
+        );
         headers.insert("x-trace-id", HeaderValue::from_static("custom-trace-id"));
 
         // Should prefer traceparent over x-trace-id
@@ -62,7 +65,7 @@ mod tests {
     fn test_root_span_creation() {
         // When trace context is missing, create a root span
         let headers = HeaderMap::new();
-        
+
         // Should create new trace ID
         assert!(!headers.contains_key("traceparent"));
     }
@@ -71,10 +74,10 @@ mod tests {
     async fn test_span_lifecycle() {
         // Span should be created at request start and closed at request end
         let start_time = std::time::Instant::now();
-        
+
         // Simulate request processing
         tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-        
+
         let duration = start_time.elapsed();
         assert!(duration.as_millis() >= 10);
     }
@@ -98,7 +101,7 @@ mod tests {
         // Trace flags indicate if trace is sampled
         let sampled_flag = "01";
         let not_sampled_flag = "00";
-        
+
         assert_eq!(sampled_flag, "01");
         assert_eq!(not_sampled_flag, "00");
     }
@@ -106,7 +109,10 @@ mod tests {
     #[test]
     fn test_multiple_trace_headers() {
         let mut headers = HeaderMap::new();
-        headers.insert("traceparent", HeaderValue::from_static("00-trace-id-span-id-01"));
+        headers.insert(
+            "traceparent",
+            HeaderValue::from_static("00-trace-id-span-id-01"),
+        );
         headers.insert("tracestate", HeaderValue::from_static("vendor=value"));
         headers.insert("x-request-id", HeaderValue::from_static("req-123"));
 

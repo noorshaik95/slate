@@ -26,12 +26,8 @@ fn test_all_grpc_codes_mapping() {
     ];
 
     for (grpc_code, expected_http_status) in test_cases {
-        let (http_status, _) = map_grpc_error_with_context(
-            grpc_code,
-            "test-service",
-            "TestMethod",
-            "test error",
-        );
+        let (http_status, _) =
+            map_grpc_error_with_context(grpc_code, "test-service", "TestMethod", "test error");
         assert_eq!(
             http_status, expected_http_status,
             "gRPC code {:?} should map to HTTP {}",
@@ -47,12 +43,8 @@ fn test_error_context_preservation() {
     let method = "CreateUser";
     let error_msg = "email already exists";
 
-    let (status, client_msg) = map_grpc_error_with_context(
-        Code::AlreadyExists,
-        service,
-        method,
-        error_msg,
-    );
+    let (status, client_msg) =
+        map_grpc_error_with_context(Code::AlreadyExists, service, method, error_msg);
 
     // HTTP status should be correct
     assert_eq!(status, StatusCode::CONFLICT);
@@ -114,7 +106,7 @@ fn test_internal_details_not_exposed() {
 
         // Client message should be generic
         assert_eq!(client_msg, "An error occurred processing your request");
-        
+
         // Should not contain any part of the internal error
         assert!(!client_msg.contains("database"));
         assert!(!client_msg.contains("SQL"));
@@ -160,7 +152,7 @@ fn test_rate_limit_error_mapping() {
     );
     assert_eq!(status, StatusCode::TOO_MANY_REQUESTS);
     assert_eq!(msg, "Rate limit exceeded");
-    
+
     // Should not expose rate limit details
     assert!(!msg.contains("100"));
     assert!(!msg.contains("per minute"));
@@ -199,12 +191,8 @@ fn test_validation_error_mapping() {
     ];
 
     for error in validation_errors {
-        let (status, msg) = map_grpc_error_with_context(
-            Code::InvalidArgument,
-            "user-service",
-            "CreateUser",
-            error,
-        );
+        let (status, msg) =
+            map_grpc_error_with_context(Code::InvalidArgument, "user-service", "CreateUser", error);
         assert_eq!(status, StatusCode::BAD_REQUEST);
         assert_eq!(msg, "Invalid request parameters");
     }
@@ -257,7 +245,7 @@ fn test_not_found_mapping() {
     );
     assert_eq!(status, StatusCode::NOT_FOUND);
     assert_eq!(msg, "Resource not found");
-    
+
     // Should not expose resource ID
     assert!(!msg.contains("12345"));
 }
@@ -352,12 +340,8 @@ fn test_error_mapping_consistency() {
 /// Test edge case: empty error message
 #[test]
 fn test_empty_error_message() {
-    let (status, msg) = map_grpc_error_with_context(
-        Code::Internal,
-        "test-service",
-        "TestMethod",
-        "",
-    );
+    let (status, msg) =
+        map_grpc_error_with_context(Code::Internal, "test-service", "TestMethod", "");
     assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
     assert_eq!(msg, "An error occurred processing your request");
 }
@@ -366,12 +350,8 @@ fn test_empty_error_message() {
 #[test]
 fn test_long_error_message() {
     let long_error = "a".repeat(10000);
-    let (status, msg) = map_grpc_error_with_context(
-        Code::Internal,
-        "test-service",
-        "TestMethod",
-        &long_error,
-    );
+    let (status, msg) =
+        map_grpc_error_with_context(Code::Internal, "test-service", "TestMethod", &long_error);
     assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
     // Client message should still be generic and short
     assert_eq!(msg, "An error occurred processing your request");
@@ -388,7 +368,7 @@ fn test_sql_injection_in_error_not_exposed() {
         "CreateUser",
         sql_injection,
     );
-    
+
     // Should return generic message, not the SQL injection attempt
     assert_eq!(msg, "Invalid request parameters");
     assert!(!msg.contains("DROP TABLE"));
@@ -405,7 +385,7 @@ fn test_xss_in_error_not_exposed() {
         "CreateUser",
         xss_attempt,
     );
-    
+
     // Should return generic message, not the XSS attempt
     assert_eq!(msg, "Invalid request parameters");
     assert!(!msg.contains("<script>"));

@@ -22,7 +22,7 @@ pub const HTTP2_KEEPALIVE_INTERVAL: Duration = Duration::from_secs(30);
 pub const KEEPALIVE_TIMEOUT: Duration = Duration::from_secs(20);
 
 /// Error message for generic gRPC calls not implemented
-pub const ERR_GENERIC_CALLS_NOT_IMPLEMENTED: &str = 
+pub const ERR_GENERIC_CALLS_NOT_IMPLEMENTED: &str =
     "Generic gRPC calls not yet implemented. Use get_channel() and service-specific clients.";
 
 /// Error message for max retries exceeded

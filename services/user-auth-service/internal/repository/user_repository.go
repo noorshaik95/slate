@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"strings"
 
+	"slate/libs/common-go/tracing"
 	"slate/services/user-auth-service/internal/models"
 
 	"github.com/lib/pq"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 type UserRepository struct {
@@ -20,12 +22,17 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 }
 
 // Create creates a new user
-func (r *UserRepository) Create(ctx context.Context, user *models.User) error {
+func (r *UserRepository) Create(ctx context.Context, user *models.User) (err error) {
+	ctx, span := tracing.StartSpan(ctx, "db.create_user",
+		attribute.String("email", user.Email),
+		attribute.String("table", "users"))
+	defer tracing.EndSpanWithError(span, &err)
+
 	query := `
 		INSERT INTO users (id, email, password_hash, first_name, last_name, phone, timezone, avatar_url, bio, organization_id, is_active, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 	`
-	_, err := r.db.ExecContext(ctx, query, user.ID, user.Email, user.PasswordHash, user.FirstName,
+	_, err = r.db.ExecContext(ctx, query, user.ID, user.Email, user.PasswordHash, user.FirstName,
 		user.LastName, user.Phone, user.Timezone, user.AvatarURL, user.Bio, user.OrganizationID, user.IsActive, user.CreatedAt, user.UpdatedAt)
 
 	if err != nil {
@@ -73,8 +80,13 @@ func (r *UserRepository) GetByID(ctx context.Context, id string) (*models.User, 
 }
 
 // GetByEmail retrieves a user by email
-func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*models.User, error) {
-	user := &models.User{}
+func (r *UserRepository) GetByEmail(ctx context.Context, email string) (user *models.User, err error) {
+	ctx, span := tracing.StartSpan(ctx, "db.get_user_by_email",
+		attribute.String("email", email),
+		attribute.String("table", "users"))
+	defer tracing.EndSpanWithError(span, &err)
+
+	user = &models.User{}
 	query := `
 		SELECT u.id, u.email, u.password_hash, u.first_name, u.last_name, u.phone,
 		       COALESCE(u.timezone, 'UTC') as timezone, COALESCE(u.avatar_url, '') as avatar_url,
@@ -89,7 +101,7 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*models.
 	`
 
 	var roles []string
-	err := r.db.QueryRowContext(ctx, query, email).Scan(
+	err = r.db.QueryRowContext(ctx, query, email).Scan(
 		&user.ID, &user.Email, &user.PasswordHash, &user.FirstName, &user.LastName,
 		&user.Phone, &user.Timezone, &user.AvatarURL, &user.Bio, &user.OrganizationID,
 		&user.IsActive, &user.CreatedAt, &user.UpdatedAt,

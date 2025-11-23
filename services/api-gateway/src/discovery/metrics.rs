@@ -1,5 +1,8 @@
 use lazy_static::lazy_static;
-use prometheus::{register_counter, register_gauge, register_gauge_vec, register_histogram, Counter, Gauge, GaugeVec, Histogram};
+use prometheus::{
+    register_counter, register_gauge, register_gauge_vec, register_histogram, Counter, Gauge,
+    GaugeVec, Histogram,
+};
 
 lazy_static! {
     /// Time taken to discover routes (in seconds)

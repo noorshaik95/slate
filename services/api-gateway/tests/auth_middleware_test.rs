@@ -1,4 +1,6 @@
-use api_gateway::auth::middleware::{AuthContext, map_auth_error_to_response, AuthMiddlewareResponse};
+use api_gateway::auth::middleware::{
+    map_auth_error_to_response, AuthContext, AuthMiddlewareResponse,
+};
 use api_gateway::auth::{AuthError, AuthResult, TokenClaims};
 
 #[test]

@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// Health state of a service
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

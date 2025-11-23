@@ -8,9 +8,9 @@ pub mod gateway {
 }
 
 // Declare submodules
-mod types;
 mod constants;
 mod service;
+mod types;
 
 // Export middleware module
 pub mod middleware;
@@ -20,10 +20,7 @@ pub mod middleware;
 mod tests;
 
 // Re-export public types
-pub use types::{
-    AuthError,
-    AuthResult,
-};
+pub use types::{AuthError, AuthResult};
 
 // Re-export public service
 pub use service::AuthService;

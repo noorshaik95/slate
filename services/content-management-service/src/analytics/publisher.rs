@@ -1,6 +1,6 @@
 use crate::analytics::{AnalyticsError, AnalyticsEvent, Result};
-use crate::circuit_breaker::{CircuitBreaker, CircuitBreakerConfig, CircuitBreakerError};
 use chrono::Duration;
+use common_rust::circuit_breaker::{CircuitBreaker, CircuitBreakerConfig, CircuitBreakerError};
 use redis::AsyncCommands;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -28,9 +28,13 @@ impl AnalyticsPublisher {
         let redis_client = redis::Client::open(redis_url)
             .map_err(|e| AnalyticsError::QueueError(e.to_string()))?;
 
-        let circuit_breaker = Arc::new(CircuitBreaker::new(
+        let circuit_breaker = Arc::new(CircuitBreaker::with_name(
             "analytics_service".to_string(),
-            CircuitBreakerConfig::analytics_service(),
+            CircuitBreakerConfig {
+                failure_threshold: 3,
+                success_threshold: 2,
+                timeout_seconds: 30,
+            },
         ));
 
         Ok(Self {
@@ -71,7 +75,7 @@ impl AnalyticsPublisher {
 
         loop {
             ticker.tick().await;
-            
+
             if let Err(e) = self.flush_batch().await {
                 error!("Failed to flush event batch: {}", e);
             }
@@ -94,7 +98,10 @@ impl AnalyticsPublisher {
         // Try to send events to analytics service
         match self.send_to_analytics_service(&events).await {
             Ok(_) => {
-                info!("Successfully sent {} events to analytics service", events.len());
+                info!(
+                    "Successfully sent {} events to analytics service",
+                    events.len()
+                );
                 Ok(())
             }
             Err(e) => {
@@ -115,42 +122,46 @@ impl AnalyticsPublisher {
             return Err(AnalyticsError::EmptyBatch);
         }
 
-        let payload = serde_json::to_string(events)?;
         let url = self.analytics_service_url.clone();
 
-        let result = self.circuit_breaker.call(|| async {
-            // TODO: Implement actual gRPC client when Analytics Service is available
-            // For now, we'll simulate the call with a simple HTTP POST
-            let client = reqwest::Client::builder()
-                .timeout(TokioDuration::from_secs(10))
-                .build()
-                .map_err(|e| AnalyticsError::TransmissionError(e.to_string()))?;
+        let result = self
+            .circuit_breaker
+            .call(async {
+                // TODO: Implement actual gRPC client when Analytics Service is available
+                // For now, we'll simulate the call with a simple HTTP POST
+                let client = reqwest::Client::builder()
+                    .timeout(std::time::Duration::from_secs(5))
+                    .build()
+                    .map_err(|e| AnalyticsError::TransmissionError(e.to_string()))?;
 
-            let response = client
-                .post(format!("{}/events", url))
-                .header("Content-Type", "application/json")
-                .body(payload.clone())
-                .send()
-                .await
-                .map_err(|e| AnalyticsError::ServiceUnavailable(e.to_string()))?;
+                let response = client
+                    .post(format!("{}/events", url))
+                    .json(events)
+                    .send()
+                    .await
+                    .map_err(|e| AnalyticsError::TransmissionError(e.to_string()))?;
 
-            if response.status().is_success() {
-                Ok(())
-            } else {
-                Err(AnalyticsError::TransmissionError(format!(
-                    "Analytics service returned status: {}",
-                    response.status()
-                )))
-            }
-        }).await;
+                if !response.status().is_success() {
+                    return Err(AnalyticsError::TransmissionError(format!(
+                        "Analytics service returned status: {}",
+                        response.status()
+                    )));
+                }
 
+                Ok::<(), AnalyticsError>(())
+            })
+            .await;
         match result {
             Ok(()) => Ok(()),
-            Err(CircuitBreakerError::CircuitOpen) => {
+            Err(CircuitBreakerError::Open) => {
                 warn!("Analytics service circuit breaker is open");
-                Err(AnalyticsError::ServiceUnavailable("Circuit breaker open".to_string()))
+                Err(AnalyticsError::ServiceUnavailable(
+                    "Circuit breaker open".to_string(),
+                ))
             }
-            Err(CircuitBreakerError::OperationFailed(e)) => Err(e),
+            Err(CircuitBreakerError::OperationFailed(e)) => {
+                Err(AnalyticsError::TransmissionError(e))
+            }
         }
     }
 
@@ -268,7 +279,7 @@ impl AnalyticsPublisher {
 
         loop {
             ticker.tick().await;
-            
+
             if let Err(e) = self.retry_queued_events().await {
                 error!("Failed to retry queued events: {}", e);
             }

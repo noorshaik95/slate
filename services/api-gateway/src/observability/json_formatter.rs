@@ -63,11 +63,7 @@ where
             .unwrap();
         json_map.insert(
             "timestamp".to_string(),
-            json!(format!(
-                "{}.{:03}",
-                now.as_secs(),
-                now.subsec_millis()
-            )),
+            json!(format!("{}.{:03}", now.as_secs(), now.subsec_millis())),
         );
 
         // Add level
@@ -137,17 +133,18 @@ impl JsonVisitor {
 impl tracing::field::Visit for JsonVisitor {
     fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn fmt::Debug) {
         let field_name = field.name();
-        
+
         if field_name == "message" {
             self.message = Some(format!("{:?}", value));
         } else {
-            self.fields.insert(field_name.to_string(), json!(format!("{:?}", value)));
+            self.fields
+                .insert(field_name.to_string(), json!(format!("{:?}", value)));
         }
     }
 
     fn record_str(&mut self, field: &tracing::field::Field, value: &str) {
         let field_name = field.name();
-        
+
         if field_name == "message" {
             self.message = Some(value.to_string());
         } else {
@@ -193,7 +190,7 @@ mod tests {
     #[test]
     fn test_json_visitor_message() {
         let mut visitor = JsonVisitor::new();
-        
+
         // Verify initial state
         assert!(visitor.message.is_none());
         assert_eq!(visitor.fields.len(), 0);

@@ -22,9 +22,8 @@ pub struct TranscodingQueue {
 impl TranscodingQueue {
     /// Creates a new TranscodingQueue
     pub async fn new(redis_url: &str, queue_name: String) -> Result<Self> {
-        let client = redis::Client::open(redis_url)
-            .map_err(|e| TranscodingError::Redis(e))?;
-        
+        let client = redis::Client::open(redis_url).map_err(|e| TranscodingError::Redis(e))?;
+
         let connection = ConnectionManager::new(client)
             .await
             .map_err(|e| TranscodingError::Redis(e))?;
@@ -39,8 +38,8 @@ impl TranscodingQueue {
 
     /// Enqueues a transcoding job
     pub async fn enqueue(&mut self, job: TranscodingJobMessage) -> Result<()> {
-        let job_json = serde_json::to_string(&job)
-            .map_err(|e| TranscodingError::Serialization(e))?;
+        let job_json =
+            serde_json::to_string(&job).map_err(|e| TranscodingError::Serialization(e))?;
 
         self.connection
             .rpush::<_, _, ()>(&self.queue_name, job_json)
@@ -57,7 +56,10 @@ impl TranscodingQueue {
     }
 
     /// Dequeues a transcoding job (blocking with timeout)
-    pub async fn dequeue(&mut self, timeout_seconds: usize) -> Result<Option<TranscodingJobMessage>> {
+    pub async fn dequeue(
+        &mut self,
+        timeout_seconds: usize,
+    ) -> Result<Option<TranscodingJobMessage>> {
         let result: Option<(String, String)> = self
             .connection
             .blpop(&self.queue_name, timeout_seconds as f64)
@@ -66,11 +68,10 @@ impl TranscodingQueue {
 
         match result {
             Some((_, job_json)) => {
-                let job: TranscodingJobMessage = serde_json::from_str(&job_json)
-                    .map_err(|e| {
-                        error!("Failed to deserialize job: {}", e);
-                        TranscodingError::Serialization(e)
-                    })?;
+                let job: TranscodingJobMessage = serde_json::from_str(&job_json).map_err(|e| {
+                    error!("Failed to deserialize job: {}", e);
+                    TranscodingError::Serialization(e)
+                })?;
 
                 debug!(
                     job_id = %job.job_id,
@@ -101,7 +102,7 @@ impl TranscodingQueue {
     /// Tracks job status in Redis (for monitoring)
     pub async fn set_job_status(&mut self, job_id: Uuid, status: &str) -> Result<()> {
         let key = format!("transcoding:status:{}", job_id);
-        
+
         self.connection
             .set_ex::<_, _, ()>(&key, status, 3600) // Expire after 1 hour
             .await
@@ -115,7 +116,7 @@ impl TranscodingQueue {
     /// Gets job status from Redis
     pub async fn get_job_status(&mut self, job_id: Uuid) -> Result<Option<String>> {
         let key = format!("transcoding:status:{}", job_id);
-        
+
         let status: Option<String> = self
             .connection
             .get(&key)
@@ -128,7 +129,7 @@ impl TranscodingQueue {
     /// Removes job status from Redis
     pub async fn remove_job_status(&mut self, job_id: Uuid) -> Result<()> {
         let key = format!("transcoding:status:{}", job_id);
-        
+
         self.connection
             .del::<_, ()>(&key)
             .await

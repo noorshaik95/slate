@@ -6,6 +6,9 @@ RUN apt-get update && apt-get install -y protobuf-compiler && rm -rf /var/lib/ap
 
 WORKDIR /app
 
+# Copy common-rust library to match the path in Cargo.toml (../../libs/common-rust from /app)
+COPY libs/common-rust /libs/common-rust
+
 # Copy proto files for proto compilation (needed for build.rs)
 COPY proto ./proto
 COPY services/api-gateway/build.rs ./build.rs

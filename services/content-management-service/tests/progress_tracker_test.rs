@@ -8,7 +8,7 @@ use uuid::Uuid;
 async fn create_test_pool() -> PgPool {
     let database_url = std::env::var("TEST_DATABASE_URL")
         .unwrap_or_else(|_| "postgresql://postgres:postgres@localhost:5432/cms_test".to_string());
-    
+
     PgPool::connect(&database_url)
         .await
         .expect("Failed to connect to test database")
@@ -22,19 +22,21 @@ async fn cleanup_test_data(pool: &PgPool, course_id: Uuid) {
         .execute(pool)
         .await
         .ok();
-    
+
     sqlx::query("DELETE FROM resources WHERE lesson_id IN (SELECT id FROM lessons WHERE module_id IN (SELECT id FROM modules WHERE course_id = $1))")
         .bind(course_id)
         .execute(pool)
         .await
         .ok();
-    
-    sqlx::query("DELETE FROM lessons WHERE module_id IN (SELECT id FROM modules WHERE course_id = $1)")
-        .bind(course_id)
-        .execute(pool)
-        .await
-        .ok();
-    
+
+    sqlx::query(
+        "DELETE FROM lessons WHERE module_id IN (SELECT id FROM modules WHERE course_id = $1)",
+    )
+    .bind(course_id)
+    .execute(pool)
+    .await
+    .ok();
+
     sqlx::query("DELETE FROM modules WHERE course_id = $1")
         .bind(course_id)
         .execute(pool)
@@ -48,7 +50,7 @@ fn test_progress_tracking_validate_position() {
     assert!(ProgressTracking::validate_position(0).is_ok());
     assert!(ProgressTracking::validate_position(100).is_ok());
     assert!(ProgressTracking::validate_position(1000).is_ok());
-    
+
     // Invalid positions
     assert!(ProgressTracking::validate_position(-1).is_err());
     assert!(ProgressTracking::validate_position(-100).is_err());
@@ -59,18 +61,18 @@ fn test_progress_tracking_should_auto_complete() {
     // At 90% threshold - should complete
     assert!(ProgressTracking::should_auto_complete(90, 100));
     assert!(ProgressTracking::should_auto_complete(900, 1000));
-    
+
     // Above 90% - should complete
     assert!(ProgressTracking::should_auto_complete(95, 100));
     assert!(ProgressTracking::should_auto_complete(100, 100));
     assert!(ProgressTracking::should_auto_complete(950, 1000));
-    
+
     // Below 90% - should not complete
     assert!(!ProgressTracking::should_auto_complete(89, 100));
     assert!(!ProgressTracking::should_auto_complete(50, 100));
     assert!(!ProgressTracking::should_auto_complete(0, 100));
     assert!(!ProgressTracking::should_auto_complete(899, 1000));
-    
+
     // Edge cases
     assert!(!ProgressTracking::should_auto_complete(0, 0));
     assert!(!ProgressTracking::should_auto_complete(10, -1));
@@ -82,7 +84,7 @@ fn test_progress_tracking_validate_position_within_duration() {
     assert!(ProgressTracking::validate_position_within_duration(0, 100).is_ok());
     assert!(ProgressTracking::validate_position_within_duration(50, 100).is_ok());
     assert!(ProgressTracking::validate_position_within_duration(100, 100).is_ok());
-    
+
     // Invalid positions (exceeds duration)
     assert!(ProgressTracking::validate_position_within_duration(101, 100).is_err());
     assert!(ProgressTracking::validate_position_within_duration(200, 100).is_err());
@@ -94,19 +96,19 @@ fn test_progress_summary_calculate_percentage() {
     assert_eq!(ProgressSummary::calculate_percentage(0, 10), 0);
     assert_eq!(ProgressSummary::calculate_percentage(5, 10), 50);
     assert_eq!(ProgressSummary::calculate_percentage(10, 10), 100);
-    
+
     // Various percentages
     assert_eq!(ProgressSummary::calculate_percentage(1, 10), 10);
     assert_eq!(ProgressSummary::calculate_percentage(3, 10), 30);
     assert_eq!(ProgressSummary::calculate_percentage(7, 10), 70);
     assert_eq!(ProgressSummary::calculate_percentage(9, 10), 90);
-    
+
     // Rounding to nearest integer
     assert_eq!(ProgressSummary::calculate_percentage(1, 3), 33);
     assert_eq!(ProgressSummary::calculate_percentage(2, 3), 67);
     assert_eq!(ProgressSummary::calculate_percentage(1, 6), 17);
     assert_eq!(ProgressSummary::calculate_percentage(5, 6), 83);
-    
+
     // Edge case: no resources
     assert_eq!(ProgressSummary::calculate_percentage(0, 0), 0);
 }
@@ -116,17 +118,10 @@ fn test_progress_summary_new() {
     let student_id = Uuid::new_v4();
     let course_id = Uuid::new_v4();
     let module_id = Uuid::new_v4();
-    
+
     // Course-level summary
-    let course_summary = ProgressSummary::new(
-        student_id,
-        Some(course_id),
-        None,
-        None,
-        20,
-        10,
-    );
-    
+    let course_summary = ProgressSummary::new(student_id, Some(course_id), None, None, 20, 10);
+
     assert_eq!(course_summary.student_id, student_id);
     assert_eq!(course_summary.course_id, Some(course_id));
     assert_eq!(course_summary.module_id, None);
@@ -134,17 +129,11 @@ fn test_progress_summary_new() {
     assert_eq!(course_summary.total_resources, 20);
     assert_eq!(course_summary.completed_resources, 10);
     assert_eq!(course_summary.progress_percentage, 50);
-    
+
     // Module-level summary
-    let module_summary = ProgressSummary::new(
-        student_id,
-        Some(course_id),
-        Some(module_id),
-        None,
-        10,
-        7,
-    );
-    
+    let module_summary =
+        ProgressSummary::new(student_id, Some(course_id), Some(module_id), None, 10, 7);
+
     assert_eq!(module_summary.module_id, Some(module_id));
     assert_eq!(module_summary.progress_percentage, 70);
 }
@@ -170,19 +159,16 @@ fn test_completion_status_from_str() {
     assert_eq!(CompletionStatus::from_str("all"), CompletionStatus::All);
     assert_eq!(CompletionStatus::from_str("ALL"), CompletionStatus::All);
     assert_eq!(CompletionStatus::from_str(""), CompletionStatus::All);
-    assert_eq!(
-        CompletionStatus::from_str("invalid"),
-        CompletionStatus::All
-    );
+    assert_eq!(CompletionStatus::from_str("invalid"), CompletionStatus::All);
 }
 
 #[tokio::test]
 async fn test_mark_complete_published_resource() {
     let pool = create_test_pool().await;
-    
+
     // This test requires setting up the full database structure
     // For now, we test the business logic separately
-    
+
     // Test that marking a published resource as complete should work
     // Test that marking an unpublished resource as complete should fail
 }
@@ -283,12 +269,12 @@ async fn test_generate_report_performance_with_many_students() {
 fn test_video_completion_threshold_is_90_percent() {
     // Verify the constant is set correctly
     assert_eq!(ProgressTracking::VIDEO_COMPLETION_THRESHOLD, 0.9);
-    
+
     // Test auto-completion at exactly 90%
     assert!(ProgressTracking::should_auto_complete(90, 100));
     assert!(ProgressTracking::should_auto_complete(270, 300));
     assert!(ProgressTracking::should_auto_complete(540, 600));
-    
+
     // Test just below 90%
     assert!(!ProgressTracking::should_auto_complete(89, 100));
     assert!(!ProgressTracking::should_auto_complete(269, 300));
@@ -319,7 +305,7 @@ async fn test_update_playback_position_validates_position() {
     // 1. Negative positions should be rejected
     // 2. Positions exceeding video duration should be rejected
     // 3. Valid positions should be accepted
-    
+
     assert!(ProgressTracking::validate_position(0).is_ok());
     assert!(ProgressTracking::validate_position(100).is_ok());
     assert!(ProgressTracking::validate_position(-1).is_err());
@@ -331,11 +317,14 @@ async fn test_update_playback_position_auto_completes_at_90_percent() {
     // 1. Create video resource with duration
     // 2. Update playback position to 90% of duration
     // 3. Verify resource is marked as complete
-    
+
     let duration = 1000;
     let position_90_percent = 900;
-    
-    assert!(ProgressTracking::should_auto_complete(position_90_percent, duration));
+
+    assert!(ProgressTracking::should_auto_complete(
+        position_90_percent,
+        duration
+    ));
 }
 
 #[tokio::test]

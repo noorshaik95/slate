@@ -1,4 +1,4 @@
-use crate::models::{ProgressTracking, ProgressSummary};
+use crate::models::{ProgressSummary, ProgressTracking};
 use anyhow::{anyhow, Context, Result};
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -60,12 +60,20 @@ impl ProgressRepository {
     }
 
     /// Marks a resource as complete for a student
-    pub async fn mark_complete(&self, student_id: Uuid, resource_id: Uuid) -> Result<ProgressTracking> {
+    pub async fn mark_complete(
+        &self,
+        student_id: Uuid,
+        resource_id: Uuid,
+    ) -> Result<ProgressTracking> {
         self.upsert(student_id, resource_id, true, None).await
     }
 
     /// Marks a resource as incomplete for a student
-    pub async fn mark_incomplete(&self, student_id: Uuid, resource_id: Uuid) -> Result<ProgressTracking> {
+    pub async fn mark_incomplete(
+        &self,
+        student_id: Uuid,
+        resource_id: Uuid,
+    ) -> Result<ProgressTracking> {
         self.upsert(student_id, resource_id, false, None).await
     }
 
@@ -140,7 +148,10 @@ impl ProgressRepository {
     }
 
     /// Lists completed resources for a student
-    pub async fn list_completed_by_student(&self, student_id: Uuid) -> Result<Vec<ProgressTracking>> {
+    pub async fn list_completed_by_student(
+        &self,
+        student_id: Uuid,
+    ) -> Result<Vec<ProgressTracking>> {
         let progress = sqlx::query_as::<_, ProgressTracking>(
             r#"
             SELECT id, student_id, resource_id, completed, completed_at, last_position_seconds, updated_at
@@ -257,7 +268,10 @@ impl ProgressRepository {
     }
 
     /// Gets progress report for all students in a course
-    pub async fn get_course_progress_report(&self, course_id: Uuid) -> Result<Vec<ProgressSummary>> {
+    pub async fn get_course_progress_report(
+        &self,
+        course_id: Uuid,
+    ) -> Result<Vec<ProgressSummary>> {
         let rows: Vec<(Uuid, i32, i32)> = sqlx::query_as(
             r#"
             SELECT 

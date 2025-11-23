@@ -1,6 +1,6 @@
-use axum::http::{Method, HeaderValue, HeaderName};
+use axum::http::{HeaderName, HeaderValue, Method};
 use std::time::Duration;
-use tower_http::cors::{CorsLayer, Any};
+use tower_http::cors::{Any, CorsLayer};
 use tracing::{info, warn};
 
 /// CORS configuration with security-focused defaults
@@ -45,20 +45,18 @@ impl CorsConfig {
             let origins: Vec<HeaderValue> = self
                 .allowed_origins
                 .iter()
-                .filter_map(|origin| {
-                    match origin.parse::<HeaderValue>() {
-                        Ok(header_value) => {
-                            info!(origin = %origin, "CORS: Allowing origin");
-                            Some(header_value)
-                        }
-                        Err(e) => {
-                            warn!(
-                                origin = %origin,
-                                error = %e,
-                                "CORS: Failed to parse origin, skipping"
-                            );
-                            None
-                        }
+                .filter_map(|origin| match origin.parse::<HeaderValue>() {
+                    Ok(header_value) => {
+                        info!(origin = %origin, "CORS: Allowing origin");
+                        Some(header_value)
+                    }
+                    Err(e) => {
+                        warn!(
+                            origin = %origin,
+                            error = %e,
+                            "CORS: Failed to parse origin, skipping"
+                        );
+                        None
                     }
                 })
                 .collect();
@@ -92,7 +90,7 @@ impl CorsConfig {
         .into_iter()
         .filter_map(|h| h.parse().ok())
         .collect();
-        
+
         if !allowed_headers.is_empty() {
             cors = cors.allow_headers(allowed_headers);
         }
@@ -104,7 +102,7 @@ impl CorsConfig {
             .into_iter()
             .filter_map(|h| h.parse().ok())
             .collect();
-        
+
         if !exposed_headers.is_empty() {
             cors = cors.expose_headers(exposed_headers);
         }
@@ -127,8 +125,7 @@ impl CorsConfig {
     /// - CORS_ALLOWED_ORIGINS: Comma-separated list of allowed origins
     /// - DEV_MODE or ENVIRONMENT: Set to "development" or "dev" for dev mode
     pub fn from_env() -> Self {
-        let allowed_origins_str = std::env::var("CORS_ALLOWED_ORIGINS")
-            .unwrap_or_default();
+        let allowed_origins_str = std::env::var("CORS_ALLOWED_ORIGINS").unwrap_or_default();
 
         let allowed_origins: Vec<String> = if allowed_origins_str.is_empty() {
             Vec::new()
@@ -166,10 +163,7 @@ mod tests {
 
     #[test]
     fn test_cors_config_creation() {
-        let config = CorsConfig::new(
-            vec!["https://example.com".to_string()],
-            false,
-        );
+        let config = CorsConfig::new(vec!["https://example.com".to_string()], false);
 
         assert_eq!(config.allowed_origins.len(), 1);
         assert_eq!(config.allowed_origins[0], "https://example.com");
@@ -201,10 +195,7 @@ mod tests {
 
     #[test]
     fn test_cors_config_wildcard() {
-        let config = CorsConfig::new(
-            vec!["*".to_string()],
-            false,
-        );
+        let config = CorsConfig::new(vec!["*".to_string()], false);
 
         assert_eq!(config.allowed_origins.len(), 1);
         assert_eq!(config.allowed_origins[0], "*");
@@ -212,10 +203,7 @@ mod tests {
 
     #[test]
     fn test_build_layer_creates_cors_layer() {
-        let config = CorsConfig::new(
-            vec!["https://example.com".to_string()],
-            false,
-        );
+        let config = CorsConfig::new(vec!["https://example.com".to_string()], false);
 
         // Should not panic
         let _layer = config.build_layer();

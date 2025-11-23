@@ -83,11 +83,7 @@ impl VideoTranscoder {
             .set_job_status(job_msg.job_id, "processing")
             .await?;
 
-        match self
-            .job_repository
-            .mark_processing(job_msg.job_id)
-            .await
-        {
+        match self.job_repository.mark_processing(job_msg.job_id).await {
             Ok(_) => {}
             Err(e) => {
                 error!("Failed to mark job as processing: {}", e);
@@ -440,29 +436,29 @@ impl VideoTranscoder {
                     let sub_key = format!("{}/{}", base_key, file_name_str);
                     self.upload_directory_recursive(&path, &sub_key).await?;
                 } else {
-                // Upload file
-                let key = format!("{}/{}", base_key, file_name_str);
-                let data = fs::read(&path).await?;
+                    // Upload file
+                    let key = format!("{}/{}", base_key, file_name_str);
+                    let data = fs::read(&path).await?;
 
-                // Determine content type based on file extension
-                let content_type = if file_name_str.ends_with(".m3u8") {
-                    "application/vnd.apple.mpegurl"
-                } else if file_name_str.ends_with(".ts") {
-                    "video/mp2t"
-                } else if file_name_str.ends_with(".mpd") {
-                    "application/dash+xml"
-                } else if file_name_str.ends_with(".m4s") {
-                    "video/iso.segment"
-                } else {
-                    "application/octet-stream"
-                };
+                    // Determine content type based on file extension
+                    let content_type = if file_name_str.ends_with(".m3u8") {
+                        "application/vnd.apple.mpegurl"
+                    } else if file_name_str.ends_with(".ts") {
+                        "video/mp2t"
+                    } else if file_name_str.ends_with(".mpd") {
+                        "application/dash+xml"
+                    } else if file_name_str.ends_with(".m4s") {
+                        "video/iso.segment"
+                    } else {
+                        "application/octet-stream"
+                    };
 
-                self.s3_client
-                    .put_object(&key, Bytes::from(data), content_type)
-                    .await
-                    .map_err(|e| TranscodingError::UploadFailed(e.to_string()))?;
+                    self.s3_client
+                        .put_object(&key, Bytes::from(data), content_type)
+                        .await
+                        .map_err(|e| TranscodingError::UploadFailed(e.to_string()))?;
 
-                debug!("Uploaded file: {}", key);
+                    debug!("Uploaded file: {}", key);
                 }
             }
 
@@ -525,7 +521,11 @@ impl VideoTranscoder {
     }
 
     /// Handles transcoding failure with retry logic
-    async fn handle_failure(&mut self, job_msg: &TranscodingJobMessage, error: String) -> Result<()> {
+    async fn handle_failure(
+        &mut self,
+        job_msg: &TranscodingJobMessage,
+        error: String,
+    ) -> Result<()> {
         error!(
             job_id = %job_msg.job_id,
             resource_id = %job_msg.resource_id,

@@ -1,8 +1,8 @@
 use std::collections::{HashMap, HashSet};
 use tracing::{error, warn};
 
-use crate::config::RouteConfig;
 use super::DiscoveryError;
+use crate::config::RouteConfig;
 
 /// Validator for route configurations
 pub struct RouteValidator;

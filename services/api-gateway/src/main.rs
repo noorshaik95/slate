@@ -1,5 +1,4 @@
 mod auth;
-mod circuit_breaker;
 mod config;
 mod discovery;
 mod docs;
@@ -9,11 +8,9 @@ mod health;
 mod middleware;
 mod observability;
 mod proto;
-mod rate_limit;
 mod router;
 mod security;
 mod shared;
-
 
 use axum::{
     extract::State,
@@ -42,18 +39,18 @@ use crate::handlers::gateway::gateway_handler;
 use crate::handlers::refresh_routes_handler;
 use crate::health::{health_handler, liveness_handler, readiness_handler, HealthChecker};
 use crate::middleware::{body_limit_middleware, BodyLimitConfig};
-use crate::rate_limit::RateLimiter;
 use crate::router::RequestRouter;
 use crate::shared::state::AppState;
+use common_rust::rate_limit::IpRateLimiter;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // Load gateway configuration
     let config_path = std::env::var("GATEWAY_CONFIG_PATH")
         .unwrap_or_else(|_| "config/gateway-config.yaml".to_string());
-    
+
     info!(config_path = %config_path, "Loading gateway configuration");
-    
+
     let config = match GatewayConfig::load_config(&config_path) {
         Ok(cfg) => {
             info!("Gateway configuration loaded successfully");
@@ -78,7 +75,9 @@ async fn main() -> anyhow::Result<()> {
     let otlp_exporter = opentelemetry_otlp::SpanExporter::builder()
         .with_tonic()
         .with_endpoint(&tempo_endpoint)
-        .with_timeout(std::time::Duration::from_secs(config.observability.otlp_timeout_secs))
+        .with_timeout(std::time::Duration::from_secs(
+            config.observability.otlp_timeout_secs,
+        ))
         .build()?;
 
     let tracer_provider = opentelemetry_sdk::trace::SdkTracerProvider::builder()
@@ -95,8 +94,8 @@ async fn main() -> anyhow::Result<()> {
 
     // Create JSON formatter for Loki compatibility with flattened trace_id
     // Uses custom formatter to place trace_id at root level instead of nested in fields
-    let fmt_layer = tracing_subscriber::fmt::layer()
-        .event_format(observability::FlattenedJsonFormat::new());
+    let fmt_layer =
+        tracing_subscriber::fmt::layer().event_format(observability::FlattenedJsonFormat::new());
 
     let tracer = tracer_provider.tracer(service_name.clone());
     global::set_tracer_provider(tracer_provider);
@@ -105,7 +104,7 @@ async fn main() -> anyhow::Result<()> {
     use opentelemetry::propagation::TextMapPropagator;
     let propagator = opentelemetry_sdk::propagation::TraceContextPropagator::new();
     global::set_text_map_propagator(propagator);
-    
+
     info!("OpenTelemetry propagator configured: W3C Trace Context");
 
     // Create OpenTelemetry tracing layer
@@ -114,13 +113,15 @@ async fn main() -> anyhow::Result<()> {
     // Configure logging level from RUST_LOG environment variable
     // Default to "info" for all modules (production-friendly)
     // Supports per-module configuration: RUST_LOG="info,api_gateway=debug,tower_http=warn"
-    let log_level = std::env::var("RUST_LOG")
-        .unwrap_or_else(|_| "info".to_string());
-    
+    let log_level = std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string());
+
     let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .or_else(|_| tracing_subscriber::EnvFilter::try_new(&log_level))
         .unwrap_or_else(|e| {
-            eprintln!("Invalid RUST_LOG value '{}': {}. Using default 'info'", log_level, e);
+            eprintln!(
+                "Invalid RUST_LOG value '{}': {}. Using default 'info'",
+                log_level, e
+            );
             tracing_subscriber::EnvFilter::new("info")
         });
 
@@ -143,7 +144,10 @@ async fn main() -> anyhow::Result<()> {
     info!("Initializing gRPC client pool");
     let grpc_pool = match GrpcClientPool::new(config.services.clone()).await {
         Ok(pool) => {
-            info!(services = config.services.len(), "gRPC client pool initialized");
+            info!(
+                services = config.services.len(),
+                "gRPC client pool initialized"
+            );
             pool
         }
         Err(e) => {
@@ -170,10 +174,8 @@ async fn main() -> anyhow::Result<()> {
         info!("Route discovery is enabled, initializing discovery service");
 
         // Create discovery service
-        let discovery_service = RouteDiscoveryService::new(
-            Arc::new(grpc_pool.clone()),
-            config.discovery.clone(),
-        );
+        let discovery_service =
+            RouteDiscoveryService::new(Arc::new(grpc_pool.clone()), config.discovery.clone());
 
         // Perform initial route discovery at startup
         info!("Performing initial route discovery from all services");
@@ -193,10 +195,8 @@ async fn main() -> anyhow::Result<()> {
         };
 
         // Apply route overrides
-        let final_routes = discovery_service.apply_overrides(
-            discovered_routes,
-            &config.route_overrides,
-        );
+        let final_routes =
+            discovery_service.apply_overrides(discovered_routes, &config.route_overrides);
 
         info!(
             total_routes = final_routes.len(),
@@ -223,7 +223,7 @@ async fn main() -> anyhow::Result<()> {
                 requests_per_minute = rate_limit_config.requests_per_minute,
                 "Initializing rate limiter"
             );
-            Some(RateLimiter::new(rate_limit_config.clone()))
+            Some(IpRateLimiter::new(rate_limit_config.clone(), 10_000))
         } else {
             info!("Rate limiting disabled");
             None
@@ -250,11 +250,8 @@ async fn main() -> anyhow::Result<()> {
         .map(|s| s.split(',').map(|p| p.trim().to_string()).collect())
         .unwrap_or_else(|| vec!["/upload".to_string(), "/api/upload".to_string()]);
 
-    let body_limit_config = BodyLimitConfig::new(
-        default_body_limit,
-        upload_body_limit,
-        upload_paths.clone(),
-    );
+    let body_limit_config =
+        BodyLimitConfig::new(default_body_limit, upload_body_limit, upload_paths.clone());
 
     info!(
         default_limit_bytes = default_body_limit,
@@ -265,9 +262,9 @@ async fn main() -> anyhow::Result<()> {
 
     // Initialize client IP extractor for X-Forwarded-For handling
     info!("Configuring client IP extraction");
-    let trusted_proxies_str = std::env::var("TRUSTED_PROXIES")
-        .unwrap_or_else(|_| config.trusted_proxies.join(","));
-    
+    let trusted_proxies_str =
+        std::env::var("TRUSTED_PROXIES").unwrap_or_else(|_| config.trusted_proxies.join(","));
+
     let trusted_proxies: Vec<std::net::IpAddr> = if !trusted_proxies_str.is_empty() {
         trusted_proxies_str
             .split(',')
@@ -324,26 +321,30 @@ async fn main() -> anyhow::Result<()> {
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(60)); // 1 minute
             loop {
                 interval.tick().await;
-                
+
                 // Get tracked clients count before cleanup
                 let tracked_before = limiter_clone.tracked_clients_count().await;
-                
+
                 // Perform cleanup and get eviction count
                 let evicted_count = limiter_clone.cleanup_expired().await;
-                
+
                 // Get tracked clients count after cleanup
                 let tracked_after = limiter_clone.tracked_clients_count().await;
-                
+
                 // Update Prometheus metrics
-                metrics_clone.rate_limiter_tracked_clients.set(tracked_after as i64);
-                metrics_clone.rate_limiter_evictions_total.inc_by(evicted_count as u64);
-                
+                metrics_clone
+                    .rate_limiter_tracked_clients
+                    .set(tracked_after as i64);
+                metrics_clone
+                    .rate_limiter_evictions_total
+                    .inc_by(evicted_count as u64);
+
                 info!(
                     tracked_clients = tracked_after,
                     evicted_entries = evicted_count,
                     "Rate limiter cleanup completed"
                 );
-                
+
                 debug!(
                     tracked_before = tracked_before,
                     tracked_after = tracked_after,
@@ -367,7 +368,7 @@ async fn main() -> anyhow::Result<()> {
         .iter()
         .map(|r| (r.path.clone(), r.method.clone()))
         .collect();
-    
+
     let auth_middleware_state = auth::middleware::AuthMiddlewareState {
         auth_service: shared_state.auth_service.clone(),
         grpc_pool: shared_state.grpc_pool.clone(),
@@ -377,31 +378,30 @@ async fn main() -> anyhow::Result<()> {
 
     // Build Axum router
     info!("Building HTTP router");
-    
+
     // Create health check router
     let health_router = Router::new()
         .route("/health", get(health_handler))
         .route("/health/live", get(liveness_handler))
         .route("/health/ready", get(readiness_handler))
         .with_state(health_checker);
-    
+
     // Create metrics router
     let metrics_router = Router::new()
         .route("/metrics", get(metrics))
         .with_state(shared_state.clone());
-    
+
     // Create admin router
     let admin_router = Router::new()
         .route(
             "/admin/refresh-routes",
-            post(refresh_routes_handler)
-                .layer(axum::middleware::from_fn_with_state(
-                    auth_middleware_state.clone(),
-                    auth_middleware,
-                )),
+            post(refresh_routes_handler).layer(axum::middleware::from_fn_with_state(
+                auth_middleware_state.clone(),
+                auth_middleware,
+            )),
         )
         .with_state(shared_state.clone());
-    
+
     // Create gateway router with body limit and auth middleware
     let gateway_router = Router::new()
         .route(
@@ -416,7 +416,7 @@ async fn main() -> anyhow::Result<()> {
                 })),
         )
         .with_state(shared_state.clone());
-    
+
     // Merge all routers
     let mut app = Router::new()
         // API Documentation endpoints (no auth required)
@@ -454,13 +454,16 @@ async fn main() -> anyhow::Result<()> {
                 .unwrap_or_else(|| cors_config.allowed_origins.clone());
 
             // Create CORS configuration
-            let cors_middleware_config = middleware::CorsConfig::new(allowed_origins.clone(), dev_mode);
-            
+            let cors_middleware_config =
+                middleware::CorsConfig::new(allowed_origins.clone(), dev_mode);
+
             // Log configuration
             if dev_mode {
                 warn!("CORS: Running in development mode - allowing all origins");
             } else if allowed_origins.is_empty() {
-                warn!("CORS: No allowed origins configured - will reject all cross-origin requests");
+                warn!(
+                    "CORS: No allowed origins configured - will reject all cross-origin requests"
+                );
             } else if allowed_origins.contains(&"*".to_string()) {
                 warn!("CORS: Wildcard origin configured - consider restricting in production");
             } else {
@@ -473,7 +476,7 @@ async fn main() -> anyhow::Result<()> {
             // Build and apply CORS layer
             let cors_layer = cors_middleware_config.build_layer();
             app = app.layer(cors_layer);
-            
+
             info!("CORS middleware configured successfully");
         } else {
             info!("CORS middleware disabled in configuration");
@@ -498,14 +501,14 @@ async fn main() -> anyhow::Result<()> {
         config.server.host.parse::<std::net::IpAddr>()?,
         config.server.port,
     ));
-    
+
     info!(address = %addr, "Starting HTTP server");
     info!("API Documentation available at: http://{}/docs", addr);
     let listener = tokio::net::TcpListener::bind(addr).await?;
 
     // Set up graceful shutdown
     let (tx, rx) = tokio::sync::oneshot::channel::<()>();
-    
+
     let server = axum::serve(
         listener,
         app.into_make_service_with_connect_info::<SocketAddr>(),
@@ -553,10 +556,7 @@ async fn main() -> anyhow::Result<()> {
     // Close all gRPC connections
     info!("Closing gRPC connection pools");
     let closed_count = grpc_pool.close().await;
-    info!(
-        closed_connections = closed_count,
-        "gRPC connections closed"
-    );
+    info!(closed_connections = closed_count, "gRPC connections closed");
 
     let total_shutdown_duration = shutdown_start.elapsed();
     info!(
@@ -572,7 +572,7 @@ async fn metrics(State(state): State<Arc<AppState>>) -> Response {
     let metric_families = state.registry.gather();
     let mut buffer = Vec::new();
     let encoder = TextEncoder::new();
-    
+
     let (status, body) = match encoder.encode(&metric_families, &mut buffer) {
         Ok(_) => match String::from_utf8(buffer) {
             Ok(s) => (StatusCode::OK, s),
@@ -592,12 +592,12 @@ async fn metrics(State(state): State<Arc<AppState>>) -> Response {
             )
         }
     };
-    
+
     let mut headers = HeaderMap::new();
     headers.insert(
         "Content-Type",
         HeaderValue::from_static("text/plain; version=0.0.4"),
     );
-    
+
     (status, headers, body).into_response()
 }

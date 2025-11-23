@@ -1,7 +1,8 @@
 use crate::proto::content::{
     streaming_service_server::StreamingService as StreamingServiceTrait, GetPlaybackStateRequest,
-    GetVideoManifestRequest, PlaybackState as ProtoPlaybackState, QualityLevel as ProtoQualityLevel,
-    UpdatePlaybackPositionRequest, VideoManifest as ProtoVideoManifest,
+    GetVideoManifestRequest, PlaybackState as ProtoPlaybackState,
+    QualityLevel as ProtoQualityLevel, UpdatePlaybackPositionRequest,
+    VideoManifest as ProtoVideoManifest,
 };
 use crate::streaming::{StreamingError, StreamingService};
 use std::sync::Arc;
@@ -123,9 +124,7 @@ impl StreamingServiceTrait for StreamingServiceImpl {
 
         // Validate position
         if req.position_seconds < 0 {
-            return Err(Status::invalid_argument(
-                "Position must be non-negative",
-            ));
+            return Err(Status::invalid_argument("Position must be non-negative"));
         }
 
         // Parse event type
@@ -147,7 +146,13 @@ impl StreamingServiceTrait for StreamingServiceImpl {
 
         // Update playback position
         self.service
-            .update_playback_position(video_id, user_id, req.position_seconds, event_type, session_id)
+            .update_playback_position(
+                video_id,
+                user_id,
+                req.position_seconds,
+                event_type,
+                session_id,
+            )
             .await
             .map_err(|e| match e {
                 StreamingError::VideoNotFound(_) => Status::not_found(e.to_string()),

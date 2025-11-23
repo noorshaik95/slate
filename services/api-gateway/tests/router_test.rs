@@ -50,7 +50,7 @@ impl RequestRouter {
 
         for route in routes {
             let pattern = RoutePattern::parse(&route.path, &route.method);
-            
+
             if pattern.is_static() {
                 let key = RouteKey {
                     path_pattern: route.path.clone(),
@@ -188,7 +188,7 @@ mod tests {
     #[test]
     fn test_static_route_matching() {
         let router = RequestRouter::new(create_test_routes());
-        
+
         let result = router.route("/api/users", "GET").unwrap();
         assert_eq!(result.service, "user-service");
         assert_eq!(result.grpc_method, "user.UserService/ListUsers");
@@ -198,7 +198,7 @@ mod tests {
     #[test]
     fn test_dynamic_route_single_param() {
         let router = RequestRouter::new(create_test_routes());
-        
+
         let result = router.route("/api/users/123", "GET").unwrap();
         assert_eq!(result.service, "user-service");
         assert_eq!(result.grpc_method, "user.UserService/GetUser");
@@ -208,21 +208,24 @@ mod tests {
     #[test]
     fn test_dynamic_route_multiple_params() {
         let router = RequestRouter::new(create_test_routes());
-        
+
         let result = router.route("/api/posts/456/comments/789", "GET").unwrap();
         assert_eq!(result.service, "post-service");
         assert_eq!(result.grpc_method, "post.PostService/GetComment");
         assert_eq!(result.path_params.get("post_id"), Some(&"456".to_string()));
-        assert_eq!(result.path_params.get("comment_id"), Some(&"789".to_string()));
+        assert_eq!(
+            result.path_params.get("comment_id"),
+            Some(&"789".to_string())
+        );
     }
 
     #[test]
     fn test_method_matching() {
         let router = RequestRouter::new(create_test_routes());
-        
+
         let result = router.route("/api/users/123", "GET").unwrap();
         assert_eq!(result.grpc_method, "user.UserService/GetUser");
-        
+
         let result = router.route("/api/users/123", "DELETE").unwrap();
         assert_eq!(result.grpc_method, "user.UserService/DeleteUser");
     }
@@ -230,7 +233,7 @@ mod tests {
     #[test]
     fn test_case_insensitive_method() {
         let router = RequestRouter::new(create_test_routes());
-        
+
         let result = router.route("/api/users", "get").unwrap();
         assert_eq!(result.service, "user-service");
     }
@@ -238,7 +241,7 @@ mod tests {
     #[test]
     fn test_route_not_found() {
         let router = RequestRouter::new(create_test_routes());
-        
+
         let result = router.route("/api/nonexistent", "GET");
         assert!(result.is_none());
     }
@@ -246,7 +249,7 @@ mod tests {
     #[test]
     fn test_wrong_method() {
         let router = RequestRouter::new(create_test_routes());
-        
+
         let result = router.route("/api/users", "POST");
         assert!(result.is_none());
     }

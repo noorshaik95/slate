@@ -1,11 +1,6 @@
 // Integration tests for API Gateway
 // Tests end-to-end request flow with mock gRPC services
 
-use axum::{
-    body::Body,
-    http::{Request, StatusCode},
-    Router,
-};
 use api_gateway::{
     auth::{middleware::auth_middleware, AuthService},
     config::{AuthConfig, GatewayConfig, RateLimitConfig, RouteConfig, ServiceConfig},
@@ -15,6 +10,11 @@ use api_gateway::{
     rate_limit::RateLimiter,
     router::RequestRouter,
     shared::state::AppState,
+};
+use axum::{
+    body::Body,
+    http::{Request, StatusCode},
+    Router,
 };
 use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::Duration};
 use tokio::time::sleep;
@@ -48,7 +48,7 @@ impl MockAuthService {
             "admin_token".to_string(),
             ("admin456".to_string(), vec!["admin".to_string()]),
         );
-        
+
         Self {
             valid_tokens: Arc::new(tokio::sync::RwLock::new(valid_tokens)),
         }
@@ -63,7 +63,7 @@ impl auth::auth_service_server::AuthService for MockAuthService {
     ) -> Result<TonicResponse<auth::ValidateTokenResponse>, Status> {
         let token = request.into_inner().token;
         let valid_tokens = self.valid_tokens.read().await;
-        
+
         if let Some((user_id, roles)) = valid_tokens.get(&token) {
             Ok(TonicResponse::new(auth::ValidateTokenResponse {
                 valid: true,
@@ -98,16 +98,13 @@ impl MockBackendService {
             (false, vec![]),
         );
         // Protected endpoint - auth required, no specific roles
-        policies.insert(
-            "user.UserService/ListUsers".to_string(),
-            (true, vec![]),
-        );
+        policies.insert("user.UserService/ListUsers".to_string(), (true, vec![]));
         // Admin-only endpoint
         policies.insert(
             "user.UserService/DeleteUser".to_string(),
             (true, vec!["admin".to_string()]),
         );
-        
+
         Self {
             auth_policies: Arc::new(tokio::sync::RwLock::new(policies)),
         }
@@ -122,7 +119,7 @@ impl gateway::service_auth_policy_server::ServiceAuthPolicy for MockBackendServi
     ) -> Result<TonicResponse<gateway::AuthPolicyResponse>, Status> {
         let grpc_method = request.into_inner().grpc_method;
         let policies = self.auth_policies.read().await;
-        
+
         if let Some((require_auth, required_roles)) = policies.get(&grpc_method) {
             Ok(TonicResponse::new(gateway::AuthPolicyResponse {
                 require_auth: *require_auth,
@@ -153,11 +150,11 @@ async fn start_mock_servers() -> (String, String) {
     // Find available ports
     let auth_port = find_available_port().await;
     let backend_port = find_available_port().await;
-    
+
     // Start mock auth service
     let auth_addr: SocketAddr = format!("127.0.0.1:{}", auth_port).parse().unwrap();
     let auth_service = MockAuthService::new();
-    
+
     tokio::spawn(async move {
         let _ = Server::builder()
             .add_service(auth::auth_service_server::AuthServiceServer::new(
@@ -166,25 +163,23 @@ async fn start_mock_servers() -> (String, String) {
             .serve(auth_addr)
             .await;
     });
-    
+
     // Start mock backend service
     let backend_addr: SocketAddr = format!("127.0.0.1:{}", backend_port).parse().unwrap();
     let backend_service = MockBackendService::new();
-    
+
     tokio::spawn(async move {
         let _ = Server::builder()
             .add_service(
-                gateway::service_auth_policy_server::ServiceAuthPolicyServer::new(
-                    backend_service,
-                ),
+                gateway::service_auth_policy_server::ServiceAuthPolicyServer::new(backend_service),
             )
             .serve(backend_addr)
             .await;
     });
-    
+
     // Give servers time to start
     sleep(Duration::from_millis(200)).await;
-    
+
     (
         format!("http://127.0.0.1:{}", auth_port),
         format!("http://127.0.0.1:{}", backend_port),
@@ -192,9 +187,12 @@ async fn start_mock_servers() -> (String, String) {
 }
 
 // Helper function to create test configuration
-fn create_test_config(auth_endpoint: String, backend_endpoint: String) -> (GatewayConfig, Vec<RouteConfig>) {
+fn create_test_config(
+    auth_endpoint: String,
+    backend_endpoint: String,
+) -> (GatewayConfig, Vec<RouteConfig>) {
     let mut services = HashMap::new();
-    
+
     services.insert(
         "auth".to_string(),
         ServiceConfig {
@@ -205,7 +203,7 @@ fn create_test_config(auth_endpoint: String, backend_endpoint: String) -> (Gatew
             auto_discover: true,
         },
     );
-    
+
     services.insert(
         "user-service".to_string(),
         ServiceConfig {
@@ -213,10 +211,10 @@ fn create_test_config(auth_endpoint: String, backend_endpoint: String) -> (Gatew
             endpoint: backend_endpoint,
             timeout_ms: 5000,
             connection_pool_size: 5,
-            auto_discover: true
+            auto_discover: true,
         },
     );
-    
+
     let routes = vec![
         RouteConfig {
             path: "/api/users".to_string(),
@@ -243,9 +241,9 @@ fn create_test_config(auth_endpoint: String, backend_endpoint: String) -> (Gatew
             grpc_method: "user.UserService/GetPublicStatus".to_string(),
         },
     ];
-    
-    use api_gateway::config::{DiscoveryConfig, ServerConfig, ObservabilityConfig};
-    
+
+    use api_gateway::config::{DiscoveryConfig, ObservabilityConfig, ServerConfig};
+
     let gateway_config = GatewayConfig {
         server: ServerConfig {
             host: "127.0.0.1".to_string(),
@@ -266,12 +264,12 @@ fn create_test_config(auth_endpoint: String, backend_endpoint: String) -> (Gatew
             service_name: "test-gateway".to_string(),
         },
         discovery: DiscoveryConfig {
-            enabled: false,  // Disabled for tests
+            enabled: false, // Disabled for tests
             refresh_interval_seconds: 300,
         },
         route_overrides: vec![],
     };
-    
+
     (gateway_config, routes)
 }
 
@@ -280,15 +278,18 @@ async fn create_test_app_state(config: GatewayConfig, routes: Vec<RouteConfig>) 
     let grpc_pool = GrpcClientPool::new(config.services.clone())
         .await
         .expect("Failed to create gRPC pool");
-    
+
     let auth_service = AuthService::new(config.auth.clone())
         .await
         .expect("Failed to create auth service");
-    
+
     // Use provided routes for testing (discovery is disabled in tests)
     let router = RequestRouter::new(routes);
-    let rate_limiter = config.rate_limit.as_ref().map(|cfg| RateLimiter::new(cfg.clone()));
-    
+    let rate_limiter = config
+        .rate_limit
+        .as_ref()
+        .map(|cfg| RateLimiter::new(cfg.clone()));
+
     Arc::new(AppState::new(
         config,
         grpc_pool,
@@ -301,14 +302,14 @@ async fn create_test_app_state(config: GatewayConfig, routes: Vec<RouteConfig>) 
 // Helper function to create test router
 fn create_test_router(state: Arc<AppState>) -> Router {
     let health_checker = Arc::new(HealthChecker::new(state.grpc_pool.clone()));
-    
+
     let auth_middleware_state = api_gateway::auth::middleware::AuthMiddlewareState {
         auth_service: state.auth_service.clone(),
         grpc_pool: state.grpc_pool.clone(),
         router: state.router.clone(),
         router_lock: state.router_lock.clone(),
     };
-    
+
     Router::new()
         .route("/health", axum::routing::get(health_handler))
         .with_state(health_checker)
@@ -326,199 +327,224 @@ fn create_test_router(state: Arc<AppState>) -> Router {
 mod tests {
     use super::*;
     use tower::ServiceExt;
-    
+
     // Test 1: Request routing with static paths
     #[tokio::test]
     async fn test_request_routing_static_path() {
         let (auth_endpoint, backend_endpoint) = start_mock_servers().await;
         let (config, routes) = create_test_config(auth_endpoint, backend_endpoint);
         let state = create_test_app_state(config, routes).await;
-        
+
         // Test that router correctly identifies the route
         let decision = state.router.route("/api/users", "GET");
         assert!(decision.is_ok());
-        
+
         let decision = decision.unwrap();
         assert_eq!(decision.service, "user-service");
         assert_eq!(decision.grpc_method, "user.UserService/ListUsers");
     }
-    
+
     // Test 2: Request routing with dynamic path parameters
     #[tokio::test]
     async fn test_request_routing_dynamic_path() {
         let (auth_endpoint, backend_endpoint) = start_mock_servers().await;
         let (config, routes) = create_test_config(auth_endpoint, backend_endpoint);
         let state = create_test_app_state(config, routes).await;
-        
+
         // Test dynamic route with parameter
         let decision = state.router.route("/api/users/123", "GET");
         assert!(decision.is_ok());
-        
+
         let decision = decision.unwrap();
         assert_eq!(decision.service, "user-service");
         assert_eq!(decision.grpc_method, "user.UserService/GetUser");
         assert_eq!(decision.path_params.get("id"), Some(&"123".to_string()));
     }
-    
+
     // Test 3: Route not found returns 404
     #[tokio::test]
     async fn test_route_not_found() {
         let (auth_endpoint, backend_endpoint) = start_mock_servers().await;
         let (config, routes) = create_test_config(auth_endpoint, backend_endpoint);
         let state = create_test_app_state(config, routes).await;
-        
+
         let decision = state.router.route("/api/nonexistent", "GET");
         assert!(decision.is_err());
     }
-    
+
     // Test 4: Dynamic authorization - public endpoint (no auth required)
     #[tokio::test]
     async fn test_dynamic_auth_public_endpoint() {
         let (auth_endpoint, backend_endpoint) = start_mock_servers().await;
         let (config, routes) = create_test_config(auth_endpoint, backend_endpoint);
         let state = create_test_app_state(config, routes).await;
-        
+
         // Get service channel for backend service
         let service_channel = state.grpc_pool.get_channel("user-service").unwrap();
-        
+
         // Query auth policy for public endpoint
         let policy = state
             .auth_service
-            .get_auth_policy("user-service", "user.UserService/GetPublicStatus", service_channel)
+            .get_auth_policy(
+                "user-service",
+                "user.UserService/GetPublicStatus",
+                service_channel,
+            )
             .await;
-        
+
         assert!(policy.is_ok());
         let policy = policy.unwrap();
-        assert!(!policy.require_auth, "Public endpoint should not require auth");
+        assert!(
+            !policy.require_auth,
+            "Public endpoint should not require auth"
+        );
     }
-    
+
     // Test 5: Dynamic authorization - protected endpoint requires auth
     #[tokio::test]
     async fn test_dynamic_auth_protected_endpoint() {
         let (auth_endpoint, backend_endpoint) = start_mock_servers().await;
         let (config, routes) = create_test_config(auth_endpoint, backend_endpoint);
         let state = create_test_app_state(config, routes).await;
-        
+
         // Get service channel for backend service
         let service_channel = state.grpc_pool.get_channel("user-service").unwrap();
-        
+
         // Query auth policy for protected endpoint
         let policy = state
             .auth_service
-            .get_auth_policy("user-service", "user.UserService/ListUsers", service_channel)
+            .get_auth_policy(
+                "user-service",
+                "user.UserService/ListUsers",
+                service_channel,
+            )
             .await;
-        
+
         assert!(policy.is_ok());
         let policy = policy.unwrap();
-        assert!(policy.require_auth, "Protected endpoint should require auth");
-        assert!(policy.required_roles.is_empty(), "Should not require specific roles");
+        assert!(
+            policy.require_auth,
+            "Protected endpoint should require auth"
+        );
+        assert!(
+            policy.required_roles.is_empty(),
+            "Should not require specific roles"
+        );
     }
-    
+
     // Test 6: Dynamic authorization - admin-only endpoint requires specific role
     #[tokio::test]
     async fn test_dynamic_auth_admin_endpoint() {
         let (auth_endpoint, backend_endpoint) = start_mock_servers().await;
         let (config, routes) = create_test_config(auth_endpoint, backend_endpoint);
         let state = create_test_app_state(config, routes).await;
-        
+
         // Get service channel for backend service
         let service_channel = state.grpc_pool.get_channel("user-service").unwrap();
-        
+
         // Query auth policy for admin endpoint
         let policy = state
             .auth_service
-            .get_auth_policy("user-service", "user.UserService/DeleteUser", service_channel)
+            .get_auth_policy(
+                "user-service",
+                "user.UserService/DeleteUser",
+                service_channel,
+            )
             .await;
-        
+
         assert!(policy.is_ok());
         let policy = policy.unwrap();
         assert!(policy.require_auth, "Admin endpoint should require auth");
-        assert_eq!(policy.required_roles, vec!["admin"], "Should require admin role");
+        assert_eq!(
+            policy.required_roles,
+            vec!["admin"],
+            "Should require admin role"
+        );
     }
-    
+
     // Test 7: Token validation - valid token
     #[tokio::test]
     async fn test_token_validation_valid() {
         let (auth_endpoint, backend_endpoint) = start_mock_servers().await;
         let (config, routes) = create_test_config(auth_endpoint, backend_endpoint);
         let state = create_test_app_state(config, routes).await;
-        
+
         let result = state.auth_service.validate_token("valid_token").await;
         assert!(result.is_ok());
-        
+
         let auth_result = result.unwrap();
         assert!(auth_result.valid);
         assert_eq!(auth_result.claims.as_ref().unwrap().user_id, "user123");
         assert_eq!(auth_result.claims.as_ref().unwrap().roles, vec!["user"]);
     }
-    
+
     // Test 8: Token validation - invalid token
     #[tokio::test]
     async fn test_token_validation_invalid() {
         let (auth_endpoint, backend_endpoint) = start_mock_servers().await;
         let (config, routes) = create_test_config(auth_endpoint, backend_endpoint);
         let state = create_test_app_state(config, routes).await;
-        
+
         let result = state.auth_service.validate_token("invalid_token").await;
         assert!(result.is_ok());
-        
+
         let auth_result = result.unwrap();
         assert!(!auth_result.valid);
         assert!(auth_result.claims.is_none());
     }
-    
+
     // Test 9: Rate limiting - requests within limit
     #[tokio::test]
     async fn test_rate_limiting_within_limit() {
         let (auth_endpoint, backend_endpoint) = start_mock_servers().await;
         let (config, routes) = create_test_config(auth_endpoint, backend_endpoint);
         let state = create_test_app_state(config, routes).await;
-        
+
         let rate_limiter = state.rate_limiter.as_ref().unwrap();
         let client_ip = "127.0.0.1".parse().unwrap();
-        
+
         // Make requests within limit (10 per minute)
         for _ in 0..5 {
             let result = rate_limiter.check_rate_limit(client_ip).await;
             assert!(result.is_ok(), "Requests within limit should succeed");
         }
     }
-    
+
     // Test 10: Rate limiting - requests exceed limit
     #[tokio::test]
     async fn test_rate_limiting_exceed_limit() {
         let (auth_endpoint, backend_endpoint) = start_mock_servers().await;
         let (config, routes) = create_test_config(auth_endpoint, backend_endpoint);
         let state = create_test_app_state(config, routes).await;
-        
+
         let rate_limiter = state.rate_limiter.as_ref().unwrap();
         let client_ip = "127.0.0.2".parse().unwrap();
-        
+
         // Make requests up to limit
         for _ in 0..10 {
             let result = rate_limiter.check_rate_limit(client_ip).await;
             assert!(result.is_ok());
         }
-        
+
         // Next request should be rate limited
         let result = rate_limiter.check_rate_limit(client_ip).await;
         assert!(result.is_err(), "Request exceeding limit should fail");
     }
-    
+
     // Test 11: Health check - all services healthy
     #[tokio::test]
     async fn test_health_check_all_healthy() {
         let (auth_endpoint, backend_endpoint) = start_mock_servers().await;
         let (config, routes) = create_test_config(auth_endpoint, backend_endpoint);
         let state = create_test_app_state(config, routes).await;
-        
+
         let health_checker = HealthChecker::new(state.grpc_pool.clone());
         let status = health_checker.check_health().await;
-        
+
         assert!(status.healthy, "All services should be healthy");
         assert_eq!(status.services.len(), 2, "Should check 2 services");
     }
-    
+
     // Test 12: Error handling - missing authorization header
     #[tokio::test]
     async fn test_error_handling_missing_auth() {
@@ -526,20 +552,20 @@ mod tests {
         let (config, routes) = create_test_config(auth_endpoint, backend_endpoint);
         let state = create_test_app_state(config, routes).await;
         let app = create_test_router(state);
-        
+
         // Request to protected endpoint without auth header
         let request = Request::builder()
             .uri("/api/users")
             .method("GET")
             .body(Body::empty())
             .unwrap();
-        
+
         let response = app.oneshot(request).await.unwrap();
-        
+
         // Should return 401 Unauthorized
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
     }
-    
+
     // Test 13: Error handling - invalid token returns 403
     #[tokio::test]
     async fn test_error_handling_invalid_token() {
@@ -547,7 +573,7 @@ mod tests {
         let (config, routes) = create_test_config(auth_endpoint, backend_endpoint);
         let state = create_test_app_state(config, routes).await;
         let app = create_test_router(state);
-        
+
         // Request with invalid token
         let request = Request::builder()
             .uri("/api/users")
@@ -555,20 +581,20 @@ mod tests {
             .header("Authorization", "Bearer invalid_token")
             .body(Body::empty())
             .unwrap();
-        
+
         let response = app.oneshot(request).await.unwrap();
-        
+
         // Should return 403 Forbidden
         assert_eq!(response.status(), StatusCode::FORBIDDEN);
     }
-    
+
     // Test 14: Successful request with valid token
     #[tokio::test]
     async fn test_successful_request_with_valid_token() {
         let (auth_endpoint, backend_endpoint) = start_mock_servers().await;
         let (config, routes) = create_test_config(auth_endpoint, backend_endpoint);
         let state = create_test_app_state(config, routes).await;
-        
+
         // Verify token validation works
         let result = state.auth_service.validate_token("valid_token").await;
         assert!(result.is_ok());

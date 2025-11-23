@@ -1,5 +1,4 @@
-use super::errors::StorageError;
-use crate::retry::retry_storage;
+use crate::storage::StorageError;
 use aws_config::BehaviorVersion;
 use aws_sdk_s3::{
     config::{Credentials, Region},
@@ -8,6 +7,7 @@ use aws_sdk_s3::{
     Client,
 };
 use bytes::Bytes;
+use common_rust::retry::{retry_operation, OperationType};
 use std::time::Duration;
 use tracing::{debug, error, info, instrument};
 
@@ -93,26 +93,18 @@ impl S3Client {
         let client = self.client.clone();
         let bucket = self.bucket.clone();
 
-        retry_storage::<_, _, (), StorageError>("s3_put_object", || {
-            let key = key.clone();
-            let content_type = content_type.clone();
-            let data = data.clone();
-            let client = client.clone();
-            let bucket = bucket.clone();
-            
-            async move {
-                client
-                    .put_object()
-                    .bucket(&bucket)
-                    .key(&key)
-                    .body(ByteStream::from(data))
-                    .content_type(&content_type)
-                    .server_side_encryption(aws_sdk_s3::types::ServerSideEncryption::Aes256)
-                    .send()
-                    .await
-                    .map_err(|e| StorageError::UploadFailed(e.to_string()))?;
-                Ok::<(), StorageError>(())
-            }
+        retry_operation(OperationType::Storage, || async {
+            client
+                .put_object()
+                .bucket(&bucket)
+                .key(&key)
+                .body(ByteStream::from(data.clone()))
+                .content_type(&content_type)
+                .server_side_encryption(aws_sdk_s3::types::ServerSideEncryption::Aes256)
+                .send()
+                .await
+                .map_err(|e| StorageError::UploadFailed(e.to_string()))?;
+            Ok::<(), StorageError>(())
         })
         .await?;
 
@@ -129,36 +121,34 @@ impl S3Client {
         let client = self.client.clone();
         let bucket = self.bucket.clone();
 
-        let data = retry_storage::<_, _, Bytes, StorageError>("s3_get_object", || {
-            let key = key_str.clone();
-            let client = client.clone();
-            let bucket = bucket.clone();
-            
-            async move {
-                let response = client
-                    .get_object()
-                    .bucket(&bucket)
-                    .key(&key)
-                    .send()
-                    .await
-                    .map_err(|e| {
-                        error!("Failed to get object {}: {}", key, e);
-                        StorageError::ObjectNotFound(key.clone())
-                    })?;
+        let data = retry_operation(OperationType::Storage, || async {
+            let response = client
+                .get_object()
+                .bucket(&bucket)
+                .key(&key_str)
+                .send()
+                .await
+                .map_err(|e| {
+                    error!("Failed to get object {}: {}", key_str, e);
+                    StorageError::ObjectNotFound(key_str.clone())
+                })?;
 
-                let data = response
-                    .body
-                    .collect()
-                    .await
-                    .map_err(|e| StorageError::DownloadFailed(e.to_string()))?
-                    .into_bytes();
+            let data = response
+                .body
+                .collect()
+                .await
+                .map_err(|e| StorageError::DownloadFailed(e.to_string()))?
+                .into_bytes();
 
-                Ok::<Bytes, StorageError>(data)
-            }
+            Ok::<Bytes, StorageError>(data)
         })
         .await?;
 
-        info!("Successfully downloaded object: {} ({} bytes)", key, data.len());
+        info!(
+            "Successfully downloaded object: {} ({} bytes)",
+            key,
+            data.len()
+        );
         Ok(data)
     }
 
@@ -171,21 +161,15 @@ impl S3Client {
         let client = self.client.clone();
         let bucket = self.bucket.clone();
 
-        retry_storage::<_, _, (), StorageError>("s3_delete_object", || {
-            let key = key_str.clone();
-            let client = client.clone();
-            let bucket = bucket.clone();
-            
-            async move {
-                client
-                    .delete_object()
-                    .bucket(&bucket)
-                    .key(&key)
-                    .send()
-                    .await
-                    .map_err(|e| StorageError::DeleteFailed(e.to_string()))?;
-                Ok::<(), StorageError>(())
-            }
+        retry_operation(OperationType::Storage, || async {
+            client
+                .delete_object()
+                .bucket(&bucket)
+                .key(&key_str)
+                .send()
+                .await
+                .map_err(|e| StorageError::DeleteFailed(e.to_string()))?;
+            Ok::<(), StorageError>(())
         })
         .await?;
 

@@ -1,5 +1,5 @@
-use api_gateway::rate_limit::RateLimiter;
 use api_gateway::config::RateLimitConfig;
+use api_gateway::rate_limit::RateLimiter;
 use std::net::IpAddr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -21,9 +21,7 @@ async fn test_concurrent_requests_from_same_ip() {
     for _ in 0..100 {
         let limiter_clone = Arc::clone(&limiter);
         let ip = test_ip;
-        let handle = tokio::spawn(async move {
-            limiter_clone.check_rate_limit(ip).await
-        });
+        let handle = tokio::spawn(async move { limiter_clone.check_rate_limit(ip).await });
         handles.push(handle);
     }
 
@@ -39,8 +37,16 @@ async fn test_concurrent_requests_from_same_ip() {
     }
 
     // Should allow some requests based on rate limit, deny the rest
-    assert!(allowed_count <= 60, "Allowed {} requests, expected <= 60", allowed_count);
-    assert!(denied_count >= 40, "Denied {} requests, expected >= 40", denied_count);
+    assert!(
+        allowed_count <= 60,
+        "Allowed {} requests, expected <= 60",
+        allowed_count
+    );
+    assert!(
+        denied_count >= 40,
+        "Denied {} requests, expected >= 40",
+        denied_count
+    );
     assert_eq!(allowed_count + denied_count, 100);
 }
 
@@ -60,9 +66,7 @@ async fn test_concurrent_requests_from_multiple_ips() {
         for _ in 0..15 {
             let limiter_clone = Arc::clone(&limiter);
             let ip: IpAddr = format!("192.168.1.{}", ip_suffix).parse().unwrap();
-            let handle = tokio::spawn(async move {
-                limiter_clone.check_rate_limit(ip).await
-            });
+            let handle = tokio::spawn(async move { limiter_clone.check_rate_limit(ip).await });
             handles.push(handle);
         }
     }
@@ -81,10 +85,16 @@ async fn test_concurrent_requests_from_multiple_ips() {
     // Each IP should allow up to 30 requests per minute
     // With 10 IPs making 15 requests each = 150 total requests
     // Each IP allows 15 requests (under the 30 limit), so all should be allowed
-    assert!(total_allowed >= 140 && total_allowed <= 150, 
-            "Allowed {} requests, expected 140-150", total_allowed);
-    assert!(total_denied >= 0 && total_denied <= 10, 
-            "Denied {} requests, expected 0-10", total_denied);
+    assert!(
+        total_allowed >= 140 && total_allowed <= 150,
+        "Allowed {} requests, expected 140-150",
+        total_allowed
+    );
+    assert!(
+        total_denied >= 0 && total_denied <= 10,
+        "Denied {} requests, expected 0-10",
+        total_denied
+    );
 }
 
 /// Test LRU cache eviction under load
@@ -102,15 +112,16 @@ async fn test_lru_cache_eviction() {
     let mut handles = vec![];
     for ip_suffix in 1..=10500 {
         let limiter_clone = Arc::clone(&limiter);
-        let ip: IpAddr = format!("10.{}.{}.{}", 
-            ip_suffix / 65536, 
-            (ip_suffix / 256) % 256, 
+        let ip: IpAddr = format!(
+            "10.{}.{}.{}",
+            ip_suffix / 65536,
+            (ip_suffix / 256) % 256,
             ip_suffix % 256
-        ).parse().unwrap();
-        
-        let handle = tokio::spawn(async move {
-            limiter_clone.check_rate_limit(ip).await
-        });
+        )
+        .parse()
+        .unwrap();
+
+        let handle = tokio::spawn(async move { limiter_clone.check_rate_limit(ip).await });
         handles.push(handle);
     }
 
@@ -130,15 +141,16 @@ async fn test_lru_cache_eviction() {
     let mut second_round_handles = vec![];
     for ip_suffix in 1..=500 {
         let limiter_clone = Arc::clone(&limiter);
-        let ip: IpAddr = format!("10.{}.{}.{}", 
-            ip_suffix / 65536, 
-            (ip_suffix / 256) % 256, 
+        let ip: IpAddr = format!(
+            "10.{}.{}.{}",
+            ip_suffix / 65536,
+            (ip_suffix / 256) % 256,
             ip_suffix % 256
-        ).parse().unwrap();
-        
-        let handle = tokio::spawn(async move {
-            limiter_clone.check_rate_limit(ip).await
-        });
+        )
+        .parse()
+        .unwrap();
+
+        let handle = tokio::spawn(async move { limiter_clone.check_rate_limit(ip).await });
         second_round_handles.push(handle);
     }
 
@@ -204,10 +216,12 @@ async fn test_sustained_load() {
     }
 
     // Should allow up to 120 requests in the window (all within 1 second are in the window)
-    assert!(total_allowed >= 80 && total_allowed <= 120, 
-            "Allowed {} requests in 1 second, expected 80-120", total_allowed);
-    assert!(total_denied >= 0, 
-            "Denied {} requests", total_denied);
+    assert!(
+        total_allowed >= 80 && total_allowed <= 120,
+        "Allowed {} requests in 1 second, expected 80-120",
+        total_allowed
+    );
+    assert!(total_denied >= 0, "Denied {} requests", total_denied);
 }
 
 /// Test cleanup doesn't affect active rate limits
@@ -248,9 +262,7 @@ async fn test_high_concurrency_single_ip() {
     let mut handles = vec![];
     for _ in 0..500 {
         let limiter_clone = Arc::clone(&limiter);
-        let handle = tokio::spawn(async move {
-            limiter_clone.check_rate_limit(test_ip).await
-        });
+        let handle = tokio::spawn(async move { limiter_clone.check_rate_limit(test_ip).await });
         handles.push(handle);
     }
 
@@ -265,7 +277,11 @@ async fn test_high_concurrency_single_ip() {
     }
 
     // Should allow up to rate limit, deny the rest
-    assert!(allowed <= 300, "Allowed {} requests, expected <= 300", allowed);
+    assert!(
+        allowed <= 300,
+        "Allowed {} requests, expected <= 300",
+        allowed
+    );
     assert!(denied >= 200, "Denied {} requests, expected >= 200", denied);
 }
 
@@ -307,6 +323,9 @@ async fn test_thread_safety() {
     // Each IP should allow up to 600 requests per minute
     // 10 tasks * 20 IPs = 200 unique IPs, each can make 600 requests
     // But we only make 10 requests per IP, so all should be allowed
-    assert!(total_allowed >= 1900 && total_allowed <= 2000,
-            "Allowed {} requests, expected ~2000", total_allowed);
+    assert!(
+        total_allowed >= 1900 && total_allowed <= 2000,
+        "Allowed {} requests, expected ~2000",
+        total_allowed
+    );
 }

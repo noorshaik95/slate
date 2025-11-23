@@ -60,11 +60,14 @@ impl DatabasePool {
 
                     warn!(
                         "Failed to connect to database (attempt {}/{}): {}. Retrying in {}ms...",
-                        retry_count, Self::MAX_RETRY_ATTEMPTS, e, delay_ms
+                        retry_count,
+                        Self::MAX_RETRY_ATTEMPTS,
+                        e,
+                        delay_ms
                     );
 
                     tokio::time::sleep(Duration::from_millis(delay_ms)).await;
-                    
+
                     // Exponential backoff with max 60 seconds
                     delay_ms = std::cmp::min(delay_ms * 2, 60_000);
                 }
@@ -80,7 +83,7 @@ impl DatabasePool {
     /// Runs database migrations
     pub async fn run_migrations(&self) -> Result<()> {
         info!("Running database migrations...");
-        
+
         sqlx::migrate!("./migrations")
             .run(&self.pool)
             .await

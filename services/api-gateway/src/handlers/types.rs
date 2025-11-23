@@ -4,33 +4,33 @@ use axum::{
 };
 use serde::Serialize;
 
-use crate::rate_limit::RateLimitError;
 use crate::router::RouterError;
+use common_rust::rate_limit::RateLimitError;
 
 /// Gateway error types
 #[derive(Debug, thiserror::Error)]
 pub enum GatewayError {
     #[error("Route not found: {0}")]
     RouteNotFound(#[from] RouterError),
-    
+
     #[error("Service unavailable: {0}")]
     ServiceUnavailable(String),
-    
+
     #[error("Rate limit exceeded")]
     RateLimitExceeded,
-    
+
     #[error("Conversion error: {0}")]
     ConversionError(String),
-    
+
     #[error("gRPC call failed: {0}")]
     GrpcCallFailed(String),
-    
+
     #[error("Request timeout")]
     Timeout,
-    
+
     #[error("Not found")]
     NotFound,
-    
+
     #[error("Internal error: {0}")]
     InternalError(String),
 }
@@ -59,9 +59,9 @@ impl GatewayError {
     /// Convert to response with trace ID
     pub fn into_response_with_trace_id(self, trace_id: String) -> Response {
         use super::constants::*;
-        
+
         let status = map_grpc_error_to_status(&self);
-        
+
         let error_code = match &self {
             GatewayError::RouteNotFound(_) => ERR_CODE_ROUTE_NOT_FOUND,
             GatewayError::ServiceUnavailable(_) => ERR_CODE_SERVICE_UNAVAILABLE,
@@ -73,11 +73,8 @@ impl GatewayError {
             GatewayError::InternalError(_) => ERR_CODE_INTERNAL_ERROR,
         };
 
-        let error_response = super::error::ErrorResponse::new(
-            error_code,
-            self.to_string(),
-            trace_id,
-        );
+        let error_response =
+            super::error::ErrorResponse::new(error_code, self.to_string(), trace_id);
 
         error_response.into_response_with_status(status)
     }

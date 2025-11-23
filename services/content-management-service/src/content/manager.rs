@@ -1,7 +1,5 @@
 use crate::content::errors::{ContentError, ContentResult};
-use crate::db::repositories::{
-    LessonRepository, ModuleRepository, ResourceRepository,
-};
+use crate::db::repositories::{LessonRepository, ModuleRepository, ResourceRepository};
 use crate::models::{ContentType, CopyrightSetting, Lesson, Module, Resource};
 use crate::search::SearchService;
 use sqlx::PgPool;
@@ -46,7 +44,10 @@ impl ContentManager {
             let module = self.get_module(lesson.module_id).await?;
 
             // Index the resource
-            if let Err(e) = search_service.index_content(resource, &lesson, &module).await {
+            if let Err(e) = search_service
+                .index_content(resource, &lesson, &module)
+                .await
+            {
                 error!(
                     resource_id = %resource.id,
                     error = %e,
@@ -91,12 +92,10 @@ impl ContentManager {
         created_by: Uuid,
     ) -> ContentResult<Module> {
         // Validate name (1-200 characters)
-        Module::validate_name(&name)
-            .map_err(|e| ContentError::Validation(e))?;
+        Module::validate_name(&name).map_err(|e| ContentError::Validation(e))?;
 
         // Validate display order
-        Module::validate_display_order(display_order)
-            .map_err(|e| ContentError::Validation(e))?;
+        Module::validate_display_order(display_order).map_err(|e| ContentError::Validation(e))?;
 
         // Create module
         let module = self
@@ -139,8 +138,7 @@ impl ContentManager {
     ) -> ContentResult<Module> {
         // Validate name if provided
         if let Some(ref n) = name {
-            Module::validate_name(n)
-                .map_err(|e| ContentError::Validation(e))?;
+            Module::validate_name(n).map_err(|e| ContentError::Validation(e))?;
         }
 
         // Check if module exists
@@ -191,12 +189,10 @@ impl ContentManager {
         display_order: i32,
     ) -> ContentResult<Lesson> {
         // Validate name (1-200 characters)
-        Lesson::validate_name(&name)
-            .map_err(|e| ContentError::Validation(e))?;
+        Lesson::validate_name(&name).map_err(|e| ContentError::Validation(e))?;
 
         // Validate display order
-        Lesson::validate_display_order(display_order)
-            .map_err(|e| ContentError::Validation(e))?;
+        Lesson::validate_display_order(display_order).map_err(|e| ContentError::Validation(e))?;
 
         // Validate parent module exists
         self.get_module(module_id).await?;
@@ -242,8 +238,7 @@ impl ContentManager {
     ) -> ContentResult<Lesson> {
         // Validate name if provided
         if let Some(ref n) = name {
-            Lesson::validate_name(n)
-                .map_err(|e| ContentError::Validation(e))?;
+            Lesson::validate_name(n).map_err(|e| ContentError::Validation(e))?;
         }
 
         // Check if lesson exists
@@ -297,16 +292,13 @@ impl ContentManager {
         display_order: i32,
     ) -> ContentResult<Resource> {
         // Validate name (1-200 characters)
-        Resource::validate_name(&name)
-            .map_err(|e| ContentError::Validation(e))?;
+        Resource::validate_name(&name).map_err(|e| ContentError::Validation(e))?;
 
         // Validate display order
-        Resource::validate_display_order(display_order)
-            .map_err(|e| ContentError::Validation(e))?;
+        Resource::validate_display_order(display_order).map_err(|e| ContentError::Validation(e))?;
 
         // Validate file size
-        Resource::validate_file_size(file_size)
-            .map_err(|e| ContentError::Validation(e))?;
+        Resource::validate_file_size(file_size).map_err(|e| ContentError::Validation(e))?;
 
         // Validate parent lesson exists
         self.get_lesson(lesson_id).await?;
@@ -365,8 +357,7 @@ impl ContentManager {
     ) -> ContentResult<Resource> {
         // Validate name if provided
         if let Some(ref n) = name {
-            Resource::validate_name(n)
-                .map_err(|e| ContentError::Validation(e))?;
+            Resource::validate_name(n).map_err(|e| ContentError::Validation(e))?;
         }
 
         // Check if resource exists
@@ -435,8 +426,7 @@ impl ContentManager {
 
         // Verify all modules belong to the course
         let modules = self.list_modules(course_id).await?;
-        let module_ids: std::collections::HashSet<Uuid> = 
-            modules.iter().map(|m| m.id).collect();
+        let module_ids: std::collections::HashSet<Uuid> = modules.iter().map(|m| m.id).collect();
 
         for (module_id, _) in &reorder_items {
             if !module_ids.contains(module_id) {
@@ -471,8 +461,7 @@ impl ContentManager {
 
         // Verify all lessons belong to the module
         let lessons = self.list_lessons(module_id).await?;
-        let lesson_ids: std::collections::HashSet<Uuid> = 
-            lessons.iter().map(|l| l.id).collect();
+        let lesson_ids: std::collections::HashSet<Uuid> = lessons.iter().map(|l| l.id).collect();
 
         for (lesson_id, _) in &reorder_items {
             if !lesson_ids.contains(lesson_id) {
@@ -507,7 +496,7 @@ impl ContentManager {
 
         // Verify all resources belong to the lesson
         let resources = self.list_resources(lesson_id).await?;
-        let resource_ids: std::collections::HashSet<Uuid> = 
+        let resource_ids: std::collections::HashSet<Uuid> =
             resources.iter().map(|r| r.id).collect();
 
         for (resource_id, _) in &reorder_items {
@@ -570,7 +559,8 @@ impl ContentManager {
         self.get_resource(resource_id).await?;
 
         // Update publication status
-        let resource = self.resource_repo
+        let resource = self
+            .resource_repo
             .update_publication_status(resource_id, true)
             .await?;
 
@@ -586,7 +576,8 @@ impl ContentManager {
         self.get_resource(resource_id).await?;
 
         // Update publication status
-        let resource = self.resource_repo
+        let resource = self
+            .resource_repo
             .update_publication_status(resource_id, false)
             .await?;
 
@@ -636,10 +627,7 @@ impl ContentManager {
                     self.list_published_resources(lesson.id).await?
                 };
 
-                lesson_structures.push(LessonWithContent {
-                    lesson,
-                    resources,
-                });
+                lesson_structures.push(LessonWithContent { lesson, resources });
             }
 
             module_structures.push(ModuleWithContent {

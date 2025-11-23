@@ -1,12 +1,18 @@
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
 
+/// Circuit breaker configuration
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct CircuitBreakerConfig {
+    /// Number of consecutive failures before opening circuit
     #[serde(default = "default_failure_threshold")]
     pub failure_threshold: u32,
+
+    /// Number of consecutive successes in half-open before closing
     #[serde(default = "default_success_threshold")]
     pub success_threshold: u32,
+
+    /// Seconds to wait before transitioning from open to half-open
     #[serde(default = "default_timeout_seconds")]
     pub timeout_seconds: u64,
 }
@@ -20,7 +26,7 @@ fn default_success_threshold() -> u32 {
 }
 
 fn default_timeout_seconds() -> u64 {
-    30 // Wait 30 seconds before transitioning from open to half-open (default)
+    30 // Wait 30 seconds before transitioning from open to half-open
 }
 
 impl Default for CircuitBreakerConfig {
@@ -39,9 +45,7 @@ pub enum CircuitState {
     /// Circuit is closed, requests pass through normally
     Closed,
     /// Circuit is open, requests are rejected immediately
-    Open {
-        opened_at: Instant,
-    },
+    Open { opened_at: Instant },
     /// Circuit is testing if service has recovered
     HalfOpen,
 }
@@ -56,9 +60,20 @@ pub enum CircuitBreakerError {
     OperationFailed(String),
 }
 
+/// Circuit breaker statistics for monitoring
+#[derive(Debug, Clone)]
+pub struct CircuitBreakerStats {
+    pub name: Option<String>,
+    pub state: CircuitState,
+    pub consecutive_failures: u32,
+    pub consecutive_successes: u32,
+    pub total_failures: u64,
+    pub total_successes: u64,
+}
+
 /// Internal state tracking for circuit breaker
 #[derive(Debug)]
-pub struct CircuitStats {
+pub(crate) struct CircuitStats {
     pub consecutive_failures: u32,
     pub consecutive_successes: u32,
     pub total_failures: u64,

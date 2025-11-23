@@ -1,7 +1,7 @@
 // Declare submodules
-mod types;
 mod constants;
 mod loader;
+mod types;
 
 #[cfg(test)]
 mod tests;

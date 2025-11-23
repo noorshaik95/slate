@@ -12,6 +12,10 @@ import (
 	"slate/services/user-auth-service/pkg/logger"
 	"slate/services/user-auth-service/pkg/ratelimit"
 
+	"slate/libs/common-go/tracing"
+
+	"go.opentelemetry.io/otel/attribute"
+	otelcodes "go.opentelemetry.io/otel/codes"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
@@ -68,27 +72,44 @@ func getClientIP(ctx context.Context) string {
 // Security: Rate limited to prevent brute-force attacks (5 attempts per 15 minutes per IP)
 // This prevents attackers from trying thousands of password combinations to guess credentials.
 func (s *UserServiceServer) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResponse, error) {
+	// Create handler span for function-level tracing
+	ctx, span := tracing.StartSpan(ctx, "login_handler",
+		attribute.String("email", req.Email),
+		attribute.String("method", "Login"))
+	defer span.End()
+
 	// Security: Check rate limit before processing authentication to prevent brute-force attacks.
 	// Rate limiting is applied per client IP address to prevent distributed attacks.
 	// If Redis is unavailable, requests are allowed through (fail-open) to maintain availability.
 	clientIP := getClientIP(ctx)
 	if s.rateLimiter != nil {
+		ctx, rateLimitSpan := tracing.StartSpan(ctx, "check_rate_limit")
 		allowed, retryAfter, err := s.rateLimiter.AllowLogin(clientIP)
 		if err != nil {
 			// Log error but don't fail the request (fail-open design for availability)
+			tracing.RecordError(rateLimitSpan, err, "rate limiter error")
 			s.log.ErrorWithContext(ctx).Err(err).Str("client_ip", clientIP).Msg("Rate limiter error during login")
 		} else if !allowed {
 			// Security: Return RESOURCE_EXHAUSTED status to indicate rate limit exceeded.
 			// Retry-after duration is included in the error message to inform clients when they can retry.
 			// This helps legitimate users while still preventing brute-force attacks.
 			msg := fmt.Sprintf("too many login attempts, please try again in %d seconds", int(retryAfter.Seconds()))
+			err := fmt.Errorf("rate limit exceeded")
+			tracing.RecordError(rateLimitSpan, err, "rate limit exceeded")
+			rateLimitSpan.End()
+			span.RecordError(err)
+			span.SetStatus(otelcodes.Error, "rate limit exceeded")
 			s.log.ErrorWithContext(ctx).Err(err).Str("client_ip", clientIP).Msg(msg)
 			return nil, status.Error(codes.ResourceExhausted, msg)
 		}
+		tracing.SetSpanStatus(rateLimitSpan, otelcodes.Ok, "")
+		rateLimitSpan.End()
 	}
 
 	user, tokens, err := s.userService.Login(ctx, req.Email, req.Password)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(otelcodes.Error, "login failed")
 		return nil, status.Errorf(codes.Unauthenticated, "login failed: %v", err)
 	}
 	s.log.WithContext(ctx).
@@ -96,6 +117,7 @@ func (s *UserServiceServer) Login(ctx context.Context, req *pb.LoginRequest) (*p
 		Str("client_ip", clientIP).
 		Msg("Auth authentication successful")
 
+	span.SetStatus(otelcodes.Ok, "")
 	return &pb.LoginResponse{
 		AccessToken:  tokens.AccessToken,
 		RefreshToken: tokens.RefreshToken,
@@ -108,6 +130,12 @@ func (s *UserServiceServer) Login(ctx context.Context, req *pb.LoginRequest) (*p
 // Security: Rate limited to prevent abuse (3 attempts per hour per IP)
 // This prevents attackers from creating large numbers of fake accounts or spamming the system.
 func (s *UserServiceServer) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
+	// Create handler span for function-level tracing
+	ctx, span := tracing.StartSpan(ctx, "register_handler",
+		attribute.String("email", req.Email),
+		attribute.String("method", "Register"))
+	defer span.End()
+
 	// Security: Check rate limit before processing registration to prevent account creation abuse.
 	// Stricter limit than login (3 per hour vs 5 per 15 min) since registration is less frequent.
 	// Rate limiting is applied per client IP address to prevent distributed attacks.
@@ -121,15 +149,20 @@ func (s *UserServiceServer) Register(ctx context.Context, req *pb.RegisterReques
 			// Security: Return RESOURCE_EXHAUSTED status to indicate rate limit exceeded.
 			// Retry-after duration is included in the error message to inform clients when they can retry.
 			msg := fmt.Sprintf("too many registration attempts, please try again in %d seconds", int(retryAfter.Seconds()))
+			span.RecordError(fmt.Errorf("rate limit exceeded"))
+			span.SetStatus(otelcodes.Error, "rate limit exceeded")
 			return nil, status.Error(codes.ResourceExhausted, msg)
 		}
 	}
 
 	user, _, err := s.userService.Register(ctx, req.Email, req.Password, req.FirstName, req.LastName, req.Phone)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(otelcodes.Error, "registration failed")
 		return nil, status.Errorf(codes.AlreadyExists, "registration failed: %v", err)
 	}
 
+	span.SetStatus(otelcodes.Ok, "")
 	// Security: Don't return tokens on registration
 	// Users must explicitly login after registration to get tokens
 	// This prevents automatic authentication and allows for email verification flows
@@ -142,11 +175,18 @@ func (s *UserServiceServer) Register(ctx context.Context, req *pb.RegisterReques
 
 // RefreshToken refreshes an access token
 func (s *UserServiceServer) RefreshToken(ctx context.Context, req *pb.RefreshTokenRequest) (*pb.RefreshTokenResponse, error) {
+	ctx, span := tracing.StartSpan(ctx, "refresh_token_handler",
+		attribute.String("method", "RefreshToken"))
+	defer span.End()
+
 	tokens, err := s.userService.RefreshToken(ctx, req.RefreshToken)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(otelcodes.Error, "token refresh failed")
 		return nil, status.Errorf(codes.Unauthenticated, "token refresh failed: %v", err)
 	}
 
+	span.SetStatus(otelcodes.Ok, "")
 	return &pb.RefreshTokenResponse{
 		AccessToken:  tokens.AccessToken,
 		RefreshToken: tokens.RefreshToken,
@@ -156,14 +196,21 @@ func (s *UserServiceServer) RefreshToken(ctx context.Context, req *pb.RefreshTok
 
 // ValidateToken validates a token
 func (s *UserServiceServer) ValidateToken(ctx context.Context, req *pb.ValidateTokenRequest) (*pb.ValidateTokenResponse, error) {
+	ctx, span := tracing.StartSpan(ctx, "validate_token_handler",
+		attribute.String("method", "ValidateToken"))
+	defer span.End()
+
 	userID, roles, err := s.userService.ValidateToken(ctx, req.Token)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(otelcodes.Error, "token validation failed")
 		return &pb.ValidateTokenResponse{
 			Valid: false,
 			Error: err.Error(),
 		}, nil
 	}
 
+	span.SetStatus(otelcodes.Ok, "")
 	return &pb.ValidateTokenResponse{
 		Valid:  true,
 		UserId: userID,
@@ -173,18 +220,28 @@ func (s *UserServiceServer) ValidateToken(ctx context.Context, req *pb.ValidateT
 
 // Logout logs out a user by blacklisting their access token
 func (s *UserServiceServer) Logout(ctx context.Context, req *pb.LogoutRequest) (*emptypb.Empty, error) {
+	ctx, span := tracing.StartSpan(ctx, "logout_handler",
+		attribute.String("method", "Logout"))
+	defer span.End()
+
 	// Extract token from request
 	token := req.Token
 	if token == "" {
+		err := fmt.Errorf("token is required")
+		span.RecordError(err)
+		span.SetStatus(otelcodes.Error, "invalid argument")
 		return nil, status.Error(codes.InvalidArgument, "token is required")
 	}
 
 	// Call service to blacklist the token
 	err := s.userService.Logout(ctx, token)
 	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(otelcodes.Error, "logout failed")
 		return nil, status.Errorf(codes.Internal, "logout failed: %v", err)
 	}
 
+	span.SetStatus(otelcodes.Ok, "")
 	return &emptypb.Empty{}, nil
 }
 

@@ -1,5 +1,5 @@
 use prometheus::{
-    CounterVec, Gauge, HistogramVec, Registry, TextEncoder, Encoder, Opts, HistogramOpts,
+    CounterVec, Encoder, Gauge, HistogramOpts, HistogramVec, Opts, Registry, TextEncoder,
 };
 use std::sync::Arc;
 
@@ -54,16 +54,15 @@ impl Metrics {
         registry.register(Box::new(upload_duration.clone()))?;
 
         let upload_size = HistogramVec::new(
-            HistogramOpts::new("cms_upload_size_bytes", "Upload file size in bytes")
-                .buckets(vec![
-                    1_000_000.0,      // 1MB
-                    5_000_000.0,      // 5MB
-                    10_000_000.0,     // 10MB
-                    50_000_000.0,     // 50MB
-                    100_000_000.0,    // 100MB
-                    250_000_000.0,    // 250MB
-                    500_000_000.0,    // 500MB
-                ]),
+            HistogramOpts::new("cms_upload_size_bytes", "Upload file size in bytes").buckets(vec![
+                1_000_000.0,   // 1MB
+                5_000_000.0,   // 5MB
+                10_000_000.0,  // 10MB
+                50_000_000.0,  // 50MB
+                100_000_000.0, // 100MB
+                250_000_000.0, // 250MB
+                500_000_000.0, // 500MB
+            ]),
             &["content_type"],
         )?;
         registry.register(Box::new(upload_size.clone()))?;
@@ -76,7 +75,10 @@ impl Metrics {
 
         // Streaming metrics
         let video_streams_total = CounterVec::new(
-            Opts::new("cms_video_streams_total", "Total number of video stream requests"),
+            Opts::new(
+                "cms_video_streams_total",
+                "Total number of video stream requests",
+            ),
             &["quality"],
         )?;
         registry.register(Box::new(video_streams_total.clone()))?;
@@ -105,8 +107,11 @@ impl Metrics {
         registry.register(Box::new(search_queries_total.clone()))?;
 
         let search_duration = HistogramVec::new(
-            HistogramOpts::new("cms_search_duration_seconds", "Search query duration in seconds")
-                .buckets(vec![0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0]),
+            HistogramOpts::new(
+                "cms_search_duration_seconds",
+                "Search query duration in seconds",
+            )
+            .buckets(vec![0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0]),
             &["status"],
         )?;
         registry.register(Box::new(search_duration.clone()))?;
@@ -123,7 +128,10 @@ impl Metrics {
 
         // Transcoding metrics
         let transcoding_jobs_total = CounterVec::new(
-            Opts::new("cms_transcoding_jobs_total", "Total number of transcoding jobs"),
+            Opts::new(
+                "cms_transcoding_jobs_total",
+                "Total number of transcoding jobs",
+            ),
             &["status"],
         )?;
         registry.register(Box::new(transcoding_jobs_total.clone()))?;

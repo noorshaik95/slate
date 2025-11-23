@@ -116,10 +116,15 @@ pub async fn auth_middleware(
     // Store routing decision in request extensions for reuse in gateway handler
     // Performance: Wrap in Arc to avoid cloning the RoutingDecision data.
     // Cloning Arc is cheap (atomic reference count increment) vs cloning the entire struct.
-    request.extensions_mut().insert(Arc::new(routing_decision.clone()));
+    request
+        .extensions_mut()
+        .insert(Arc::new(routing_decision.clone()));
 
     // Check if this is a public route (after routing so we have the decision)
-    let is_public = state.public_routes.iter().any(|(p, m)| p == &path && m == &method);
+    let is_public = state
+        .public_routes
+        .iter()
+        .any(|(p, m)| p == &path && m == &method);
     if is_public {
         debug!(path = %path, method = %method, "Skipping auth for public route");
         let auth_ctx = AuthContext::unauthenticated();

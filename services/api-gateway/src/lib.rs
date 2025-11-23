@@ -1,18 +1,14 @@
 pub mod auth;
-pub mod circuit_breaker;
 pub mod config;
-pub mod converter;
 pub mod discovery;
+pub mod docs;
 pub mod grpc;
 pub mod handlers;
 pub mod health;
 pub mod middleware;
 pub mod observability;
-pub mod rate_limit;
+pub mod proto;
+mod response;
 pub mod router;
 pub mod security;
 pub mod shared;
-mod proto;
-
-pub mod db;
-mod response;

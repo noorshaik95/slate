@@ -1,4 +1,6 @@
-use prometheus::{HistogramOpts, HistogramVec, IntCounter, IntCounterVec, IntGauge, Opts, Registry};
+use prometheus::{
+    HistogramOpts, HistogramVec, IntCounter, IntCounterVec, IntGauge, Opts, Registry,
+};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -7,8 +9,8 @@ use crate::config::GatewayConfig;
 use crate::discovery::RouteDiscoveryService;
 use crate::grpc::client::GrpcClientPool;
 use crate::middleware::ClientIpExtractor;
-use crate::rate_limit::RateLimiter;
 use crate::router::RequestRouter;
+use common_rust::rate_limit::IpRateLimiter;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -16,7 +18,7 @@ pub struct AppState {
     pub grpc_pool: Arc<GrpcClientPool>,
     pub auth_service: Arc<AuthService>,
     pub router_lock: Arc<RwLock<RequestRouter>>,
-    pub rate_limiter: Option<Arc<RateLimiter>>,
+    pub rate_limiter: Option<Arc<IpRateLimiter>>,
     pub client_ip_extractor: Arc<ClientIpExtractor>,
     pub registry: Registry,
     pub metrics: GatewayMetrics,
@@ -44,8 +46,11 @@ pub struct GatewayMetrics {
 impl GatewayMetrics {
     pub fn new(registry: &Registry) -> Self {
         let request_counter = IntCounterVec::new(
-            Opts::new("gateway_requests_total", "Total number of requests processed by the gateway")
-                .namespace("api_gateway"),
+            Opts::new(
+                "gateway_requests_total",
+                "Total number of requests processed by the gateway",
+            )
+            .namespace("api_gateway"),
             &["route", "method", "status"],
         )
         .expect("Failed to create request_counter metric");
@@ -56,14 +61,19 @@ impl GatewayMetrics {
                 "Request duration in seconds",
             )
             .namespace("api_gateway")
-            .buckets(vec![0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0]),
+            .buckets(vec![
+                0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0,
+            ]),
             &["route", "method"],
         )
         .expect("Failed to create request_duration metric");
 
         let grpc_call_counter = IntCounterVec::new(
-            Opts::new("gateway_grpc_calls_total", "Total number of gRPC calls to backend services")
-                .namespace("api_gateway"),
+            Opts::new(
+                "gateway_grpc_calls_total",
+                "Total number of gRPC calls to backend services",
+            )
+            .namespace("api_gateway"),
             &["service", "method", "status"],
         )
         .expect("Failed to create grpc_call_counter metric");
@@ -81,15 +91,21 @@ impl GatewayMetrics {
         .expect("Failed to create rate_limit_counter metric");
 
         let circuit_breaker_state = IntCounterVec::new(
-            Opts::new("gateway_circuit_breaker_state_changes_total", "Total number of circuit breaker state changes")
-                .namespace("api_gateway"),
+            Opts::new(
+                "gateway_circuit_breaker_state_changes_total",
+                "Total number of circuit breaker state changes",
+            )
+            .namespace("api_gateway"),
             &["service", "from_state", "to_state"],
         )
         .expect("Failed to create circuit_breaker_state metric");
 
         let active_connections = IntCounterVec::new(
-            Opts::new("gateway_active_connections_total", "Number of active connections to backend services")
-                .namespace("api_gateway"),
+            Opts::new(
+                "gateway_active_connections_total",
+                "Number of active connections to backend services",
+            )
+            .namespace("api_gateway"),
             &["service"],
         )
         .expect("Failed to create active_connections metric");
@@ -107,23 +123,32 @@ impl GatewayMetrics {
         )
         .expect("Failed to create rate_limiter_evictions_total metric");
 
-        registry.register(Box::new(request_counter.clone()))
+        registry
+            .register(Box::new(request_counter.clone()))
             .expect("Failed to register request_counter metric");
-        registry.register(Box::new(request_duration.clone()))
+        registry
+            .register(Box::new(request_duration.clone()))
             .expect("Failed to register request_duration metric");
-        registry.register(Box::new(grpc_call_counter.clone()))
+        registry
+            .register(Box::new(grpc_call_counter.clone()))
             .expect("Failed to register grpc_call_counter metric");
-        registry.register(Box::new(auth_failure_counter.clone()))
+        registry
+            .register(Box::new(auth_failure_counter.clone()))
             .expect("Failed to register auth_failure_counter metric");
-        registry.register(Box::new(rate_limit_counter.clone()))
+        registry
+            .register(Box::new(rate_limit_counter.clone()))
             .expect("Failed to register rate_limit_counter metric");
-        registry.register(Box::new(circuit_breaker_state.clone()))
+        registry
+            .register(Box::new(circuit_breaker_state.clone()))
             .expect("Failed to register circuit_breaker_state metric");
-        registry.register(Box::new(active_connections.clone()))
+        registry
+            .register(Box::new(active_connections.clone()))
             .expect("Failed to register active_connections metric");
-        registry.register(Box::new(rate_limiter_tracked_clients.clone()))
+        registry
+            .register(Box::new(rate_limiter_tracked_clients.clone()))
             .expect("Failed to register rate_limiter_tracked_clients metric");
-        registry.register(Box::new(rate_limiter_evictions_total.clone()))
+        registry
+            .register(Box::new(rate_limiter_evictions_total.clone()))
             .expect("Failed to register rate_limiter_evictions_total metric");
 
         GatewayMetrics {
@@ -147,7 +172,7 @@ impl AppState {
         grpc_pool: GrpcClientPool,
         auth_service: AuthService,
         router_lock: Arc<RwLock<RequestRouter>>,
-        rate_limiter: Option<RateLimiter>,
+        rate_limiter: Option<IpRateLimiter>,
         client_ip_extractor: ClientIpExtractor,
         discovery_service: Option<RouteDiscoveryService>,
     ) -> Self {

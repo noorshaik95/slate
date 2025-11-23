@@ -1,7 +1,7 @@
+pub mod errors;
 pub mod handler;
 pub mod validator;
-pub mod errors;
 
+pub use errors::UploadError;
 pub use handler::UploadHandler;
 pub use validator::FileValidator;
-pub use errors::UploadError;

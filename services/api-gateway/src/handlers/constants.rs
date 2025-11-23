@@ -26,4 +26,5 @@ pub const ERR_MSG_INVALID_JSON: &str = "Invalid JSON body";
 pub const ERR_MSG_SERIALIZE_PAYLOAD: &str = "Failed to serialize payload";
 pub const ERR_MSG_PARSE_GRPC_RESPONSE: &str = "Failed to parse gRPC response";
 pub const ERR_MSG_SERIALIZE_MOCK: &str = "Failed to serialize mock response";
-pub const ERR_MSG_PLACEHOLDER_GRPC: &str = "Using placeholder gRPC call - actual implementation needed";
+pub const ERR_MSG_PLACEHOLDER_GRPC: &str =
+    "Using placeholder gRPC call - actual implementation needed";

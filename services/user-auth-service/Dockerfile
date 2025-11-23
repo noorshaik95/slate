@@ -13,6 +13,9 @@ WORKDIR /build
 # Copy proto files from workspace root
 COPY proto /build/proto
 
+# Copy shared libs directory to parent of build directory so ../../libs/common-go resolves correctly
+COPY libs /libs
+
 # Copy go mod files
 COPY services/user-auth-service/go.mod services/user-auth-service/go.sum* ./
 RUN --mount=type=cache,target=/go/pkg/mod \

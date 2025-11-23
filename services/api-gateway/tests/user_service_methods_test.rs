@@ -27,9 +27,14 @@ mod tests {
     }
 
     // Helper to register and login a test user, returns (user_id, token)
-    async fn create_and_login_test_user(email: &str, password: &str, first_name: &str, last_name: &str) -> Option<(String, String)> {
+    async fn create_and_login_test_user(
+        email: &str,
+        password: &str,
+        first_name: &str,
+        last_name: &str,
+    ) -> Option<(String, String)> {
         let client = reqwest::Client::new();
-        
+
         // Register the user
         let register_payload = json!({
             "email": email,
@@ -62,7 +67,7 @@ mod tests {
     // Helper to login and get a valid token
     async fn login_user(email: &str, password: &str) -> Option<String> {
         let client = reqwest::Client::new();
-        
+
         let login_payload = json!({
             "email": email,
             "password": password
@@ -81,7 +86,9 @@ mod tests {
         }
 
         let login_response: serde_json::Value = response.json().await.ok()?;
-        login_response["access_token"].as_str().map(|s| s.to_string())
+        login_response["access_token"]
+            .as_str()
+            .map(|s| s.to_string())
     }
 
     // Helper to get admin token (assumes admin user exists)
@@ -89,11 +96,10 @@ mod tests {
         login_user("admin@example.com", "admin123").await
     }
 
-
     // ========================================
     // Task 3.1: Test GetUser endpoint
     // ========================================
-    
+
     #[tokio::test]
     #[ignore] // Run with --ignored flag when service is available
     async fn test_get_user_endpoint() {
@@ -105,7 +111,7 @@ mod tests {
         // Create a test user first
         let test_email = format!("getuser_test_{}@example.com", uuid::Uuid::new_v4());
         let test_password = "password123";
-        
+
         let result = create_and_login_test_user(&test_email, test_password, "Get", "User").await;
         assert!(result.is_some(), "Failed to create and login test user");
         let (user_id, token) = result.unwrap();
@@ -115,7 +121,7 @@ mod tests {
         // Test: Call GET /api/users/:id with valid token
         let client = reqwest::Client::new();
         let request_url = format!("{}/api/users/{}", GATEWAY_URL, user_id);
-        
+
         let response = client
             .get(&request_url)
             .header("Authorization", format!("Bearer {}", token))
@@ -124,24 +130,26 @@ mod tests {
             .expect("Failed to send request");
 
         println!("Response status: {}", response.status());
-        
+
         // Expected: 200 OK with user data
         assert_eq!(response.status(), 200, "Expected 200 OK");
 
         let user_data: serde_json::Value = response.json().await.expect("Failed to parse JSON");
-        println!("User data: {}", serde_json::to_string_pretty(&user_data).unwrap());
-        
+        println!(
+            "User data: {}",
+            serde_json::to_string_pretty(&user_data).unwrap()
+        );
+
         assert_eq!(user_data["id"], user_id, "User ID should match");
         assert_eq!(user_data["email"], test_email, "Email should match");
 
         println!("✓ GetUser endpoint test passed");
     }
 
-
     // ========================================
     // Task 3.2: Test CreateUser endpoint
     // ========================================
-    
+
     #[tokio::test]
     #[ignore]
     async fn test_create_user_endpoint() {
@@ -199,7 +207,7 @@ mod tests {
     // ========================================
     // Task 3.3: Test UpdateUser endpoint
     // ========================================
-    
+
     #[tokio::test]
     #[ignore]
     async fn test_update_user_endpoint() {
@@ -211,7 +219,7 @@ mod tests {
         // Create a test user first
         let test_email = format!("updateuser_test_{}@example.com", uuid::Uuid::new_v4());
         let test_password = "password123";
-        
+
         let result = create_and_login_test_user(&test_email, test_password, "Update", "User").await;
         assert!(result.is_some(), "Failed to create and login test user");
         let (user_id, token) = result.unwrap();
@@ -224,7 +232,7 @@ mod tests {
         });
 
         let request_url = format!("http://localhost:8080/api/users/{}", user_id);
-        
+
         println!("Testing PUT /api/users/{}", user_id);
         println!("Payload: {}", update_payload);
         println!("Authorization: Bearer {}", token);
@@ -257,11 +265,10 @@ mod tests {
         println!("✓ UpdateUser endpoint test passed");
     }
 
-
     // ========================================
     // Task 3.4: Test DeleteUser endpoint
     // ========================================
-    
+
     #[tokio::test]
     #[ignore]
     async fn test_delete_user_endpoint() {
@@ -273,7 +280,7 @@ mod tests {
         // Create a test user to delete
         let test_email = format!("deleteuser_test_{}@example.com", uuid::Uuid::new_v4());
         let test_password = "password123";
-        
+
         let result = create_and_login_test_user(&test_email, test_password, "Delete", "User").await;
         assert!(result.is_some(), "Failed to create test user");
         let (user_id, _token) = result.unwrap();
@@ -284,7 +291,7 @@ mod tests {
         let admin_token = admin_token.unwrap();
 
         let request_url = format!("http://localhost:8080/api/users/{}", user_id);
-        
+
         println!("Testing DELETE /api/users/{}", user_id);
         println!("Authorization: Bearer {}", admin_token);
 
@@ -317,11 +324,10 @@ mod tests {
         println!("✓ DeleteUser endpoint test passed");
     }
 
-
     // ========================================
     // Task 3.5: Test ListUsers endpoint
     // ========================================
-    
+
     #[tokio::test]
     #[ignore]
     async fn test_list_users_endpoint() {
@@ -332,9 +338,24 @@ mod tests {
 
         // Create multiple test users
         let test_users = vec![
-            (format!("listuser1_{}@example.com", uuid::Uuid::new_v4()), "password123", "List", "User1"),
-            (format!("listuser2_{}@example.com", uuid::Uuid::new_v4()), "password123", "List", "User2"),
-            (format!("listuser3_{}@example.com", uuid::Uuid::new_v4()), "password123", "List", "User3"),
+            (
+                format!("listuser1_{}@example.com", uuid::Uuid::new_v4()),
+                "password123",
+                "List",
+                "User1",
+            ),
+            (
+                format!("listuser2_{}@example.com", uuid::Uuid::new_v4()),
+                "password123",
+                "List",
+                "User2",
+            ),
+            (
+                format!("listuser3_{}@example.com", uuid::Uuid::new_v4()),
+                "password123",
+                "List",
+                "User3",
+            ),
         ];
 
         for (email, password, first_name, last_name) in &test_users {
@@ -349,7 +370,7 @@ mod tests {
 
         // Test with pagination parameters
         let request_url = "http://localhost:8080/api/users?page=1&page_size=10";
-        
+
         println!("Testing GET /api/users with pagination");
         println!("Request URL: {}", request_url);
         println!("Authorization: Bearer {}", token);
@@ -383,11 +404,10 @@ mod tests {
         println!("✓ ListUsers endpoint test passed");
     }
 
-
     // ========================================
     // Task 3.6: Verify auth methods still work
     // ========================================
-    
+
     #[tokio::test]
     #[ignore]
     async fn test_login_endpoint_still_works() {
@@ -556,7 +576,7 @@ mod tests {
     // ========================================
     // Additional test: Trace context propagation
     // ========================================
-    
+
     #[tokio::test]
     #[ignore]
     async fn test_trace_context_propagation() {
@@ -568,14 +588,17 @@ mod tests {
         // Create a test user
         let test_email = format!("trace_test_{}@example.com", uuid::Uuid::new_v4());
         let test_password = "password123";
-        
+
         let result = create_and_login_test_user(&test_email, test_password, "Trace", "Test").await;
         assert!(result.is_some(), "Failed to create test user");
         let (user_id, token) = result.unwrap();
 
         let request_url = format!("http://localhost:8080/api/users/{}", user_id);
-        
-        println!("Testing trace context propagation for GET /api/users/{}", user_id);
+
+        println!(
+            "Testing trace context propagation for GET /api/users/{}",
+            user_id
+        );
 
         // Expected behavior:
         // - Request should include trace headers (traceparent, tracestate)

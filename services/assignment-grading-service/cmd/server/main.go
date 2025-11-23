@@ -75,6 +75,9 @@ func main() {
 		}()
 	}
 
+	// Note: The tracer name is already set in tracingCfg.ServiceName above
+	// Individual handlers will use the common-go tracing package for function-level spans
+
 	// Connect to database
 	db, err := database.NewPostgresDB(cfg.Database.DSN())
 	if err != nil {
@@ -166,7 +169,7 @@ func main() {
 	grpcServer := grpc.NewServer(
 		grpc.StatsHandler(otelgrpc.NewServerHandler()),
 		grpc.ChainUnaryInterceptor(
-			tracing.TracingUnaryInterceptor(), // Extract trace context from metadata
+			tracing.TracingUnaryInterceptor(),    // Extract trace context from metadata
 			tracing.LoggingUnaryInterceptor(log), // Debug logging
 		),
 	)

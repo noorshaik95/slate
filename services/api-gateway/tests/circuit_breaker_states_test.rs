@@ -27,7 +27,10 @@ async fn test_closed_to_open_transition() {
     // Circuit should now be Open - requests should be rejected immediately
     let result = breaker.call(async { Ok::<_, String>("test") }).await;
     assert!(result.is_err());
-    assert!(matches!(result.unwrap_err(), api_gateway::circuit_breaker::CircuitBreakerError::Open));
+    assert!(matches!(
+        result.unwrap_err(),
+        api_gateway::circuit_breaker::CircuitBreakerError::Open
+    ));
 }
 
 /// Test Open → Half-Open transition
@@ -117,7 +120,10 @@ async fn test_half_open_to_open_transition() {
     // Subsequent requests should be rejected immediately (Open state)
     let result = breaker.call(async { Ok::<_, String>("test") }).await;
     assert!(result.is_err());
-    assert!(matches!(result.unwrap_err(), api_gateway::circuit_breaker::CircuitBreakerError::Open));
+    assert!(matches!(
+        result.unwrap_err(),
+        api_gateway::circuit_breaker::CircuitBreakerError::Open
+    ));
 }
 
 /// Test multiple state transitions in sequence
@@ -218,24 +224,30 @@ async fn test_concurrent_requests_during_state_transitions() {
     let breaker_clone3 = breaker.clone();
 
     let handle1 = tokio::spawn(async move {
-        breaker_clone1.call(async { Ok::<_, String>("success") }).await
+        breaker_clone1
+            .call(async { Ok::<_, String>("success") })
+            .await
     });
 
     let handle2 = tokio::spawn(async move {
-        breaker_clone2.call(async { Ok::<_, String>("success") }).await
+        breaker_clone2
+            .call(async { Ok::<_, String>("success") })
+            .await
     });
 
     let handle3 = tokio::spawn(async move {
-        breaker_clone3.call(async { Ok::<_, String>("success") }).await
+        breaker_clone3
+            .call(async { Ok::<_, String>("success") })
+            .await
     });
 
     let results = tokio::join!(handle1, handle2, handle3);
-    
+
     // At least some requests should succeed
     let success_count = results.0.unwrap().is_ok() as i32
         + results.1.unwrap().is_ok() as i32
         + results.2.unwrap().is_ok() as i32;
-    
+
     assert!(success_count >= 2);
 }
 

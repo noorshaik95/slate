@@ -1,5 +1,5 @@
-pub mod manager;
 pub mod errors;
+pub mod manager;
 
-pub use manager::{ContentManager, ContentStructure, ModuleWithContent, LessonWithContent};
 pub use errors::{ContentError, ContentResult};
+pub use manager::{ContentManager, ContentStructure, LessonWithContent, ModuleWithContent};

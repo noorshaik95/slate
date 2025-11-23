@@ -9,10 +9,10 @@ pub struct PathValidator;
 pub enum SecurityError {
     #[error("Path traversal attempt detected: {0}")]
     PathTraversal(String),
-    
+
     #[error("Invalid path parameter: {0}")]
     InvalidParameter(String),
-    
+
     #[error("Suspicious pattern detected: {0}")]
     SuspiciousPattern(String),
 }
@@ -92,11 +92,11 @@ impl PathValidator {
 
             // Check for suspicious patterns
             let suspicious_patterns = [
-                "%00", // Null byte encoded
+                "%00",    // Null byte encoded
                 "%2e%2e", // .. encoded
-                "%252e", // Double encoded .
-                "..%2f", // Mixed encoding
-                "..%5c", // Mixed encoding with backslash
+                "%252e",  // Double encoded .
+                "..%2f",  // Mixed encoding
+                "..%5c",  // Mixed encoding with backslash
             ];
 
             for pattern in &suspicious_patterns {
@@ -121,9 +121,9 @@ impl PathValidator {
     pub fn validate_param(key: &str, value: &str) -> Result<String, SecurityError> {
         let mut params = HashMap::new();
         params.insert(key.to_string(), value.to_string());
-        
+
         let sanitized = Self::sanitize_path_params(&params)?;
-        
+
         Ok(sanitized.get(key).unwrap().clone())
     }
 }
@@ -137,11 +137,14 @@ mod tests {
         let mut params = HashMap::new();
         params.insert("id".to_string(), "123".to_string());
         params.insert("name".to_string(), "user-name".to_string());
-        params.insert("uuid".to_string(), "550e8400-e29b-41d4-a716-446655440000".to_string());
+        params.insert(
+            "uuid".to_string(),
+            "550e8400-e29b-41d4-a716-446655440000".to_string(),
+        );
 
         let result = PathValidator::sanitize_path_params(&params);
         assert!(result.is_ok());
-        
+
         let sanitized = result.unwrap();
         assert_eq!(sanitized.get("id").unwrap(), "123");
         assert_eq!(sanitized.get("name").unwrap(), "user-name");
@@ -154,7 +157,10 @@ mod tests {
 
         let result = PathValidator::sanitize_path_params(&params);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), SecurityError::PathTraversal(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            SecurityError::PathTraversal(_)
+        ));
     }
 
     #[test]
@@ -165,7 +171,10 @@ mod tests {
         let result = PathValidator::sanitize_path_params(&params);
         assert!(result.is_err());
         // After URL decoding, %2e%2e becomes .. which is caught as PathTraversal
-        assert!(matches!(result.unwrap_err(), SecurityError::PathTraversal(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            SecurityError::PathTraversal(_)
+        ));
     }
 
     #[test]
@@ -175,7 +184,10 @@ mod tests {
 
         let result = PathValidator::sanitize_path_params(&params);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), SecurityError::PathTraversal(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            SecurityError::PathTraversal(_)
+        ));
     }
 
     #[test]
@@ -185,7 +197,10 @@ mod tests {
 
         let result = PathValidator::sanitize_path_params(&params);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), SecurityError::PathTraversal(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            SecurityError::PathTraversal(_)
+        ));
     }
 
     #[test]
@@ -195,7 +210,10 @@ mod tests {
 
         let result = PathValidator::sanitize_path_params(&params);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), SecurityError::PathTraversal(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            SecurityError::PathTraversal(_)
+        ));
     }
 
     #[test]
@@ -205,7 +223,10 @@ mod tests {
 
         let result = PathValidator::sanitize_path_params(&params);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), SecurityError::SuspiciousPattern(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            SecurityError::SuspiciousPattern(_)
+        ));
     }
 
     #[test]
@@ -215,7 +236,7 @@ mod tests {
 
         let result = PathValidator::sanitize_path_params(&params);
         assert!(result.is_ok());
-        
+
         let sanitized = result.unwrap();
         assert_eq!(sanitized.get("name").unwrap(), "hello world");
     }
@@ -227,7 +248,10 @@ mod tests {
 
         let result = PathValidator::sanitize_path_params(&params);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), SecurityError::SuspiciousPattern(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            SecurityError::SuspiciousPattern(_)
+        ));
     }
 
     #[test]

@@ -1,5 +1,5 @@
-pub mod service;
 pub mod errors;
+pub mod service;
 
-pub use service::{StreamingService, PlaybackEventType};
 pub use errors::StreamingError;
+pub use service::{PlaybackEventType, StreamingService};

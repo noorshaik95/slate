@@ -3,7 +3,9 @@ use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
-use super::types::{CircuitBreakerConfig, CircuitBreakerError, CircuitState, CircuitStats};
+use super::types::{
+    CircuitBreakerConfig, CircuitBreakerError, CircuitBreakerStats, CircuitState, CircuitStats,
+};
 
 /// Circuit breaker implementation for protecting backend service calls
 ///
@@ -15,7 +17,8 @@ use super::types::{CircuitBreakerConfig, CircuitBreakerError, CircuitState, Circ
 /// # Example
 ///
 /// ```rust,ignore
-/// let breaker = CircuitBreaker::new(config);
+/// let config = CircuitBreakerConfig::default();
+/// let breaker = CircuitBreaker::with_name("my-service".to_string(), config);
 ///
 /// match breaker.call(|| async { backend_service_call().await }).await {
 ///     Ok(result) => { /* success */ },
@@ -25,6 +28,7 @@ use super::types::{CircuitBreakerConfig, CircuitBreakerError, CircuitState, Circ
 /// ```
 #[derive(Clone)]
 pub struct CircuitBreaker {
+    name: Option<String>,
     config: CircuitBreakerConfig,
     state: Arc<RwLock<CircuitState>>,
     stats: Arc<RwLock<CircuitStats>>,
@@ -34,6 +38,25 @@ impl CircuitBreaker {
     /// Create a new circuit breaker with the given configuration
     pub fn new(config: CircuitBreakerConfig) -> Self {
         Self {
+            name: None,
+            config,
+            state: Arc::new(RwLock::new(CircuitState::Closed)),
+            stats: Arc::new(RwLock::new(CircuitStats::default())),
+        }
+    }
+
+    /// Create a new circuit breaker with a name for logging
+    pub fn with_name(name: String, config: CircuitBreakerConfig) -> Self {
+        info!(
+            name = %name,
+            failure_threshold = config.failure_threshold,
+            success_threshold = config.success_threshold,
+            timeout_seconds = config.timeout_seconds,
+            "Creating circuit breaker"
+        );
+
+        Self {
+            name: Some(name),
             config,
             state: Arc::new(RwLock::new(CircuitState::Closed)),
             stats: Arc::new(RwLock::new(CircuitStats::default())),
@@ -81,11 +104,7 @@ impl CircuitBreaker {
 
                 if opened_at.elapsed() >= timeout {
                     // Transition to half-open state
-                    info!(
-                        timeout_seconds = self.config.timeout_seconds,
-                        elapsed_seconds = opened_at.elapsed().as_secs(),
-                        "Circuit breaker transitioning from OPEN to HALF_OPEN"
-                    );
+                    self.log_transition("OPEN", "HALF_OPEN");
                     *state = CircuitState::HalfOpen;
 
                     // Reset consecutive counters for half-open testing
@@ -95,7 +114,10 @@ impl CircuitBreaker {
 
                     true
                 } else {
-                    debug!("Circuit breaker is OPEN - rejecting request");
+                    debug!(
+                        name = ?self.name,
+                        "Circuit breaker is OPEN - rejecting request"
+                    );
                     false
                 }
             }
@@ -114,11 +136,7 @@ impl CircuitBreaker {
         match *state {
             CircuitState::HalfOpen => {
                 if stats.consecutive_successes >= self.config.success_threshold {
-                    info!(
-                        consecutive_successes = stats.consecutive_successes,
-                        threshold = self.config.success_threshold,
-                        "Circuit breaker transitioning from HALF_OPEN to CLOSED"
-                    );
+                    self.log_transition("HALF_OPEN", "CLOSED");
                     *state = CircuitState::Closed;
                     stats.consecutive_successes = 0;
                 }
@@ -140,6 +158,7 @@ impl CircuitBreaker {
             CircuitState::Closed => {
                 if stats.consecutive_failures >= self.config.failure_threshold {
                     warn!(
+                        name = ?self.name,
                         consecutive_failures = stats.consecutive_failures,
                         threshold = self.config.failure_threshold,
                         timeout_seconds = self.config.timeout_seconds,
@@ -152,6 +171,7 @@ impl CircuitBreaker {
             }
             CircuitState::HalfOpen => {
                 warn!(
+                    name = ?self.name,
                     timeout_seconds = self.config.timeout_seconds,
                     "Circuit breaker transitioning from HALF_OPEN back to OPEN"
                 );
@@ -171,14 +191,18 @@ impl CircuitBreaker {
     }
 
     /// Get current statistics (for monitoring/debugging)
-    pub async fn get_stats(&self) -> (u32, u32, u64, u64) {
+    pub async fn get_stats(&self) -> CircuitBreakerStats {
+        let state = self.state.read().await.clone();
         let stats = self.stats.read().await;
-        (
-            stats.consecutive_failures,
-            stats.consecutive_successes,
-            stats.total_failures,
-            stats.total_successes,
-        )
+
+        CircuitBreakerStats {
+            name: self.name.clone(),
+            state,
+            consecutive_failures: stats.consecutive_failures,
+            consecutive_successes: stats.consecutive_successes,
+            total_failures: stats.total_failures,
+            total_successes: stats.total_successes,
+        }
     }
 
     /// Manually reset the circuit breaker to closed state
@@ -186,9 +210,19 @@ impl CircuitBreaker {
         let mut state = self.state.write().await;
         let mut stats = self.stats.write().await;
 
-        info!("Manually resetting circuit breaker to CLOSED state");
+        info!(name = ?self.name, "Manually resetting circuit breaker to CLOSED state");
         *state = CircuitState::Closed;
         stats.consecutive_failures = 0;
         stats.consecutive_successes = 0;
+    }
+
+    /// Helper to log state transitions
+    fn log_transition(&self, from: &str, to: &str) {
+        info!(
+            name = ?self.name,
+            from = from,
+            to = to,
+            "Circuit breaker state transition"
+        );
     }
 }

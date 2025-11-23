@@ -1,6 +1,8 @@
 use super::errors::UploadError;
 use super::validator::FileValidator;
-use crate::db::repositories::{ResourceRepository, TranscodingJobRepository, UploadSessionRepository};
+use crate::db::repositories::{
+    ResourceRepository, TranscodingJobRepository, UploadSessionRepository,
+};
 use crate::models::{ContentType, Resource, UploadSession, UploadStatus};
 use crate::storage::S3Client;
 use crate::transcoding::queue::{TranscodingJobMessage, TranscodingQueue};
@@ -148,7 +150,10 @@ impl UploadHandler {
             .await?;
 
         // Update uploaded chunks counter
-        let updated_session = self.session_repo.increment_uploaded_chunks(session_id).await?;
+        let updated_session = self
+            .session_repo
+            .increment_uploaded_chunks(session_id)
+            .await?;
 
         info!(
             "Chunk uploaded: session={}, chunk={}, progress={}/{} ({:.1}%)",
@@ -278,10 +283,9 @@ impl UploadHandler {
         };
 
         let mut queue_guard = queue.lock().await;
-        queue_guard
-            .enqueue(job_msg)
-            .await
-            .map_err(|e| UploadError::DatabaseError(format!("Failed to enqueue transcoding job: {}", e)))?;
+        queue_guard.enqueue(job_msg).await.map_err(|e| {
+            UploadError::DatabaseError(format!("Failed to enqueue transcoding job: {}", e))
+        })?;
 
         info!(
             job_id = %job.id,
@@ -414,7 +418,9 @@ impl UploadHandler {
             Ok(ContentType::Video)
         } else if mime_type == "application/pdf" {
             Ok(ContentType::Pdf)
-        } else if mime_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document" {
+        } else if mime_type
+            == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        {
             Ok(ContentType::Docx)
         } else {
             Err(UploadError::InvalidFileType(mime_type.to_string()))
@@ -465,12 +471,12 @@ mod tests {
         let pool = PgPool::connect_lazy("postgresql://test").unwrap();
         let session_repo = Arc::new(UploadSessionRepository::new(pool.clone()));
         let resource_repo = Arc::new(ResourceRepository::new(pool));
-        
+
         // Create a dummy S3 client (won't be used in these tests)
         let s3_client = Arc::new(unsafe {
             std::mem::zeroed() // This is just for compilation, not for actual use
         });
-        
+
         UploadHandler::new(session_repo, resource_repo, s3_client)
     }
 }

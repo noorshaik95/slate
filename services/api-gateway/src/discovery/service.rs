@@ -109,15 +109,13 @@ impl RouteDiscoveryService {
         let mut reflection_client = ReflectionClient::new(channel);
 
         // List all gRPC services
-        let services = self.list_grpc_services(&mut reflection_client, service_name).await?;
+        let services = self
+            .list_grpc_services(&mut reflection_client, service_name)
+            .await?;
 
         // Discover routes from all gRPC services
         let routes = self
-            .discover_routes_from_grpc_services(
-                &mut reflection_client,
-                service_name,
-                &services,
-            )
+            .discover_routes_from_grpc_services(&mut reflection_client, service_name, &services)
             .await?;
 
         // Validate no duplicates
@@ -193,10 +191,11 @@ impl RouteDiscoveryService {
                     "🔍 DISCOVERY: Processing method for route mapping"
                 );
 
-                match self
-                    .convention_mapper
-                    .map_method(grpc_service, &method.name, &method.full_name)
-                {
+                match self.convention_mapper.map_method(
+                    grpc_service,
+                    &method.name,
+                    &method.full_name,
+                ) {
                     Some(mapping) => {
                         let route = RouteConfig {
                             path: mapping.http_path.clone(),
@@ -316,7 +315,10 @@ impl RouteDiscoveryService {
                         continue;
                     }
 
-                    match self.discover_service_routes(service_name, service_config).await {
+                    match self
+                        .discover_service_routes(service_name, service_config)
+                        .await
+                    {
                         Ok(routes) => {
                             info!(
                                 service = %service_name,

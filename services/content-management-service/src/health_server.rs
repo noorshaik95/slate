@@ -27,25 +27,19 @@ pub fn health_routes(health_checker: Arc<HealthChecker>) -> Router {
 /// Liveness probe handler - checks if the service is running
 async fn liveness_handler(State(state): State<HealthState>) -> Response {
     let health = state.health_checker.liveness().await;
-    
+
     match health.status {
-        crate::health::HealthStatus::Healthy => {
-            (StatusCode::OK, Json(health)).into_response()
-        }
-        _ => {
-            (StatusCode::SERVICE_UNAVAILABLE, Json(health)).into_response()
-        }
+        crate::health::HealthStatus::Healthy => (StatusCode::OK, Json(health)).into_response(),
+        _ => (StatusCode::SERVICE_UNAVAILABLE, Json(health)).into_response(),
     }
 }
 
 /// Readiness probe handler - checks if the service is ready to handle requests
 async fn readiness_handler(State(state): State<HealthState>) -> Response {
     let health = state.health_checker.readiness().await;
-    
+
     match health.status {
-        crate::health::HealthStatus::Healthy => {
-            (StatusCode::OK, Json(health)).into_response()
-        }
+        crate::health::HealthStatus::Healthy => (StatusCode::OK, Json(health)).into_response(),
         crate::health::HealthStatus::Degraded => {
             // Service is degraded but still operational
             (StatusCode::OK, Json(health)).into_response()
@@ -66,7 +60,7 @@ mod tests {
         // Create a mock database pool for testing
         let db_url = std::env::var("DATABASE_URL")
             .unwrap_or_else(|_| "postgresql://test:test@localhost:5432/test".to_string());
-        
+
         // Skip test if database is not available
         if DatabasePool::new(&db_url).await.is_err() {
             return;
@@ -78,7 +72,7 @@ mod tests {
 
         let response = liveness_handler(State(state)).await;
         let status = response.status();
-        
+
         assert_eq!(status, StatusCode::OK);
     }
 }

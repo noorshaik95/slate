@@ -11,17 +11,17 @@ use std::time::{Duration, Instant};
 use tracing::{debug, error, info, warn};
 
 use crate::auth::middleware::AuthContext;
-use crate::observability::extract_trace_id_from_span;
-use crate::rate_limit::RateLimiter;
 use crate::shared::state::AppState;
+use common_rust::observability::extract_trace_id_from_span;
+use common_rust::rate_limit::IpRateLimiter;
 
 use super::constants::*;
-use super::types::{GatewayError, map_grpc_error_to_status};
+use super::types::{map_grpc_error_to_status, GatewayError};
 
 /// Main gateway handler with timeout wrapper
 ///
 /// Wraps the actual handler with a configurable timeout to prevent hanging requests
-#[tracing::instrument(name = "gateway_handler",skip(state,headers,request))]
+#[tracing::instrument(name = "gateway_handler", skip(state, headers, request))]
 pub async fn gateway_handler(
     State(state): State<Arc<AppState>>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
@@ -33,8 +33,10 @@ pub async fn gateway_handler(
     let start = Instant::now();
     let result = match tokio::time::timeout(
         timeout_duration,
-        gateway_handler_inner(State(state), ConnectInfo(addr), headers, request)
-    ).await {
+        gateway_handler_inner(State(state), ConnectInfo(addr), headers, request),
+    )
+    .await
+    {
         Ok(result) => result,
         Err(_) => {
             // Extract trace ID from OpenTelemetry span for timeout error logging
@@ -82,7 +84,7 @@ pub async fn gateway_handler(
 /// 7. Converts gRPC response to HTTP
 /// 8. Handles errors and maps to appropriate HTTP status codes
 /// 9. Emits traces and metrics
-#[tracing::instrument(name = "gateway_handler_inner",skip(state,addr,headers,request))]
+#[tracing::instrument(name = "gateway_handler_inner", skip(state, addr, headers, request))]
 async fn gateway_handler_inner(
     State(state): State<Arc<AppState>>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
@@ -92,10 +94,10 @@ async fn gateway_handler_inner(
     let start_time = Instant::now();
     let path = request.uri().path().to_string();
     let method = request.method().as_str().to_string();
-    
+
     // Extract trace ID from OpenTelemetry span for consistent logging
     let trace_id = extract_trace_id_from_span();
-    
+
     info!(
         path = %path,
         method = %method,
@@ -115,7 +117,7 @@ async fn gateway_handler_inner(
 
     // Apply rate limiting
     if let Some(rate_limiter) = &state.rate_limiter {
-        if !RateLimiter::should_exclude_path(&path) {
+        if !common_rust::rate_limit::should_exclude_path(&path) {
             if let Err(e) = rate_limiter.check_rate_limit(client_ip).await {
                 let duration_ms = start_time.elapsed().as_millis();
                 warn!(
@@ -129,9 +131,9 @@ async fn gateway_handler_inner(
                     error = %e,
                     "Rate limit exceeded"
                 );
-                
+
                 state.metrics.rate_limit_counter.inc();
-                
+
                 return Err(GatewayError::RateLimitExceeded);
             }
         }
@@ -140,7 +142,9 @@ async fn gateway_handler_inner(
     // Get routing decision from request extensions (set by auth middleware)
     // Performance: Retrieve Arc<RoutingDecision> to avoid cloning the data.
     // Cloning Arc is cheap (atomic reference count increment) vs cloning the entire struct.
-    let routing_decision = request.extensions().get::<Arc<crate::router::RoutingDecision>>()
+    let routing_decision = request
+        .extensions()
+        .get::<Arc<crate::router::RoutingDecision>>()
         .cloned()
         .ok_or_else(|| {
             let duration_ms = start_time.elapsed().as_millis();
@@ -153,7 +157,9 @@ async fn gateway_handler_inner(
                 "Routing decision not found in request extensions (auth middleware may have failed)"
             );
 
-            state.metrics.request_counter
+            state
+                .metrics
+                .request_counter
                 .with_label_values(&[path.as_str(), method.as_str(), "500"])
                 .inc();
 
@@ -180,12 +186,16 @@ async fn gateway_handler_inner(
                 error = %e,
                 "Failed to get service channel"
             );
-            
-            state.metrics.request_counter
+
+            state
+                .metrics
+                .request_counter
                 .with_label_values(&[path.as_str(), method.as_str(), "503"])
                 .inc();
-            
-            return Err(GatewayError::ServiceUnavailable(routing_decision.service.to_string()));
+
+            return Err(GatewayError::ServiceUnavailable(
+                routing_decision.service.to_string(),
+            ));
         }
     };
 
@@ -206,11 +216,13 @@ async fn gateway_handler_inner(
                 error = %e,
                 "Failed to convert HTTP request to gRPC"
             );
-            
-            state.metrics.request_counter
+
+            state
+                .metrics
+                .request_counter
                 .with_label_values(&[path.as_str(), method.as_str(), "400"])
                 .inc();
-            
+
             return Err(e);
         }
     };
@@ -224,33 +236,48 @@ async fn gateway_handler_inner(
     );
 
     // Call backend service via gRPC with circuit breaker protection
-    let grpc_response = if let Some(circuit_breaker) = state.grpc_pool.get_circuit_breaker(&routing_decision.service) {
+    let grpc_response = if let Some(circuit_breaker) = state
+        .grpc_pool
+        .get_circuit_breaker(&routing_decision.service)
+    {
         // Use circuit breaker for this service
-        match circuit_breaker.call(call_backend_service(
-            service_channel.clone(),
-            &routing_decision.grpc_method,
-            grpc_request.clone(),
-        )).await {
+        match circuit_breaker
+            .call(call_backend_service(
+                service_channel.clone(),
+                &routing_decision.grpc_method,
+                grpc_request.clone(),
+            ))
+            .await
+        {
             Ok(resp) => resp,
-            Err(crate::circuit_breaker::CircuitBreakerError::Open) => {
+            Err(common_rust::circuit_breaker::CircuitBreakerError::Open) => {
                 warn!(
                     service = %routing_decision.service,
                     "Circuit breaker is OPEN - rejecting request"
                 );
 
-                state.metrics.request_counter
+                state
+                    .metrics
+                    .request_counter
                     .with_label_values(&[path.as_str(), method.as_str(), "503"])
                     .inc();
 
-                state.metrics.grpc_call_counter
-                    .with_label_values(&[routing_decision.service.as_ref(), routing_decision.grpc_method.as_ref(), "circuit_open"])
+                state
+                    .metrics
+                    .grpc_call_counter
+                    .with_label_values(&[
+                        routing_decision.service.as_ref(),
+                        routing_decision.grpc_method.as_ref(),
+                        "circuit_open",
+                    ])
                     .inc();
 
-                return Err(GatewayError::ServiceUnavailable(
-                    format!("Service {} is currently unavailable (circuit breaker open)", &*routing_decision.service)
-                ));
+                return Err(GatewayError::ServiceUnavailable(format!(
+                    "Service {} is currently unavailable (circuit breaker open)",
+                    &*routing_decision.service
+                )));
             }
-            Err(crate::circuit_breaker::CircuitBreakerError::OperationFailed(e)) => {
+            Err(common_rust::circuit_breaker::CircuitBreakerError::OperationFailed(e)) => {
                 let duration_ms = start_time.elapsed().as_millis();
                 error!(
                     service = %routing_decision.service,
@@ -264,8 +291,14 @@ async fn gateway_handler_inner(
                     "Backend service call failed"
                 );
 
-                state.metrics.grpc_call_counter
-                    .with_label_values(&[routing_decision.service.as_ref(), routing_decision.grpc_method.as_ref(), "error"])
+                state
+                    .metrics
+                    .grpc_call_counter
+                    .with_label_values(&[
+                        routing_decision.service.as_ref(),
+                        routing_decision.grpc_method.as_ref(),
+                        "error",
+                    ])
                     .inc();
 
                 return Err(GatewayError::GrpcCallFailed(e));
@@ -273,12 +306,8 @@ async fn gateway_handler_inner(
         }
     } else {
         // No circuit breaker configured, call directly
-        match call_backend_service(
-            service_channel,
-            &routing_decision.grpc_method,
-            grpc_request,
-        )
-        .await
+        match call_backend_service(service_channel, &routing_decision.grpc_method, grpc_request)
+            .await
         {
             Ok(resp) => resp,
             Err(e) => {
@@ -293,12 +322,20 @@ async fn gateway_handler_inner(
                 let status_code = map_grpc_error_to_status(&e);
 
                 let status_str = status_code.as_u16().to_string();
-                state.metrics.request_counter
+                state
+                    .metrics
+                    .request_counter
                     .with_label_values(&[path.as_str(), method.as_str(), &status_str])
                     .inc();
 
-                state.metrics.grpc_call_counter
-                    .with_label_values(&[routing_decision.service.as_ref(), routing_decision.grpc_method.as_ref(), "error"])
+                state
+                    .metrics
+                    .grpc_call_counter
+                    .with_label_values(&[
+                        routing_decision.service.as_ref(),
+                        routing_decision.grpc_method.as_ref(),
+                        "error",
+                    ])
                     .inc();
 
                 return Err(e);
@@ -322,28 +359,40 @@ async fn gateway_handler_inner(
                 error = %e,
                 "Failed to convert gRPC response to HTTP"
             );
-            
-            state.metrics.request_counter
+
+            state
+                .metrics
+                .request_counter
                 .with_label_values(&[path.as_str(), method.as_str(), "500"])
                 .inc();
-            
+
             return Err(e);
         }
     };
 
     // Record metrics
     let duration = start_time.elapsed();
-    
-    state.metrics.request_duration
+
+    state
+        .metrics
+        .request_duration
         .with_label_values(&[path.as_str(), method.as_str()])
         .observe(duration.as_secs_f64());
-    
-    state.metrics.request_counter
+
+    state
+        .metrics
+        .request_counter
         .with_label_values(&[path.as_str(), method.as_str(), "200"])
         .inc();
-    
-    state.metrics.grpc_call_counter
-        .with_label_values(&[routing_decision.service.as_ref(), routing_decision.grpc_method.as_ref(), "success"])
+
+    state
+        .metrics
+        .grpc_call_counter
+        .with_label_values(&[
+            routing_decision.service.as_ref(),
+            routing_decision.grpc_method.as_ref(),
+            "success",
+        ])
         .inc();
 
     info!(
@@ -373,9 +422,9 @@ pub(crate) async fn convert_http_to_grpc(
     _headers: &HeaderMap,
     auth_context: Option<&AuthContext>,
 ) -> Result<Vec<u8>, GatewayError> {
-    use axum::body::to_bytes;
     use crate::security::PathValidator;
-    
+    use axum::body::to_bytes;
+
     debug!(
         grpc_method = %grpc_method,
         path_params = ?path_params,
@@ -384,11 +433,10 @@ pub(crate) async fn convert_http_to_grpc(
 
     // Validate and sanitize path parameters to prevent directory traversal attacks
     let sanitized_params = if !path_params.is_empty() {
-        PathValidator::sanitize_path_params(path_params)
-            .map_err(|e| {
-                error!(error = %e, "Path parameter validation failed");
-                GatewayError::ConversionError(format!("Invalid path parameter: {}", e))
-            })?
+        PathValidator::sanitize_path_params(path_params).map_err(|e| {
+            error!(error = %e, "Path parameter validation failed");
+            GatewayError::ConversionError(format!("Invalid path parameter: {}", e))
+        })?
     } else {
         path_params.clone()
     };
@@ -402,8 +450,9 @@ pub(crate) async fn convert_http_to_grpc(
     let mut payload: serde_json::Value = if body_bytes.is_empty() {
         serde_json::json!({})
     } else {
-        serde_json::from_slice(&body_bytes)
-            .map_err(|e| GatewayError::ConversionError(format!("{}: {}", ERR_MSG_INVALID_JSON, e)))?
+        serde_json::from_slice(&body_bytes).map_err(|e| {
+            GatewayError::ConversionError(format!("{}: {}", ERR_MSG_INVALID_JSON, e))
+        })?
     };
 
     // Merge sanitized path parameters into payload
@@ -420,10 +469,16 @@ pub(crate) async fn convert_http_to_grpc(
         if ctx.authenticated {
             if let Some(obj) = payload.as_object_mut() {
                 if let Some(user_id) = &ctx.user_id {
-                    obj.insert(METADATA_AUTH_USER_ID.to_string(), serde_json::Value::String(user_id.clone()));
+                    obj.insert(
+                        METADATA_AUTH_USER_ID.to_string(),
+                        serde_json::Value::String(user_id.clone()),
+                    );
                 }
                 if !ctx.roles.is_empty() {
-                    obj.insert(METADATA_AUTH_ROLES.to_string(), serde_json::json!(ctx.roles));
+                    obj.insert(
+                        METADATA_AUTH_ROLES.to_string(),
+                        serde_json::json!(ctx.roles),
+                    );
                 }
             }
         }
@@ -434,8 +489,9 @@ pub(crate) async fn convert_http_to_grpc(
     // This ensures proper trace propagation across service boundaries.
 
     // Serialize to bytes
-    let payload_bytes = serde_json::to_vec(&payload)
-        .map_err(|e| GatewayError::ConversionError(format!("{}: {}", ERR_MSG_SERIALIZE_PAYLOAD, e)))?;
+    let payload_bytes = serde_json::to_vec(&payload).map_err(|e| {
+        GatewayError::ConversionError(format!("{}: {}", ERR_MSG_SERIALIZE_PAYLOAD, e))
+    })?;
 
     debug!(
         grpc_method = %grpc_method,
@@ -454,8 +510,9 @@ pub(crate) async fn convert_grpc_to_http(grpc_response: Vec<u8>) -> Result<Respo
     );
 
     // Parse the response as JSON
-    let json_value: serde_json::Value = serde_json::from_slice(&grpc_response)
-        .map_err(|e| GatewayError::ConversionError(format!("{}: {}", ERR_MSG_PARSE_GRPC_RESPONSE, e)))?;
+    let json_value: serde_json::Value = serde_json::from_slice(&grpc_response).map_err(|e| {
+        GatewayError::ConversionError(format!("{}: {}", ERR_MSG_PARSE_GRPC_RESPONSE, e))
+    })?;
 
     // Create HTTP response with JSON body
     let response = (StatusCode::OK, Json(json_value)).into_response();
@@ -498,16 +555,16 @@ pub(crate) async fn call_backend_service(
     // Extract trace context from current OpenTelemetry span
     use std::collections::HashMap;
     use tracing_opentelemetry::OpenTelemetrySpanExt;
-    
+
     let mut trace_headers = HashMap::new();
     let current_span = tracing::Span::current();
     let context = current_span.context();
-    
+
     // Inject trace context into HashMap using W3C Trace Context propagator
     opentelemetry::global::get_text_map_propagator(|propagator| {
         propagator.inject_context(&context, &mut trace_headers);
     });
-    
+
     debug!(
         trace_headers = ?trace_headers,
         "Extracted trace context from current span"
@@ -524,7 +581,7 @@ pub(crate) async fn call_backend_service(
             method = %method_name,
             "Using typed UserService handler for auth method"
         );
-        
+
         use crate::handlers::user_service::call_user_service;
         call_user_service(channel, method_name, request_payload).await
     } else {
@@ -568,5 +625,3 @@ fn is_auth_method(method_name: &str) -> bool {
         "SetupMFA" | "VerifyMFA" | "DisableMFA" | "GetMFAStatus" | "ValidateMFACode"
     )
 }
-
-

@@ -10,7 +10,7 @@ mod tests {
     async fn test_liveness_always_returns_ok() {
         // Liveness should always return 200 OK if the server is running
         // This is a simple test that verifies the concept
-        
+
         let status = "alive";
         assert_eq!(status, "alive");
     }
@@ -19,7 +19,7 @@ mod tests {
     async fn test_readiness_timeout() {
         // Readiness checks should timeout after 2 seconds
         let timeout_duration = Duration::from_secs(2);
-        
+
         assert_eq!(timeout_duration.as_secs(), 2);
     }
 
@@ -29,7 +29,7 @@ mod tests {
         // - status: "ready" or "not_ready"
         // - timestamp: ISO 8601 timestamp
         // - services: map of service health states
-        
+
         let expected_fields = vec!["status", "timestamp", "services"];
         assert_eq!(expected_fields.len(), 3);
     }
@@ -52,7 +52,10 @@ mod tests {
     fn test_health_check_timeout_duration() {
         // Health checks should complete within 2 seconds
         let timeout = Duration::from_secs(2);
-        assert!(timeout.as_secs() <= 2, "Health check timeout should be 2 seconds or less");
+        assert!(
+            timeout.as_secs() <= 2,
+            "Health check timeout should be 2 seconds or less"
+        );
     }
 
     #[tokio::test]
@@ -68,7 +71,7 @@ mod tests {
     async fn test_readiness_includes_service_details() {
         // Readiness response should include details about each service
         // Format: { "service_name": { "status": "healthy/unhealthy", "last_check": "timestamp" } }
-        
+
         let service_health_fields = vec!["name", "status", "last_check"];
         assert_eq!(service_health_fields.len(), 3);
     }
@@ -89,7 +92,7 @@ mod tests {
     async fn test_concurrent_health_checks() {
         // Health checks should be safe to call concurrently
         let num_concurrent = 10;
-        
+
         let handles: Vec<_> = (0..num_concurrent)
             .map(|_| {
                 tokio::spawn(async {

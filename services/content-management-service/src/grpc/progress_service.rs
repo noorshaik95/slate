@@ -1,6 +1,4 @@
-use crate::progress::{
-    CompletionStatus, ProgressReportFilter, ProgressTracker,
-};
+use crate::progress::{CompletionStatus, ProgressReportFilter, ProgressTracker};
 use crate::proto::content::{
     progress_service_server::ProgressService, GetProgressReportRequest, GetProgressRequest,
     LessonProgress, MarkCompleteRequest, ModuleProgress, ProgressReport, ProgressResponse,

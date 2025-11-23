@@ -13,6 +13,9 @@ WORKDIR /build
 # Copy proto files from workspace root
 COPY proto /build/proto
 
+# Copy shared libs directory to parent of build directory so ../../libs/common-go resolves correctly
+COPY libs /libs
+
 # Copy go mod files
 COPY services/assignment-grading-service/go.mod ./
 
@@ -21,7 +24,7 @@ COPY services/assignment-grading-service/ .
 
 # Generate go.sum and download dependencies
 RUN --mount=type=cache,target=/go/pkg/mod \
-    go mod tidy && go mod download && go mod verify
+    go mod tidy && go mod download
 
 # Generate protobuf code
 RUN mkdir -p api/proto && \

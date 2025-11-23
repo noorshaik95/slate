@@ -124,7 +124,10 @@ impl TranscodingJobRepository {
             None
         };
 
-        let completed_at = if matches!(status, TranscodingStatus::Completed | TranscodingStatus::Failed) {
+        let completed_at = if matches!(
+            status,
+            TranscodingStatus::Completed | TranscodingStatus::Failed
+        ) {
             Some("NOW()")
         } else {
             None
@@ -156,12 +159,14 @@ impl TranscodingJobRepository {
 
     /// Marks a job as processing
     pub async fn mark_processing(&self, id: Uuid) -> Result<TranscodingJob> {
-        self.update_status(id, TranscodingStatus::Processing, None).await
+        self.update_status(id, TranscodingStatus::Processing, None)
+            .await
     }
 
     /// Marks a job as completed
     pub async fn mark_completed(&self, id: Uuid) -> Result<TranscodingJob> {
-        self.update_status(id, TranscodingStatus::Completed, None).await
+        self.update_status(id, TranscodingStatus::Completed, None)
+            .await
     }
 
     /// Marks a job as failed and increments retry count

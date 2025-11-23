@@ -51,7 +51,13 @@ impl UploadService for UploadServiceImpl {
         // Initiate upload
         let session = self
             .handler
-            .initiate_upload(user_id, lesson_id, req.filename, req.content_type, req.total_size)
+            .initiate_upload(
+                user_id,
+                lesson_id,
+                req.filename,
+                req.content_type,
+                req.total_size,
+            )
             .await
             .map_err(|e| {
                 error!("Failed to initiate upload: {}", e);
@@ -107,7 +113,11 @@ impl UploadService for UploadServiceImpl {
             // Process chunk
             let result = self
                 .handler
-                .process_chunk(sid, chunk_req.chunk_index, Bytes::from(chunk_req.chunk_data))
+                .process_chunk(
+                    sid,
+                    chunk_req.chunk_index,
+                    Bytes::from(chunk_req.chunk_data),
+                )
                 .await
                 .map_err(|e| {
                     error!("Failed to process chunk: {}", e);

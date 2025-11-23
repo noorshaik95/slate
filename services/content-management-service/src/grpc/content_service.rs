@@ -1,20 +1,40 @@
-use crate::content::{ContentManager, ContentError};
+use crate::content::{ContentError, ContentManager};
 use crate::models::ContentType;
 use crate::proto::content::{
     content_service_server::ContentService,
-    // Module messages
-    Module, CreateModuleRequest, UpdateModuleRequest, DeleteModuleRequest,
-    ListModulesRequest, ListModulesResponse, GetModuleRequest,
-    // Lesson messages
-    Lesson, CreateLessonRequest, UpdateLessonRequest, DeleteLessonRequest,
-    ListLessonsRequest, ListLessonsResponse, GetLessonRequest,
-    // Resource messages
-    Resource, CreateResourceRequest, UpdateResourceRequest, DeleteResourceRequest,
-    ListResourcesRequest, ListResourcesResponse, GetResourceRequest,
+    ContentStructure,
+    CreateLessonRequest,
+    CreateModuleRequest,
+    CreateResourceRequest,
+    DeleteLessonRequest,
+    DeleteModuleRequest,
+    DeleteResourceRequest,
     // Content structure messages
-    GetContentStructureRequest, ContentStructure, ModuleWithContent, LessonWithContent,
+    GetContentStructureRequest,
+    GetLessonRequest,
+    GetModuleRequest,
+    GetResourceRequest,
+    // Lesson messages
+    Lesson,
+    LessonWithContent,
+    ListLessonsRequest,
+    ListLessonsResponse,
+    ListModulesRequest,
+    ListModulesResponse,
+    ListResourcesRequest,
+    ListResourcesResponse,
+    // Module messages
+    Module,
+    ModuleWithContent,
+    PublishContentRequest,
     // Reorder and publication messages
-    ReorderContentRequest, PublishContentRequest, UnpublishContentRequest,
+    ReorderContentRequest,
+    // Resource messages
+    Resource,
+    UnpublishContentRequest,
+    UpdateLessonRequest,
+    UpdateModuleRequest,
+    UpdateResourceRequest,
 };
 use std::sync::Arc;
 use tonic::{Request, Response, Status};
@@ -39,8 +59,7 @@ impl ContentServiceImpl {
             .to_str()
             .map_err(|_| Status::invalid_argument("Invalid user-id format"))?;
 
-        Uuid::parse_str(user_id_str)
-            .map_err(|_| Status::invalid_argument("Invalid user-id UUID"))
+        Uuid::parse_str(user_id_str).map_err(|_| Status::invalid_argument("Invalid user-id UUID"))
     }
 
     /// Checks if user is an instructor
@@ -76,7 +95,11 @@ impl ContentService for ContentServiceImpl {
             .create_module(
                 course_id,
                 req.name,
-                if req.description.is_empty() { None } else { Some(req.description) },
+                if req.description.is_empty() {
+                    None
+                } else {
+                    Some(req.description)
+                },
                 req.display_order,
                 user_id,
             )
@@ -92,11 +115,19 @@ impl ContentService for ContentServiceImpl {
     ) -> Result<Response<Module>, Status> {
         let req = request.into_inner();
 
-        let id = Uuid::parse_str(&req.id)
-            .map_err(|_| Status::invalid_argument("Invalid module id"))?;
+        let id =
+            Uuid::parse_str(&req.id).map_err(|_| Status::invalid_argument("Invalid module id"))?;
 
-        let name = if req.name.is_empty() { None } else { Some(req.name) };
-        let description = if req.description.is_empty() { None } else { Some(req.description) };
+        let name = if req.name.is_empty() {
+            None
+        } else {
+            Some(req.name)
+        };
+        let description = if req.description.is_empty() {
+            None
+        } else {
+            Some(req.description)
+        };
 
         let module = self
             .content_manager
@@ -113,8 +144,8 @@ impl ContentService for ContentServiceImpl {
     ) -> Result<Response<()>, Status> {
         let req = request.into_inner();
 
-        let id = Uuid::parse_str(&req.id)
-            .map_err(|_| Status::invalid_argument("Invalid module id"))?;
+        let id =
+            Uuid::parse_str(&req.id).map_err(|_| Status::invalid_argument("Invalid module id"))?;
 
         self.content_manager
             .delete_module(id)
@@ -152,8 +183,8 @@ impl ContentService for ContentServiceImpl {
     ) -> Result<Response<Module>, Status> {
         let req = request.into_inner();
 
-        let id = Uuid::parse_str(&req.id)
-            .map_err(|_| Status::invalid_argument("Invalid module id"))?;
+        let id =
+            Uuid::parse_str(&req.id).map_err(|_| Status::invalid_argument("Invalid module id"))?;
 
         let module = self
             .content_manager
@@ -182,7 +213,11 @@ impl ContentService for ContentServiceImpl {
             .create_lesson(
                 module_id,
                 req.name,
-                if req.description.is_empty() { None } else { Some(req.description) },
+                if req.description.is_empty() {
+                    None
+                } else {
+                    Some(req.description)
+                },
                 req.display_order,
             )
             .await
@@ -197,11 +232,19 @@ impl ContentService for ContentServiceImpl {
     ) -> Result<Response<Lesson>, Status> {
         let req = request.into_inner();
 
-        let id = Uuid::parse_str(&req.id)
-            .map_err(|_| Status::invalid_argument("Invalid lesson id"))?;
+        let id =
+            Uuid::parse_str(&req.id).map_err(|_| Status::invalid_argument("Invalid lesson id"))?;
 
-        let name = if req.name.is_empty() { None } else { Some(req.name) };
-        let description = if req.description.is_empty() { None } else { Some(req.description) };
+        let name = if req.name.is_empty() {
+            None
+        } else {
+            Some(req.name)
+        };
+        let description = if req.description.is_empty() {
+            None
+        } else {
+            Some(req.description)
+        };
 
         let lesson = self
             .content_manager
@@ -218,8 +261,8 @@ impl ContentService for ContentServiceImpl {
     ) -> Result<Response<()>, Status> {
         let req = request.into_inner();
 
-        let id = Uuid::parse_str(&req.id)
-            .map_err(|_| Status::invalid_argument("Invalid lesson id"))?;
+        let id =
+            Uuid::parse_str(&req.id).map_err(|_| Status::invalid_argument("Invalid lesson id"))?;
 
         self.content_manager
             .delete_lesson(id)
@@ -257,8 +300,8 @@ impl ContentService for ContentServiceImpl {
     ) -> Result<Response<Lesson>, Status> {
         let req = request.into_inner();
 
-        let id = Uuid::parse_str(&req.id)
-            .map_err(|_| Status::invalid_argument("Invalid lesson id"))?;
+        let id =
+            Uuid::parse_str(&req.id).map_err(|_| Status::invalid_argument("Invalid lesson id"))?;
 
         let lesson = self
             .content_manager
@@ -282,7 +325,9 @@ impl ContentService for ContentServiceImpl {
         let lesson_id = Uuid::parse_str(&req.lesson_id)
             .map_err(|_| Status::invalid_argument("Invalid lesson_id"))?;
 
-        let content_type: ContentType = req.content_type.parse()
+        let content_type: ContentType = req
+            .content_type
+            .parse()
             .map_err(|e: String| Status::invalid_argument(e))?;
 
         let resource = self
@@ -290,7 +335,11 @@ impl ContentService for ContentServiceImpl {
             .create_resource(
                 lesson_id,
                 req.name,
-                if req.description.is_empty() { None } else { Some(req.description) },
+                if req.description.is_empty() {
+                    None
+                } else {
+                    Some(req.description)
+                },
                 content_type,
                 req.file_size,
                 req.storage_key,
@@ -311,14 +360,25 @@ impl ContentService for ContentServiceImpl {
         let id = Uuid::parse_str(&req.id)
             .map_err(|_| Status::invalid_argument("Invalid resource id"))?;
 
-        let name = if req.name.is_empty() { None } else { Some(req.name) };
-        let description = if req.description.is_empty() { None } else { Some(req.description) };
+        let name = if req.name.is_empty() {
+            None
+        } else {
+            Some(req.name)
+        };
+        let description = if req.description.is_empty() {
+            None
+        } else {
+            Some(req.description)
+        };
         let downloadable = Some(req.downloadable);
         let copyright_setting = if req.copyright_setting.is_empty() {
             None
         } else {
-            Some(req.copyright_setting.parse()
-                .map_err(|e: String| Status::invalid_argument(e))?)
+            Some(
+                req.copyright_setting
+                    .parse()
+                    .map_err(|e: String| Status::invalid_argument(e))?,
+            )
         };
 
         let resource = self
@@ -436,7 +496,10 @@ impl ContentService for ContentServiceImpl {
             "module" => {
                 // For modules, we need the course_id from the first module
                 if let Some((first_id, _)) = reorder_items.first() {
-                    let module = self.content_manager.get_module(*first_id).await
+                    let module = self
+                        .content_manager
+                        .get_module(*first_id)
+                        .await
                         .map_err(map_content_error)?;
                     self.content_manager
                         .reorder_modules(module.course_id, reorder_items)
@@ -447,7 +510,10 @@ impl ContentService for ContentServiceImpl {
             "lesson" => {
                 // For lessons, we need the module_id from the first lesson
                 if let Some((first_id, _)) = reorder_items.first() {
-                    let lesson = self.content_manager.get_lesson(*first_id).await
+                    let lesson = self
+                        .content_manager
+                        .get_lesson(*first_id)
+                        .await
                         .map_err(map_content_error)?;
                     self.content_manager
                         .reorder_lessons(lesson.module_id, reorder_items)
@@ -458,7 +524,10 @@ impl ContentService for ContentServiceImpl {
             "resource" => {
                 // For resources, we need the lesson_id from the first resource
                 if let Some((first_id, _)) = reorder_items.first() {
-                    let resource = self.content_manager.get_resource(*first_id).await
+                    let resource = self
+                        .content_manager
+                        .get_resource(*first_id)
+                        .await
                         .map_err(map_content_error)?;
                     self.content_manager
                         .reorder_resources(resource.lesson_id, reorder_items)
@@ -620,7 +689,9 @@ fn content_structure_to_proto(structure: crate::content::ContentStructure) -> Co
 }
 
 /// Converts domain ModuleWithContent to protobuf ModuleWithContent
-fn module_with_content_to_proto(module_content: crate::content::ModuleWithContent) -> ModuleWithContent {
+fn module_with_content_to_proto(
+    module_content: crate::content::ModuleWithContent,
+) -> ModuleWithContent {
     ModuleWithContent {
         module: Some(module_to_proto(module_content.module)),
         lessons: module_content
@@ -632,7 +703,9 @@ fn module_with_content_to_proto(module_content: crate::content::ModuleWithConten
 }
 
 /// Converts domain LessonWithContent to protobuf LessonWithContent
-fn lesson_with_content_to_proto(lesson_content: crate::content::LessonWithContent) -> LessonWithContent {
+fn lesson_with_content_to_proto(
+    lesson_content: crate::content::LessonWithContent,
+) -> LessonWithContent {
     LessonWithContent {
         lesson: Some(lesson_to_proto(lesson_content.lesson)),
         resources: lesson_content

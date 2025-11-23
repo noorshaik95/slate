@@ -1,6 +1,8 @@
+// Service-specific observability utilities
 pub mod json_formatter;
-pub mod tracing_utils;
 
+// Re-export from common-rust for convenience
+pub use common_rust::observability::extract_trace_id_from_span;
+
+// Export service-specific formatter
 pub use json_formatter::FlattenedJsonFormat;
-pub use tracing_utils::extract_trace_id_from_span;
-

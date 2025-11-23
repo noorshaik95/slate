@@ -1,4 +1,7 @@
-use crate::analytics::{AnalyticsEvent, AnalyticsPublisher, VideoPlayEvent, VideoPauseEvent, VideoSeekEvent, VideoCompleteEvent};
+use crate::analytics::{
+    AnalyticsEvent, AnalyticsPublisher, VideoCompleteEvent, VideoPauseEvent, VideoPlayEvent,
+    VideoSeekEvent,
+};
 use crate::db::repositories::{ProgressRepository, ResourceRepository};
 use crate::models::{ContentType, ProgressTracking};
 use crate::streaming::errors::StreamingError;
@@ -103,7 +106,12 @@ impl StreamingService {
     }
 
     /// Publishes a video play event to analytics
-    async fn publish_play_event(&self, student_id: Uuid, video_id: Uuid, session_id: Option<String>) {
+    async fn publish_play_event(
+        &self,
+        student_id: Uuid,
+        video_id: Uuid,
+        session_id: Option<String>,
+    ) {
         if let Some(publisher) = &self.analytics_publisher {
             let event = AnalyticsEvent::VideoPlay(VideoPlayEvent {
                 student_id,
@@ -111,7 +119,7 @@ impl StreamingService {
                 timestamp: Utc::now(),
                 session_id,
             });
-            
+
             if let Err(e) = publisher.publish_event(event).await {
                 tracing::warn!("Failed to publish video play event: {}", e);
             }
@@ -119,7 +127,13 @@ impl StreamingService {
     }
 
     /// Publishes a video pause event to analytics
-    async fn publish_pause_event(&self, student_id: Uuid, video_id: Uuid, position_seconds: i32, session_id: Option<String>) {
+    async fn publish_pause_event(
+        &self,
+        student_id: Uuid,
+        video_id: Uuid,
+        position_seconds: i32,
+        session_id: Option<String>,
+    ) {
         if let Some(publisher) = &self.analytics_publisher {
             let event = AnalyticsEvent::VideoPause(VideoPauseEvent {
                 student_id,
@@ -128,7 +142,7 @@ impl StreamingService {
                 timestamp: Utc::now(),
                 session_id,
             });
-            
+
             if let Err(e) = publisher.publish_event(event).await {
                 tracing::warn!("Failed to publish video pause event: {}", e);
             }
@@ -136,7 +150,14 @@ impl StreamingService {
     }
 
     /// Publishes a video seek event to analytics
-    async fn publish_seek_event(&self, student_id: Uuid, video_id: Uuid, old_position: i32, new_position: i32, session_id: Option<String>) {
+    async fn publish_seek_event(
+        &self,
+        student_id: Uuid,
+        video_id: Uuid,
+        old_position: i32,
+        new_position: i32,
+        session_id: Option<String>,
+    ) {
         if let Some(publisher) = &self.analytics_publisher {
             let event = AnalyticsEvent::VideoSeek(VideoSeekEvent {
                 student_id,
@@ -146,7 +167,7 @@ impl StreamingService {
                 timestamp: Utc::now(),
                 session_id,
             });
-            
+
             if let Err(e) = publisher.publish_event(event).await {
                 tracing::warn!("Failed to publish video seek event: {}", e);
             }
@@ -154,7 +175,12 @@ impl StreamingService {
     }
 
     /// Publishes a video complete event to analytics
-    async fn publish_complete_event(&self, student_id: Uuid, video_id: Uuid, session_id: Option<String>) {
+    async fn publish_complete_event(
+        &self,
+        student_id: Uuid,
+        video_id: Uuid,
+        session_id: Option<String>,
+    ) {
         if let Some(publisher) = &self.analytics_publisher {
             let event = AnalyticsEvent::VideoComplete(VideoCompleteEvent {
                 student_id,
@@ -162,7 +188,7 @@ impl StreamingService {
                 timestamp: Utc::now(),
                 session_id,
             });
-            
+
             if let Err(e) = publisher.publish_event(event).await {
                 tracing::warn!("Failed to publish video complete event: {}", e);
             }
@@ -170,7 +196,7 @@ impl StreamingService {
     }
 
     /// Gets video manifest for streaming
-    /// 
+    ///
     /// Requirements: 6.3, 7.1, 12.1
     /// - Validates video resource exists and is published
     /// - Checks user access permissions (students can only access published content)
@@ -203,9 +229,7 @@ impl StreamingService {
         }
 
         // Check if video has been transcoded
-        let manifest_url = resource
-            .manifest_url
-            .ok_or(StreamingError::NotTranscoded)?;
+        let manifest_url = resource.manifest_url.ok_or(StreamingError::NotTranscoded)?;
 
         // Parse manifest URL to generate HLS and DASH URLs
         // Assuming manifest_url is the base path, we append format-specific paths
@@ -225,7 +249,7 @@ impl StreamingService {
     }
 
     /// Updates playback position for a video
-    /// 
+    ///
     /// Requirements: 7.2, 7.4, 7.5, 12.2, 12.3, 12.4
     /// - Accepts timestamp in seconds
     /// - Validates position is within video duration
@@ -274,10 +298,18 @@ impl StreamingService {
         // Publish analytics events based on event type
         match event_type {
             PlaybackEventType::Pause => {
-                self.publish_pause_event(user_id, video_id, position_seconds, session_id.clone()).await;
+                self.publish_pause_event(user_id, video_id, position_seconds, session_id.clone())
+                    .await;
             }
             PlaybackEventType::Seek { old_position } => {
-                self.publish_seek_event(user_id, video_id, old_position, position_seconds, session_id.clone()).await;
+                self.publish_seek_event(
+                    user_id,
+                    video_id,
+                    old_position,
+                    position_seconds,
+                    session_id.clone(),
+                )
+                .await;
             }
             PlaybackEventType::Update => {
                 // No specific event for regular updates
@@ -289,12 +321,11 @@ impl StreamingService {
 
         if should_complete {
             // Mark as complete
-            self.progress_repo
-                .mark_complete(user_id, video_id)
-                .await?;
-            
+            self.progress_repo.mark_complete(user_id, video_id).await?;
+
             // Publish completion event
-            self.publish_complete_event(user_id, video_id, session_id).await;
+            self.publish_complete_event(user_id, video_id, session_id)
+                .await;
         } else {
             // Just update position
             self.progress_repo
@@ -306,7 +337,7 @@ impl StreamingService {
     }
 
     /// Gets playback state for a video
-    /// 
+    ///
     /// Requirements: 7.1, 7.3
     /// - Returns video metadata (duration, current position, available quality levels)
     /// - Includes playback speed options
@@ -346,9 +377,7 @@ impl StreamingService {
             .find_by_student_and_resource(user_id, video_id)
             .await?;
 
-        let current_position_seconds = progress
-            .and_then(|p| p.last_position_seconds)
-            .unwrap_or(0);
+        let current_position_seconds = progress.and_then(|p| p.last_position_seconds).unwrap_or(0);
 
         Ok(PlaybackState {
             duration_seconds,

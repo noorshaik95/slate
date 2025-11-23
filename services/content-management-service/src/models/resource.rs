@@ -19,14 +19,11 @@ impl ContentType {
     /// Validates if a MIME type is allowed for this content type
     pub fn validate_mime_type(&self, mime_type: &str) -> bool {
         match self {
-            ContentType::Video => {
-                mime_type.starts_with("video/")
-            }
-            ContentType::Pdf => {
-                mime_type == "application/pdf"
-            }
+            ContentType::Video => mime_type.starts_with("video/"),
+            ContentType::Pdf => mime_type == "application/pdf",
             ContentType::Docx => {
-                mime_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                mime_type
+                    == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             }
         }
     }
@@ -36,7 +33,9 @@ impl ContentType {
         match self {
             ContentType::Video => vec!["video/mp4", "video/quicktime", "video/x-msvideo"],
             ContentType::Pdf => vec!["application/pdf"],
-            ContentType::Docx => vec!["application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+            ContentType::Docx => {
+                vec!["application/vnd.openxmlformats-officedocument.wordprocessingml.document"]
+            }
         }
     }
 }

@@ -22,14 +22,17 @@ impl DownloadServiceHandler {
 
     /// Extracts user ID from request metadata
     /// In production, this would extract from JWT token in metadata
-    fn extract_user_id(&self, request: &Request<GenerateDownloadUrlRequest>) -> Result<Uuid, Status> {
+    fn extract_user_id(
+        &self,
+        request: &Request<GenerateDownloadUrlRequest>,
+    ) -> Result<Uuid, Status> {
         // TODO: Extract from JWT token in request metadata
         // For now, we'll look for a user_id in metadata
         if let Some(user_id_str) = request.metadata().get("user_id") {
             let user_id_str = user_id_str
                 .to_str()
                 .map_err(|_| Status::unauthenticated("Invalid user_id in metadata"))?;
-            
+
             Uuid::parse_str(user_id_str)
                 .map_err(|_| Status::unauthenticated("Invalid user_id format"))
         } else {
@@ -44,7 +47,8 @@ impl DownloadServiceHandler {
         // For now, we'll look for a role in metadata
         if let Some(role) = request.metadata().get("role") {
             if let Ok(role_str) = role.to_str() {
-                return role_str.to_lowercase() == "instructor" || role_str.to_lowercase() == "admin";
+                return role_str.to_lowercase() == "instructor"
+                    || role_str.to_lowercase() == "admin";
             }
         }
         false

@@ -132,7 +132,7 @@ mod tests {
         assert_eq!(ProgressSummary::calculate_percentage(10, 10), 100);
         assert_eq!(ProgressSummary::calculate_percentage(3, 10), 30);
         assert_eq!(ProgressSummary::calculate_percentage(7, 10), 70);
-        
+
         // Rounding
         assert_eq!(ProgressSummary::calculate_percentage(1, 3), 33);
         assert_eq!(ProgressSummary::calculate_percentage(2, 3), 67);
@@ -145,15 +145,8 @@ mod tests {
     fn test_progress_summary_new() {
         let student_id = Uuid::new_v4();
         let course_id = Uuid::new_v4();
-        
-        let summary = ProgressSummary::new(
-            student_id,
-            Some(course_id),
-            None,
-            None,
-            10,
-            5,
-        );
+
+        let summary = ProgressSummary::new(student_id, Some(course_id), None, None, 10, 5);
 
         assert_eq!(summary.student_id, student_id);
         assert_eq!(summary.course_id, Some(course_id));

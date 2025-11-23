@@ -39,8 +39,6 @@ pub enum ReflectionError {
     MalformedDescriptor(String),
 }
 
-
-
 /// Mapping from gRPC method to HTTP route
 #[derive(Debug, Clone)]
 pub struct RouteMapping {
